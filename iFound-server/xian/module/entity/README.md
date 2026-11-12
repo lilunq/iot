@@ -21,7 +21,7 @@
 3. DEVICE_TYPE、DEVICE、CAMERA 的稳定业务标识均为源系统 `id`。
 4. DEVICE 和 CAMERA 使用独立索引。
 5. CAMERA 没有区域归属，不做区域解析或区域过滤。
-6. DEVICE 的区域过滤字段为 `subarea_cid`，系统过滤字段为 `system_key`；调用方传入的区域 ID 必须是 `cascade_cid`，系统 ID 必须是 `element_key`。
+6. DEVICE 的区域过滤字段为 `subarea_cid`，按 `cascade_cid` 前缀匹配区域及其下级区域；系统过滤字段为 `system_key`，调用方传入的系统 ID 必须是 `element_key`。
 7. Java 只做 Unicode/空白/英文大小写规范化，不生成拼音和首字母；拼音召回由 ES Pinyin Analyzer 处理。
 
 ## 配置
@@ -36,6 +36,7 @@ entity-center:
     username: ${ENTITY_ES_USERNAME:}
     password: ${ENTITY_ES_PASSWORD:}
     admin-api-enabled: false
+    sync-api-enabled: false
   resolver:
     default-limit: 5
     max-limit: 20
@@ -88,9 +89,38 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 需确认目标业务库后手工执行，不会随应用启动自动执行。别名接口启用前应通过
 现有网关/权限体系限制访问。
 
+## 同步接口
+
+首版已接入当前工程中能够确认的数据源：
+
+- 区域：现有 `AdminClient.getSubareaList`。
+- 系统：`/device/enum/getEnumKeyValues?key=device_system_type`，以 `element_key` 作为稳定 ID。
+- 设备：现有 `MCPXClient.StateListPage` 分页接口，以设备 `id` 作为稳定 ID。
+- 摄像头：现有 `/camera/listPage` 分页接口，以摄像头 `id` 作为稳定 ID；不写入区域字段。
+- 设备分类：源系统接口尚未确认，本阶段不做猜测性同步。
+
+同步 API 默认关闭，启用前应先执行 SQL、初始化索引，并由现有网关/权限体系限制访问：
+
+- `POST /api/entity-center/admin/sync/available`
+- `POST /api/entity-center/admin/sync/areas`
+- `POST /api/entity-center/admin/sync/systems`
+- `POST /api/entity-center/admin/sync/devices`
+- `POST /api/entity-center/admin/sync/cameras`
+
+同步采用稳定业务 ID 作为 ES 文档 `_id`，当前行为是幂等 Bulk upsert；
+不会自动删除源系统已不存在的旧文档，也不会在同步失败时切换索引 Alias。
+
+## MCP 与 Vue3
+
+- MCP Tool：`resolveBusinessEntity`，由 `mcp-server` 注册，转发到 Nacos 服务
+  `xian-ai` 的 `/api/entity-center/resolve`。当解析状态为 `AMBIGUOUS` 时，
+  Agent 应展示候选并向用户澄清，不得自行猜测。
+- Vue 页面：`/config/entity-center`，已加入配置管理导航，包含解析测试、已接入数据源同步和别名维护入口。
+
 ## 当前开发边界
 
-当前提交完成了可选的 ES 基础设施、五类索引 Mapping、别名持久化和解析 API。
-尚未完成源系统分页适配、五类实体全量/增量/单实体同步、同步任务审计与失败重试、
-MCP Tool 注册以及 Vue3 管理页面。摄像头和设备源接口已在现有工程中定位；
-系统枚举和设备分类数据源还需确认其真实接口与字段映射，不能以猜测字段上线。
+当前提交已包含可选 ES 基础设施、五类索引 Mapping、别名持久化、解析 API，
+区域/系统/设备/摄像头的首版手动分页同步、MCP Tool 和 Vue3 管理页面。
+尚未完成设备分类数据源适配、增量同步游标/事件监听、同步任务审计与失败重试、
+索引重建和安全 Alias 切换，以及完整的端到端联调。上述功能需在确认真实源系统字段、
+同步频率和权限边界后继续实现。

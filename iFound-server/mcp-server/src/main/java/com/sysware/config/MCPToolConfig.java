@@ -16,8 +16,8 @@ import java.util.List;
 public class MCPToolConfig {
 
     @Bean
-    public List<ToolCallback> toolCallbacks(ReportTool reportTool, RagFlowTool ragFlowTool, ScadaTool scadaTool, AdminTool adminTool, VideoTool videoTool, IfimTool ifimTool, DashboardTool dashboardTool, SubAgentTool subAgentTool,XadTool xadTool) {
-        return List.of(ToolCallbacks.from(reportTool,videoTool, ragFlowTool, scadaTool, adminTool, ifimTool, dashboardTool, subAgentTool,xadTool));
+    public List<ToolCallback> toolCallbacks(ReportTool reportTool, RagFlowTool ragFlowTool, ScadaTool scadaTool, AdminTool adminTool, VideoTool videoTool, IfimTool ifimTool, DashboardTool dashboardTool, SubAgentTool subAgentTool, XadTool xadTool, EntityTool entityTool) {
+        return List.of(ToolCallbacks.from(reportTool, videoTool, ragFlowTool, scadaTool, adminTool, ifimTool, dashboardTool, subAgentTool, xadTool, entityTool));
     }
 
     //    @Bean

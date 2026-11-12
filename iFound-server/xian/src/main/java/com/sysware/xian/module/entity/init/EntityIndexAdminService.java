@@ -91,6 +91,7 @@ public class EntityIndexAdminService {
                 // 摄像头没有区域字段，不添加区域映射，也不执行区域过滤。
                 keyword(fields, "id", "camera_no", "nvr_id", "org_id");
                 text(fields, "camera_name", "address", "aliases");
+                integer(fields, "main_channel", "sub_channel", "scada_no");
                 bool(fields, "online", "enabled");
             }
         }
@@ -124,6 +125,10 @@ public class EntityIndexAdminService {
 
     private void bool(Map<String, Object> fields, String... names) {
         for (String name : names) fields.put(name, Map.of("type", "boolean"));
+    }
+
+    private void integer(Map<String, Object> fields, String... names) {
+        for (String name : names) fields.put(name, Map.of("type", "integer"));
     }
 
     private void text(Map<String, Object> fields, String... names) {

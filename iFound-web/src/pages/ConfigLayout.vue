@@ -74,6 +74,15 @@ const menuItems = [
   //   ]),
   // },
   {
+    key: 'entity-center',
+    label: '实体解析中心',
+    path: '/config/entity-center',
+    icon: () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', width: '18', height: '18' }, [
+      h('circle', { cx: '10.5', cy: '10.5', r: '6.5' }),
+      h('path', { d: 'M15.5 15.5L21 21M8 10.5h5M10.5 8v5' }),
+    ]),
+  },
+  {
     key: 'voice',
     label: '语音权限',
     path: '/config/voice',

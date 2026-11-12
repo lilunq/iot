@@ -86,7 +86,7 @@ public class EntityResolverService {
         // 规范中的区域 cascade_cid 和系统 element_key 过滤仅应用于设备。
         // 摄像头无区域归属，不解析、不过滤区域。
         if (type == EntityType.DEVICE) {
-            addFilter(filters, "subarea_cid", request.getAreaId());
+            addPrefixFilter(filters, "subarea_cid", request.getAreaId());
             addFilter(filters, "system_key", request.getSystemKey());
             addFilter(filters, "device_type_id", request.getDeviceTypeId());
         }
@@ -176,6 +176,13 @@ public class EntityResolverService {
 
     private void addFilter(List<Map<String, Object>> filters, String field, String value) {
         if (value != null && !value.isBlank()) filters.add(term(field, value.trim()));
+    }
+
+    /** 区域 cascade_cid 为层级编码，按前缀匹配区域及其下级区域。 */
+    private void addPrefixFilter(List<Map<String, Object>> filters, String field, String value) {
+        if (value != null && !value.isBlank()) {
+            filters.add(Map.of("prefix", Map.of(field, value.trim())));
+        }
     }
 
     private List<EntityCandidate> toCandidates(EntityType type, JsonNode response, int limit) {
