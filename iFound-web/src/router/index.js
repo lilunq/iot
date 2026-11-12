@@ -36,6 +36,11 @@ const routes = [
     redirect: '/config/voice',
     children: [
       {
+        path: 'entity-center',
+        name: 'EntityCenter',
+        component: () => import('../pages/config/EntityCenter.vue')
+      },
+      {
         path: 'zone',
         name: 'ZoneConfig',
         component: () => import('../pages/config/ZoneConfig.vue')

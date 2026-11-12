@@ -154,4 +154,20 @@ public interface MCPXClient {
     @Operation(summary = "直接创建维修工单", description = "无需AI诊断，直接创建维修工单并返回问题ID、工单ID和工单编号")
     @PostMapping("/ifim/repair/orders")
     Res createRepairOrder(@RequestBody RepairOrderCreateCommand command);
+
+    /**
+     * 查询摄像头目录。数据来自 mcp-server 的 VideoController。
+     */
+    @GetMapping("/camera/listPage")
+    AjaxResultVO listCameraPage(
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam("page") String page,
+            @RequestParam("limit") String limit);
+
+    /**
+     * 获取设备系统枚举；data 中以 element_key 为键、element_value 为值。
+     */
+    @GetMapping("/device/enum/getEnumKeyValues")
+    AjaxResultVO getDeviceSystemEnums(@RequestParam(value = "key", defaultValue = "device_system_type") String key);
+
 }

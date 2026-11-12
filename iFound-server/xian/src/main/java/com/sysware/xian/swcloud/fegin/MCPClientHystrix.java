@@ -108,4 +108,18 @@ public class MCPClientHystrix implements MCPXClient {
     public Res createRepairOrder(RepairOrderCreateCommand command) {
         return Res.failed("服务降级：直接创建维修工单失败");
     }
+
+    @Override
+    public AjaxResultVO listCameraPage(
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam("page") String page,
+            @RequestParam("limit") String limit) {
+        return AjaxResultVO.error("查询摄像头列表失败");
+    }
+
+    @Override
+    public AjaxResultVO getDeviceSystemEnums(@RequestParam(value = "key", defaultValue = "device_system_type") String key) {
+        return AjaxResultVO.error("查询设备系统枚举失败");
+    }
+
 }
