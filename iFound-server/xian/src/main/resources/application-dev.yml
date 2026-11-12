@@ -1,0 +1,234 @@
+server:
+  port: 10098
+  iot-ip: 192.168.128.191    # iot地址：nacos
+  local-ip: 192.168.128.37
+  datasource:
+    ip: 192.168.128.191
+  servlet:
+    session:
+      timeout: 600s
+
+  # 数据库类型
+  db:
+    type: mysql   # gbase/mysql
+
+  # ==================== mysql 配置 ====================
+  mysql:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${server.datasource.ip}:3306/xian?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&failOverReadOnly=false&allowMultiQueries=true&useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true
+    username: root
+    password: root
+    pagehelper-dialect: mysql
+
+  # ==================== GBase 配置 ====================
+  gbase:
+    driver-class-name: com.gbasedbt.jdbc.Driver
+    url: jdbc:gbasedbt-sqli://${server.datasource.ip}:9088/xian:GBASEDBTSERVER=gbase01;DB_LOCALE=zh_CN.utf8;CLIENT_LOCALE=zh_CN.utf8;IFX_LOCK_MODE_WAIT=30;sqlmode=oracle
+    username: gbasedbt
+    password: GBase123$%
+    pagehelper-dialect: informix
+
+  # Tomcat连接超时配置
+  tomcat:
+    connection-timeout: 600s
+    keep-alive-timeout: 600s
+    max-keep-alive-requests: 100
+#    http://192.168.128.235:11434/api/chat  qwen3.6:35b
+#    http://192.168.128.90:8000   Qwen3.6-35B-A3B-AWQ-4bit
+#    http://192.168.128.235:30001  Qwen3.6-35B-A3B-AWQ-4bit
+
+# Nacos地址
+NACOS_SERVER_ADDR: ${server.iot-ip}:8848
+
+# 业务侧 AI 配置
+ai:
+  #西安东
+  #  url: http://192.168.128.235:20001
+  #  key: 8xKj2mP9qL5nR7tY3wF6cVbNhA1sD4gE
+  #  model: Qwen3.5-122B-A10B-w8a8-mtp
+  #公司
+  url: http://192.168.128.235:30001
+  key: 8xKj2mP9qL5nR7tY3wF6cVbNhA1sD4gE
+  model: Qwen3.6-35B-A3B-AWQ-4bit
+
+  # NPU监控详情接口（Atlas 300I A2），每次请求/computing-power时实时调用
+  npu-detail-url: http://192.168.128.235:21004/npu/detail
+  mcp-url: http://192.168.128.191:9006
+  # MCP Streamable HTTP 端点路径（须与 spring.ai.mcp.client.streamable-http.connections.server1.endpoint 一致）
+  mcp-endpoint: /mcp
+  mcp-token: mcp-server-secret-token-2026
+  # TTS 接口
+  tts-api-url: http://192.168.128.191:10095/api/responses
+  # Hermes StreamChatV2 流式接口
+  stream-chat-v2-url: http://192.168.128.191:10100/api/chat/streamV2
+  # 值班人员接口
+  roster-url: http://172.12.20.12:19001
+  # RagFlow API 配置（用于动态获取知识库列表）
+  ragflow-base-url: http://192.168.128.235:9380
+  ragflow-api-key: Bearer ragflow-kMZ2nqsJd-ixeqGhRMJNx8Jvk8VQzI7CT4XTX0j6kMM
+  # 问题库接口
+  problem-url: http://172.12.20.12:19001
+  session:
+    # 是否按pcId区分 StreamChatV2 会话缓存。true=每个pcId独立 sessionKey；false=同类型 agent 全局共用一个 sessionKey（默认）
+    user-distinguished: true
+  # tool.full 事件中缓存工具对应的含义（格式: 工具短名:含义,工具短名:含义），供意图识别时提供上下文而非原始数据
+  tool-meanings: getSubareaState:区域列表,getDeviceStatePage:设备列表,listCamera:摄像头列表
+  # 车站运营Hermes ，用于监听工具调用事件
+  gateway-ws-url: ws://192.168.128.191:10101/gateway/tool-payload
+  # 环境不具备时关闭 Gateway WebSocket 连接，避免反复重连占用资源
+  gateway-ws-enabled: false
+
+# Agent 技能目录，可通过 AGENT_SKILLS_DIRECTORY 环境变量覆盖
+agent:
+  skills-directory: D:\workdpace\iFound\iFound-server\xian\src\main\resources\skill
+  config-cache-ttl-ms: 300000
+  gagent:
+    max-tool-rounds: ${AGENT_MAX_TOOL_ROUNDS:8}
+    max-total-tool-calls: ${AGENT_MAX_TOTAL_TOOL_CALLS:20}
+    max-same-tool-consecutive: ${AGENT_MAX_SAME_TOOL_CONSECUTIVE:3}
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  # 定时任务调度线程池：默认只有1条线程，所有@Scheduled任务共用，
+  # 某个慢/卡死任务会拖住其他所有定时任务（如每小时站房评估不触发）
+  task:
+    scheduling:
+      pool:
+        size: 8
+
+  # MVC异步请求超时
+  mvc:
+    async:
+      request-timeout: 600000
+
+  http:
+    client:
+      connect-timeout: 600s
+      read-timeout: 600s
+
+  config:
+    import: optional:nacos:${NACOS_SERVER_ADDR:192.168.128.82:8848}
+
+  application:
+    name: xian-ai
+
+  cloud:
+    nacos:
+      discovery:
+        graceful-shutdown:
+          enabled: false
+        server-addr: ${NACOS_SERVER_ADDR}
+        group: iotBuilder
+        ip: ${server.local-ip}
+  #      config:
+  #        server-addr: ${NACOS_SERVER_ADDR:192.168.128.82:8848}
+  #        file-extension: yml
+  #        group: iotBuilder
+  #        shared-configs:
+  #          - data-id: common-config.yml
+  #            group: iotBuilder
+  #            refresh: true
+
+  # AI模型配置
+  ai:
+    url: ${ai.url:http://192.168.128.90:8000}
+    key: ${ai.key:sk-1e746aa66f3148569942a0554d974941}
+    model: ${ai.model:Qwen3.6-35B-A3B-AWQ-4bit}
+    mcp-url: ${ai.mcp-url:http://localhost:9001}
+    tts-api-url: ${ai.tts-api-url:http://192.168.128.82:10095/api/responses}
+    stream-chat-v2-url: ${ai.stream-chat-v2-url:http://192.168.128.82:10095/api/chat/streamV2}
+    roster-url: ${ai.roster-url:http://172.12.20.12:19001}
+    dashscope:
+      enabled: false
+    openai:
+      base-url: ${ai.url:http://192.168.128.90:8000}
+      api-key: ${ai.key:sk-1e746aa66f3148569942a0554d974941}
+      chat:
+        options:
+          model: ${ai.model:Qwen3.6-35B-A3B-AWQ-4bit}
+          temperature: 0.7
+          # 输出 token 上限；模型总上下文 200k，需满足 输入+maxTokens ≤ 总上下文，此处给输入预留约 172k
+          maxTokens: 32768
+          timeout: 600s
+      embedding:
+        options:
+          model: ${ai.model:Qwen3.6-35B-A3B-AWQ-4bit}
+      timeout: 600s
+
+    # MCP客户端配置
+    mcp:
+      client:
+        enabled: true
+        name: my-mcp-client
+        version: 1.0.0
+        initialized: true
+        request-timeout: 300s
+        type: sync
+        #        root-change-notification: true
+        connection-timeout: 5000
+        #        sse:
+        #          heartbeat-interval: 30000
+        #          connections:
+        #            server1:
+        #              url: ${ai.mcp-url:http://localhost:9001}
+        streamable-http:
+          connections:
+            server1:
+              url: ${ai.mcp-url:http://localhost:9001}
+              endpoint: /mcp
+
+  datasource:
+    driver-class-name: ${server.${server.db.type}.driver-class-name}
+    url: ${server.${server.db.type}.url}
+    username: ${server.${server.db.type}.username}
+    password: ${server.${server.db.type}.password}
+    druid:
+      initial-size: 10
+      min-idle: 10
+      max-active: 50
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      test-on-borrow: false
+      test-on-return: false
+      test-while-idle: true
+  #=============================pagehelper=======================#
+  pagehelper-dialect: ${server.${server.db-type}.pagehelper-dialect}
+
+  # Redis配置
+  data:
+    redis:
+      host: ${server.datasource.ip}
+      port: 6379
+      password:
+      database: 7
+
+  # RabbitMQ配置
+  rabbitmq:
+    host: ${server.datasource.ip}
+    port: 5672
+    username: admin
+    password: admin
+    virtual-host: iotBuilder
+    connection-timeout: 15000ms
+    # 监听器配置：手动 ACK，与 DeviceEventReceiver 中 channel.basicAck 配合
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 日志配置
+logging:
+  level:
+    com.sysware: DEBUG
+    # Mapper 包设为 INFO，屏蔽 MyBatis SQL 执行日志（Preparing/Parameters）
+    com.sysware.xian.mapper: INFO
+    com.alibaba.cloud.ai: DEBUG

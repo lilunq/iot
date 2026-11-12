@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>站房运行概览</title>
+    <script>
+      (function() {
+        var saved = localStorage.getItem('theme');
+        if (saved === 'dark' || !saved) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.style.background = 'rgb(0, 66, 126)';
+        }
+      })();
+    </script>
+    <style>
+      html { background: rgb(0, 66, 126); }
+      [data-theme="dark"] { background: rgb(0, 66, 126); }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

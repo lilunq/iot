@@ -1,0 +1,2512 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>站房运行概览</title>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --panel: #fbfdff;
+      --line: #d8e5f7;
+      --line-strong: #b9cef2;
+      --blue: #1268ff;
+      --blue-deep: #073ebc;
+      --green: #08ae66;
+      --shield-green: oklch(73% 0.18 160);
+      --green-soft: #eafbf3;
+      --orange: #ff6a00;
+      --orange-soft: #fff3e8;
+      --red: #ff1515;
+      --red-soft: #fff0ee;
+      --purple: #5b39ff;
+      --cyan: #18bfd0;
+      --text: #07153b;
+      --muted: #526383;
+      --soft: #eef5ff;
+      --shadow: 0 10px 28px rgba(30, 82, 162, 0.08);
+    }
+
+    [data-theme="dark"] {
+      --bg: #000d21;
+      --panel: #0d2137;
+      --line: #1a3a5c;
+      --line-strong: #2a5a8c;
+      --blue: #00d4ff;
+      --blue-deep: #0099cc;
+      --green: #00ff88;
+      --shield-green: #00ff88;
+      --green-soft: rgba(0, 255, 136, 0.1);
+      --orange: #ff9933;
+      --orange-soft: rgba(255, 153, 51, 0.1);
+      --red: #ff4444;
+      --red-soft: rgba(255, 68, 68, 0.1);
+      --purple: #aa66ff;
+      --cyan: #00e5ff;
+      --text: #e0f0ff;
+      --muted: #88aacc;
+      --soft: rgba(0, 150, 255, 0.08);
+      --shadow: 0 10px 28px rgba(0, 100, 200, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      letter-spacing: 0;
+    }
+<!--          background: radial-gradient(circle at 12% 2%, oklch(91% 0.06 255 / 0.7), transparent 22%), radial-gradient(circle at 70% 0%, oklch(96% 0.04 220 / 0.8), transparent 28%), oklch(98% 0.012 235);-->
+ 
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+     background:
+        radial-gradient(circle at 16% 0%, rgba(20, 105, 255, 0.05), transparent 30rem),
+        linear-gradient(180deg, #fbfdff 0%, var(--bg) 64%, #f7fbff 100%);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    [data-theme="dark"] body {
+      background:
+        radial-gradient(circle at 20% 0%, rgba(0, 180, 255, 0.08), transparent 25rem),
+        radial-gradient(circle at 80% 100%, rgba(0, 255, 136, 0.05), transparent 20rem),
+     linear-gradient(180deg, #0d1f33 0%, var(--bg) 60%, #081420 100%);
+
+    }
+
+    svg {
+      display: block;
+    }
+
+    .dashboard {
+      width: min(100%, 1672px);
+      margin: 0 auto;
+      padding: 0 10px 18px;
+    }
+
+    .page-header {
+      position: relative;
+      margin-bottom: 16px;
+      padding: 24px 32px;
+      background: linear-gradient(135deg, rgba(18, 104, 255, 0.08) 0%, rgba(8, 174, 102, 0.06) 50%, rgba(91, 57, 255, 0.05) 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    [data-theme="dark"] .page-header {
+      background: linear-gradient(135deg, rgba(0, 150, 255, 0.12) 0%, rgba(0, 255, 136, 0.08) 50%, rgba(170, 102, 255, 0.06) 100%);
+      border-color: var(--line-strong);
+    }
+
+    .page-header::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(18, 104, 255, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    [data-theme="dark"] .page-header::before {
+      background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%);
+    }
+
+    .page-header::after {
+      content: "";
+      position: absolute;
+      bottom: -30%;
+      left: 20%;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(8, 174, 102, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .main-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0;
+      color: var(--text);
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    [data-theme="dark"] .main-title {
+      color: #00d4ff;
+      text-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+    }
+
+    .main-title::before {
+      content: "";
+      width: 6px;
+      height: 40px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--blue), var(--green));
+      box-shadow: 0 0 12px rgba(18, 104, 255, 0.4);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+      padding-left: 20px;
+    }
+
+    [data-theme="dark"] .subtitle {
+      color: #88aacc;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(8, 174, 102, 0.1);
+      border: 1px solid rgba(8, 174, 102, 0.3);
+      border-radius: 999px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    [data-theme="dark"] .header-badge {
+      background: rgba(0, 255, 136, 0.12);
+      border-color: rgba(0, 255, 136, 0.3);
+    }
+
+    .header-badge .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.2); }
+    }
+
+    .title {
+      display: flex;
+      align-items: flex-start;
+      color: #101114;
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .title {
+      color: #00d4ff;
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+    }
+
+    .theme-toggle {
+      margin-left: auto;
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: var(--blue);
+    }
+
+    [data-theme="dark"] .theme-toggle {
+      background: rgba(0, 100, 200, 0.2);
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    [data-theme="dark"] .theme-toggle:hover {
+      background: rgba(0, 150, 255, 0.3);
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+    }
+
+    .top-grid,
+    .mid-grid,
+    .bottom-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+/*      grid-template-columns: minmax(260px, 0.88fr) minmax(380px, 1.25fr) minmax(340px, 1.14fr) minmax(390px, 1.34fr); */
+    .top-grid {
+      grid-template-columns: minmax(260px, 0.88fr) minmax(380px, 1.25fr) minmax(340px, 2fr) ;
+    }
+
+    .mid-grid {
+      grid-template-columns: minmax(320px, 1.03fr) minmax(330px, 1.04fr) minmax(300px, 0.96fr) minmax(390px, 1.25fr);
+    }
+
+    .bottom-grid {
+    margin-top: 10px;
+      grid-template-columns: minmax(300px, 1.04fr) minmax(310px, 1fr) minmax(280px, 1fr) minmax(330px, 1.1fr) minmax(300px, 1fr);
+    }
+
+    .card,
+    .ai-banner {
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      box-shadow: var(--shadow);
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+
+    [data-theme="dark"] .card,
+    [data-theme="dark"] .ai-banner {
+      background: #000d21;
+      border-color: var(--line);
+      box-shadow: var(--shadow), 0 0 15px rgba(0, 150, 255, 0.08);
+    }
+
+    .card {
+      padding: 12px 14px;
+      overflow: hidden;
+    }
+
+    .top-grid .card {
+      min-height: 259px;
+    }
+
+    .mid-grid .card {
+      min-height: 240px;
+    }
+
+    .bottom-grid .card {
+      min-height: 225px;
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: #0b1738;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .card-title {
+      color: #00d4ff;
+    }
+
+    .title-left,
+    .mini-label,
+    .tag,
+    .more,
+    .action {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .ico {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      color: var(--blue);
+    }
+
+    .ico.green {
+      color: var(--green);
+    }
+
+    .ico.red {
+      color: var(--red);
+    }
+
+    .ico.orange {
+      color: var(--orange);
+    }
+
+    .ico.purple {
+      color: var(--purple);
+    }
+
+    .more {
+      color: #111f55;
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0.82;
+    }
+
+    [data-theme="dark"] .more {
+      color: var(--blue);
+    }
+
+    .status-card {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .health-main {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      align-items: center;
+      gap: 10px;
+      min-height: 118px;
+      padding-top: 4px;
+    }
+
+    .shield {
+      width: 96px;
+      height: 96px;
+      justify-self: center;
+      filter: drop-shadow(0 12px 15px rgba(7, 171, 102, 0.25));
+    }
+
+    .shield.green {
+      color: var(--shield-green);
+    }
+
+    .health-state {
+      display: grid;
+      gap: 6px;
+    }
+
+    .health-state strong {
+      color: #00a85e;
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .health-state strong {
+      color: var(--green);
+      text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    }
+
+    .health-state span {
+      color: #07133d;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    [data-theme="dark"] .health-state span {
+      color: #a0c4e8;
+    }
+
+    .health-desc {
+      margin: 2px 6px 0;
+      color: #172966;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    [data-theme="dark"] .health-desc {
+      color: #88aacc;
+    }
+
+    .sparkline {
+      height: 54px;
+      margin-top: 8px;
+      color: var(--green);
+    }
+
+    .shield {
+      width: 96px;
+      height: 96px;
+      justify-self: center;
+      filter: drop-shadow(0 12px 15px rgba(7, 171, 102, 0.25));
+    }
+
+    [data-theme="dark"] .shield {
+      filter: drop-shadow(0 12px 15px rgba(0, 255, 136, 0.3));
+    }
+
+    .energy-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: center;
+      margin: 0 0 2px 2px;
+      color: #243662;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    [data-theme="dark"] .legend {
+      color: #a0c4e8;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .line-key {
+      width: 26px;
+      height: 3px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .line-key.dash {
+      background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 10px);
+    }
+
+    .chart-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .energy-chart {
+      width: 100%;
+      height: 100%;
+      min-height: 190px;
+    }
+
+    .axis-label {
+      font-size: 11px;
+      fill: #1c2b5b;
+      font-weight: 700;
+    }
+
+    [data-theme="dark"] .axis-label {
+      fill: #a0c4e8;
+    }
+
+    .tick {
+      font-size: 11px;
+      fill: #243663;
+    }
+
+    [data-theme="dark"] .tick {
+      fill: #88aacc;
+    }
+
+    .grid-line {
+      stroke: #dce6f5;
+      stroke-width: 1;
+    }
+
+    [data-theme="dark"] .grid-line {
+      stroke: var(--line);
+    }
+
+    .env-table {
+      display: grid;
+      grid-template-columns: 0.82fr 0.8fr 0.7fr 0.7fr 0.62fr 0.75fr;
+      border: 1px solid #edf3fb;
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    [data-theme="dark"] .env-table {
+      border-color: var(--line);
+    }
+
+    .env-table div {
+      min-width: 0;
+      padding: 9px 8px;
+      border-bottom: 1px solid #edf3fb;
+      background: rgba(255,255,255,0.58);
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .env-table div {
+      border-bottom-color: var(--line);
+      background: rgba(10, 25, 41, 0.6);
+    }
+
+    .env-table .head {
+      color: #111a3d;
+      background: #f7fbff;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .env-table .head {
+      color: #00d4ff;
+      background: rgba(0, 100, 200, 0.15);
+    }
+
+    .env-table div:nth-last-child(-n+6) {
+      border-bottom: 0;
+    }
+
+    .green-text {
+      color: var(--green);
+    }
+
+    .blue-text {
+      color: var(--blue);
+    }
+
+    .orange-text {
+      color: var(--orange);
+    }
+
+    .red-text {
+      color: var(--red);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .risk-box {
+      min-height: 88px;
+      padding: 12px 14px;
+      border: 1px solid;
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    [data-theme="dark"] .risk-box {
+      background: rgba(10, 25, 41, 0.7);
+    }
+
+    .risk-box.green-box {
+      border-color: #54d08c;
+      background: linear-gradient(180deg, #f4fff9 0%, #ffffff 100%);
+    }
+
+    [data-theme="dark"] .risk-box.green-box {
+      border-color: var(--green);
+      background: linear-gradient(180deg, rgba(0, 255, 136, 0.08) 0%, rgba(10, 25, 41, 0.7) 100%);
+    }
+
+    .risk-box.orange-box {
+      border-color: #ffa03d;
+      background: linear-gradient(180deg, #fff7ef 0%, #ffffff 100%);
+    }
+
+    [data-theme="dark"] .risk-box.orange-box {
+      border-color: var(--orange);
+      background: linear-gradient(180deg, rgba(255, 153, 51, 0.08) 0%, rgba(10, 25, 41, 0.7) 100%);
+    }
+
+    .risk-box.blue-box {
+      border-color: #72a5ff;
+      background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%);
+    }
+
+    [data-theme="dark"] .risk-box.blue-box {
+      border-color: var(--blue);
+      background: linear-gradient(180deg, rgba(0, 212, 255, 0.08) 0%, rgba(10, 25, 41, 0.7) 100%);
+    }
+
+    .risk-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 11px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .pill {
+      padding: 3px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .pill.ok {
+      color: #008c45;
+      background: #dff7e9;
+    }
+
+    [data-theme="dark"] .pill.ok {
+      color: var(--green);
+      background: rgba(0, 255, 136, 0.15);
+    }
+
+    .pill.warn {
+      color: var(--orange);
+      background: #fff0dd;
+    }
+
+    [data-theme="dark"] .pill.warn {
+      color: var(--orange);
+      background: rgba(255, 153, 51, 0.15);
+    }
+
+    .risk-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      row-gap: 6px;
+      column-gap: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #142452;
+    }
+
+    [data-theme="dark"] .risk-body {
+      color: #a0c4e8;
+    }
+
+    .risk-body .wide {
+      grid-column: 1 / -1;
+    }
+
+    .zone-data {
+      display: grid;
+      gap: 8px;
+    }
+
+    .zone-env {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #142452;
+    }
+
+    [data-theme="dark"] .zone-env {
+      color: #a0c4e8;
+    }
+
+    .env-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+
+    .env-item b {
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .zone-status {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #142452;
+    }
+
+    [data-theme="dark"] .zone-status {
+      color: #a0c4e8;
+    }
+
+    .status-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      border:1px solid var(--blue);
+      border-radius: 10px;
+      padding:4px 6px;
+      box-shadow: 0 0 10px rgba(18, 104, 255, 0.28);
+    }
+
+    .status-item b {
+      font-weight: 900;
+    }
+
+    .zone-status .wide {
+      grid-column: 1 / -1;
+    }
+
+    .risk-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .risk-mini-icon {
+      width: 15px;
+      height: 15px;
+      color: var(--blue);
+      flex: 0 0 auto;
+    }
+
+    .ai-banner {
+      min-height: 64px;
+      margin: 10px 0;
+      padding: 0 18px 0 14px;
+      display: grid;
+      grid-template-columns: 340px 1fr 38px;
+      align-items: center;
+    }
+
+    .ai-brand {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .ai-brand::before {
+      content: "";
+      width: 5px;
+      height: 34px;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 10px rgba(18, 104, 255, 0.28);
+      flex: 0 0 auto;
+    }
+  .title-brand{
+    gap: 16px;
+    padding:0 10px;
+    margin:10px 0;
+    }
+    .title-brand::before {
+      content: "";
+      width: 5px;
+      height: 34px;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 10px rgba(18, 104, 255, 0.28);
+      flex: 0 0 auto;
+    }
+
+    .ai-brand strong {
+      color: #073dff;
+      font-size: 23px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .ai-brand strong {
+      color: var(--blue);
+      text-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+    }
+
+    .ai-orb {
+      width: 63px;
+      height: 63px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 28px;
+      font-weight: 900;
+      background:
+        radial-gradient(circle at 35% 30%, #e9fbff 0 10%, transparent 22%),
+        radial-gradient(circle, #2e9fff 0 38%, #1276e7 55%, #6fe9ff 74%, transparent 77%),
+        #1b91f4;
+      box-shadow: 0 0 0 4px rgba(32, 151, 247, 0.08), 0 0 20px rgba(18, 104, 255, 0.4);
+    }
+
+    [data-theme="dark"] .ai-orb {
+      background:
+        radial-gradient(circle at 35% 30%, rgba(0, 229, 255, 0.3) 0 10%, transparent 22%),
+        radial-gradient(circle, #00aaff 0 38%, #0088cc 55%, #00e5ff 74%, transparent 77%),
+        #0099dd;
+      box-shadow: 0 0 0 4px rgba(0, 180, 255, 0.15), 0 0 25px rgba(0, 212, 255, 0.5);
+    }
+
+    .ai-copy {
+      color: #11111194;
+      font-size: 15px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    [data-theme="dark"] .ai-copy {
+      color: #a0c4e8;
+    }
+
+    .circle-btn {
+      width: 32px;
+      height: 32px;
+      border: 2px solid #347bff;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--blue);
+      background: #fff;
+    }
+
+    [data-theme="dark"] .circle-btn {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: rgba(0, 100, 200, 0.2);
+    }
+
+    .run-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #02a85f;
+      background: #e8f9f0;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .run-tag {
+      color: var(--green);
+      background: rgba(0, 255, 136, 0.12);
+    }
+
+    .agent-footer {
+      color: #142452;
+    }
+
+    [data-theme="dark"] .agent-footer {
+      color: #a0c4e8;
+    }
+
+    .metric-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .env-metrics {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 6px;
+    }
+
+    .metric {
+      min-height: 88px;
+      padding: 11px 7px 9px;
+      border: 1px solid #e2eaf7;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      text-align: center;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    [data-theme="dark"] .metric {
+      border-color: var(--line);
+      background: linear-gradient(180deg, rgba(15, 35, 60, 0.8) 0%, rgba(10, 25, 41, 0.6) 100%);
+    }
+
+    .metric .label {
+      color: #17295e;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    [data-theme="dark"] .metric .label {
+      color: #88aacc;
+    }
+
+    .metric .value {
+      color: #071744;
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    [data-theme="dark"] .metric .value {
+      color: #e0f0ff;
+    }
+
+    .metric .state {
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .service-metrics {
+      height: 100px;
+      display: grid;
+      grid-template-columns: 0.85fr 1fr 1.1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .service-box客流,
+    .service-box安全 {
+      padding: 8px 10px;
+      border: 1px solid #e2eaf7;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .service-box客流 {
+      background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+    }
+
+    .service-box安全 {
+      background: linear-gradient(180deg, #f4fff9 0%, #ffffff 100%);
+    }
+
+    [data-theme="dark"] .service-box客流 {
+      background: linear-gradient(180deg, rgba(0, 100, 200, 0.15) 0%, rgba(10, 25, 41, 0.7) 100%);
+      border-color: var(--line);
+    }
+
+    [data-theme="dark"] .service-box安全 {
+      background: linear-gradient(180deg, rgba(0, 255, 136, 0.1) 0%, rgba(10, 25, 41, 0.7) 100%);
+      border-color: var(--line);
+    }
+
+    .service-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #17295e;
+      margin-bottom: 3px;
+    }
+
+    [data-theme="dark"] .service-label {
+      color: #88aacc;
+    }
+
+    .service-value {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .service-value.blue {
+      color: #1268ff;
+    }
+
+    .service-value.green {
+      color: #08ae66;
+    }
+
+    .service-value.large {
+      font-size: 20px;
+    }
+
+    [data-theme="dark"] .service-value.blue {
+      color: var(--blue);
+    }
+
+    [data-theme="dark"] .service-value.green {
+      color: var(--green);
+    }
+
+    .service-box雷达 {
+    transform: translateY(-10px);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .radar-chart {
+    transform: scale(1.2);
+      width: 130px;
+      height: 130px;
+    }
+
+    .device-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .device-box故障,
+    .device-box告警,
+    .device-box维修 {
+      padding: 10px 12px;
+      border: 1px solid #e2eaf7;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .device-box故障 {
+      background: linear-gradient(180deg, #fff0ee 0%, #ffffff 100%);
+    }
+
+    .device-box告警 {
+      background: linear-gradient(180deg, #fff7ef 0%, #ffffff 100%);
+    }
+
+    .device-box维修 {
+      background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+    }
+
+    [data-theme="dark"] .device-box故障 {
+      background: linear-gradient(180deg, rgba(255, 68, 68, 0.12) 0%, rgba(10, 25, 41, 0.7) 100%);
+      border-color: var(--line);
+    }
+
+    [data-theme="dark"] .device-box告警 {
+      background: linear-gradient(180deg, rgba(255, 153, 51, 0.12) 0%, rgba(10, 25, 41, 0.7) 100%);
+      border-color: var(--line);
+    }
+
+    [data-theme="dark"] .device-box维修 {
+      background: linear-gradient(180deg, rgba(0, 255, 136, 0.1) 0%, rgba(10, 25, 41, 0.7) 100%);
+      border-color: var(--line);
+    }
+
+    .device-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #17295e;
+      margin-bottom: 4px;
+    }
+
+    [data-theme="dark"] .device-label {
+      color: #88aacc;
+    }
+
+    .device-value {
+      font-size: 26px;
+      font-weight: 900;
+    }
+
+    .device-value.red {
+      color: #ff1515;
+    }
+
+    .device-value.orange {
+      color: #ff6a00;
+    }
+
+    .device-value.green {
+      color: #08ae66;
+    }
+
+    [data-theme="dark"] .device-value.red {
+      color: var(--red);
+    }
+
+    [data-theme="dark"] .device-value.orange {
+      color: var(--orange);
+    }
+
+    [data-theme="dark"] .device-value.green {
+      color: var(--green);
+    }
+
+    .analysis {
+      display: grid;
+      gap: 8px;
+      color: #12255b;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    [data-theme="dark"] .analysis {
+      color: #a0c4e8;
+    }
+
+    .analysis p {
+      margin: 0;
+    }
+
+    .analysis strong {
+      display: block;
+      color: #0b51ff;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    [data-theme="dark"] .analysis strong {
+      color: var(--blue);
+    }
+
+    .analysis .suggest {
+      color: #009d58;
+    }
+
+    [data-theme="dark"] .analysis .suggest {
+      color: var(--green);
+    }
+
+    .equip-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .equip-card {
+      padding: 10px 12px;
+      border: 1px solid #e2eaf7;
+      border-radius: 8px;
+      background: #fff;
+      min-height: 84px;
+    }
+
+    .equip-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .equip-card-head {
+      color: #e0f0ff;
+    }
+
+    .agent-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .agent-title {
+      color: #e0f0ff;
+    }
+
+    .equip-icon {
+      width: 22px;
+      height: 22px;
+      color: #0c1738;
+    }
+
+    .equip-kv {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 7px 12px;
+      color: #13245a;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    [data-theme="dark"] .equip-kv {
+      color: #a0c4e8;
+    }
+
+    .equip-card {
+      padding: 10px 12px;
+      border: 1px solid #e2eaf7;
+      border-radius: 8px;
+      background: #fff;
+      min-height: 84px;
+    }
+
+    [data-theme="dark"] .equip-card {
+      border-color: var(--line);
+      background: rgba(10, 25, 41, 0.6);
+    }
+
+    .warning-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 10px;
+    }
+
+    .warning-stats .metric {
+      min-height: 78px;
+    }
+
+    .warning-stats .value {
+      font-size: 24px;
+    }
+
+    .suggestions {
+      display: grid;
+      gap: 0;
+      border: 1px solid #e1e9f7;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    [data-theme="dark"] .suggestions {
+      border-color: var(--line);
+    }
+
+    .suggestion {
+      display: grid;
+      grid-template-columns: 35px 1fr 88px;
+      align-items: center;
+      gap: 9px;
+      min-height: 47px;
+      padding: 6px 9px;
+      border-bottom: 1px solid #e6eef9;
+      background: #fff;
+    }
+
+    [data-theme="dark"] .suggestion {
+      border-bottom-color: var(--line);
+      background: rgba(10, 25, 41, 0.5);
+    }
+
+    .suggestion:last-child {
+      border-bottom: 0;
+    }
+
+    .suggestion span {
+      color: #17265a;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    [data-theme="dark"] .suggestion span {
+      color: #a0c4e8;
+    }
+
+    .risk-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 11px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .risk-head {
+      color: #e0f0ff;
+    }
+
+    .action {
+      justify-content: center;
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid #a9b5ff;
+      border-radius: 5px;
+      color: #123dff;
+      background: #f6f7ff;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .action {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: rgba(0, 150, 255, 0.15);
+    }
+
+    .compute-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .compute-grid .metric {
+      min-height: 72px;
+      gap: 6px;
+    }
+
+    .compute-grid .value {
+      font-size: 19px;
+    }
+
+    .agent-layout {
+      display: grid;
+      grid-template-columns: 142px 1fr;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .agent-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .run-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #02a85f;
+      background: #e8f9f0;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .ring {
+      --p: 90;
+      position: relative;
+      width: 126px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background:
+        conic-gradient(var(--green) calc(var(--p) * 1%), #e6edf6 0);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px #e4edf7;
+    }
+
+    .ring::after {
+      content: "";
+      position: absolute;
+      inset: 15px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px #e9f0f8;
+    }
+
+    [data-theme="dark"] .ring::after {
+      background: var(--bg);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .ring span {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      justify-items: center;
+      color: #101b43;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    [data-theme="dark"] .ring span {
+      color: #e0f0ff;
+    }
+
+    .ring b {
+      font-size: 22px;
+    }
+
+    .ring small {
+      margin-top: 5px;
+      font-size: 10px;
+      color: #24365e;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .ring small {
+      color: #88aacc;
+    }
+
+    .agent-kv {
+      display: grid;
+      grid-template-columns: minmax(54px, 0.78fr) max-content;
+      gap: 7px 8px;
+      padding: 9px 10px;
+      border: 1px solid #e1eaf7;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      color: #15265a;
+      white-space: nowrap;
+    }
+
+    [data-theme="dark"] .agent-kv {
+      border-color: var(--line);
+      background: rgba(10, 25, 41, 0.6);
+      color: #a0c4e8;
+          margin-top: 10px;
+    }
+
+    .agent-kv .right {
+      text-align: right;
+      color: #071744;
+    }
+
+    [data-theme="dark"] .agent-kv .right {
+      color: #00d4ff;
+    }
+
+    .cooling-layout {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .mini-chart {
+      width: 100%;
+      height: 138px;
+      margin-top:10px;
+      margin-bottom:10px;
+    }
+
+    .cooling-foot {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      color: #12245a;
+      font-size: 13px;
+      font-weight: 900;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    [data-theme="dark"] .cooling-foot {
+      color: #a0c4e8;
+    }
+
+    .knowledge-layout {
+      display: grid;
+      grid-template-columns: 132px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 2px;
+    }
+
+    .k-legend {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      color: #14265a;
+    }
+
+    [data-theme="dark"] .k-legend {
+      color: #a0c4e8;
+    }
+
+    .knowledge-foot {
+      margin-top: 12px;
+      color: #12245a;
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .knowledge-foot {
+      color: #88aacc;
+    }
+
+    .assistant-fab {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), var(--blue-deep));
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(18, 104, 255, 0.35);
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+
+    .assistant-fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 8px 28px rgba(18, 104, 255, 0.5);
+    }
+
+    .assistant-fab svg {
+      width: 30px;
+      height: 30px;
+      color: #fff;
+    }
+
+    [data-theme="dark"] .assistant-fab {
+      background: linear-gradient(135deg, #00aaff, #0066cc);
+      box-shadow: 0 6px 20px rgba(0, 180, 255, 0.4);
+    }
+
+    .assistant-panel {
+      position: fixed;
+      right: 24px;
+      bottom: 100px;
+      width: 380px;
+      height: 520px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(30, 82, 162, 0.15);
+      display: none;
+      flex-direction: column;
+      z-index: 1000;
+      overflow: hidden;
+    }
+
+    .assistant-panel.active {
+      display: flex;
+    }
+
+    [data-theme="dark"] .assistant-panel {
+      box-shadow: 0 12px 40px rgba(0, 100, 200, 0.3);
+    }
+
+    .assistant-header {
+      padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(18, 104, 255, 0.1), rgba(8, 174, 102, 0.08));
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    [data-theme="dark"] .assistant-header {
+      background: linear-gradient(135deg, rgba(0, 150, 255, 0.15), rgba(0, 255, 136, 0.1));
+    }
+
+    .assistant-header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .assistant-header-title svg {
+      width: 22px;
+      height: 22px;
+      color: var(--blue);
+    }
+
+    .assistant-close {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .assistant-close:hover {
+      background: var(--soft);
+      color: var(--text);
+    }
+
+    .assistant-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .assistant-message {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .assistant-message.bot {
+      align-self: flex-start;
+      background: var(--soft);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    .assistant-message.user {
+      align-self: flex-end;
+      background: var(--blue);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    [data-theme="dark"] .assistant-message.bot {
+      background: rgba(0, 100, 200, 0.15);
+    }
+
+    [data-theme="dark"] .assistant-message.user {
+      background: var(--blue-deep);
+    }
+
+    .assistant-input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 8px;
+    }
+
+    .assistant-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .assistant-input:focus {
+      border-color: var(--blue);
+    }
+
+    .assistant-send {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .assistant-send:hover {
+      background: var(--blue-deep);
+      transform: scale(1.05);
+    }
+
+    .assistant-send svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    @media (max-width: 820px) {
+      .assistant-panel {
+        right: 8px;
+        left: 8px;
+        width: auto;
+        bottom: 92px;
+      }
+
+      .assistant-fab {
+        right: 16px;
+        bottom: 16px;
+      }
+    }
+
+    .knowledge-layout {
+      display: grid;
+      grid-template-columns: 145px 1fr;
+      gap: 18px;
+      align-items: center;
+      margin-top: 2px;
+    }
+
+    .knowledge-ring {
+      width: 132px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: conic-gradient(
+        #156dff 0 14%,
+        #1fc3d7 14% 28%,
+        #10b86b 28% 42%,
+        #ff9933 42% 56%,
+        #7b63f0 56% 70%,
+        #ff4444 70% 84%,
+        #20c4d6 84% 100%
+      );
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .knowledge-ring::after {
+      content: "";
+      position: absolute;
+      inset: 34px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    [data-theme="dark"] .knowledge-ring::after {
+      background: var(--bg);
+    }
+
+    .knowledge-ring span {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      justify-items: center;
+      color: #0b1a48;
+      font-weight: 900;
+    }
+
+    [data-theme="dark"] .knowledge-ring span {
+      color: #e0f0ff;
+    }
+
+    .knowledge-ring b {
+      font-size: 27px;
+      line-height: 1;
+    }
+
+    .knowledge-ring small {
+      margin-top: 5px;
+      font-size: 12px;
+    }
+
+    [data-theme="dark"] .knowledge-ring small {
+      color: #88aacc;
+    }
+
+    .k-legend {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px 14px;
+      font-size: 12px;
+      font-weight: 900;
+      color: #14265a;
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 10px;
+      vertical-align: -2px;
+    }
+
+    .knowledge-foot {
+      margin-top: 12px;
+      color: #12245a;
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 900;
+    }
+
+    .divider-title {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #0b51ff;
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    [data-theme="dark"] .divider-title {
+      color: var(--blue);
+      text-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+    }
+
+    .divider-title::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: linear-gradient(90deg, #7da8ff, transparent);
+    }
+
+    [data-theme="dark"] .divider-title::after {
+      background: linear-gradient(90deg, var(--blue), transparent);
+    }
+
+    .headline-tight {
+      margin-bottom: 6px;
+    }
+
+    @media (min-width: 1451px) {
+      .top-grid .card {
+        height: 259px;
+        min-height: 0;
+      }
+
+      .mid-grid .card {
+        height: 260px;
+        min-height: 0;
+      }
+
+      .bottom-grid .card {
+        height: 255px;
+        min-height: 0;
+      }
+
+      .energy-chart {
+        min-height: 176px;
+      }
+    }
+
+    @media (max-width: 1450px) {
+      .top-grid,
+      .mid-grid,
+      .bottom-grid {
+        grid-template-columns: repeat(2, minmax(320px, 1fr));
+      }
+
+      .ai-banner {
+        grid-template-columns: 300px 1fr 38px;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .dashboard {
+        padding: 0 8px 16px;
+      }
+
+      .title {
+        height: auto;
+        font-size: 34px;
+      }
+
+      .top-grid,
+      .mid-grid,
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .ai-banner {
+        grid-template-columns: 1fr 34px;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+
+      .ai-brand {
+        grid-column: 1 / -1;
+      }
+
+      .ai-copy {
+        font-size: 18px;
+        white-space: normal;
+      }
+
+      .risk-grid,
+      .env-metrics,
+      .warning-stats,
+      .equip-grid,
+      .compute-grid,
+      .agent-layout,
+      .cooling-layout,
+      .knowledge-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .suggestion {
+        grid-template-columns: 30px 1fr;
+      }
+
+      .suggestion .action {
+        grid-column: 2;
+        width: max-content;
+      }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="i-leaf" viewBox="0 0 24 24">
+      <path d="M20.8 3.2C12.9 3.5 6.3 6.5 4 13.5c2.8-1.6 5.8-2.1 9.3-1.6-4.2 1.4-6.7 3.8-8 7.2" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M5.3 16.5c7.8.5 12.6-4.1 15.5-13.3" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24">
+      <path d="M10.1 2.8h3.8l.8 2.7 2.5 1.1 2.5-1.3 1.9 3.3-2.1 1.8v3.2l2.1 1.8-1.9 3.3-2.5-1.3-2.5 1.1-.8 2.7h-3.8l-.8-2.7-2.5-1.1-2.5 1.3-1.9-3.3 2.1-1.8v-3.2L2.4 8.6l1.9-3.3 2.5 1.3 2.5-1.1.8-2.7Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24">
+      <path d="M5 18h14l-1.5-2.5V10a5.5 5.5 0 0 0-11 0v5.5L5 18Z" fill="currentColor"/>
+      <path d="M9.4 19.2a2.8 2.8 0 0 0 5.2 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-home" viewBox="0 0 24 24">
+      <path d="M3.5 11.5 12 4l8.5 7.5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 10.7V20h12v-9.3" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/>
+      <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24">
+      <path d="M12 2.6 20 6v5.8c0 5.1-3.4 8.3-8 10-4.6-1.7-8-4.9-8-10V6l8-3.4Z" fill="currentColor"/>
+      <path d="m7.8 12.3 2.7 2.8 5.9-6.4" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24">
+      <path d="M13 2 4.8 13.2h5.7L9.8 22 19.2 9.8h-6L13 2Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-thermo" viewBox="0 0 24 24">
+      <path d="M10 14.6V5a3 3 0 1 1 6 0v9.6a5 5 0 1 1-6 0Z" fill="none" stroke="currentColor" stroke-width="2.1"/>
+      <path d="M13 8v8" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-user" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="4" fill="currentColor"/>
+      <path d="M4 21a8 8 0 0 1 16 0" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-chip" viewBox="0 0 24 24">
+      <rect x="6" y="6" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-flower" viewBox="0 0 24 24">
+      <path d="M12 8V3M12 21v-5M8 12H3M21 12h-5M9.2 9.2 5.7 5.7M18.3 18.3l-3.5-3.5M14.8 9.2l3.5-3.5M5.7 18.3l3.5-3.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="2.2"/>
+    </symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24">
+      <path d="M12 2v20M4 6l16 12M20 6 4 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24">
+      <path d="M12 2.8 20 7.2v9.6l-8 4.4-8-4.4V7.2l8-4.4Z" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M4.4 7.5 12 12l7.6-4.5M12 12v8.8" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24">
+      <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-water" viewBox="0 0 24 24">
+      <path d="M12 3s6 7 6 11.2a6 6 0 0 1-12 0C6 10 12 3 12 3Z" fill="none" stroke="currentColor" stroke-width="2.2"/>
+    </symbol>
+  </svg>
+
+  <main class="dashboard">
+    <header class="page-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h1 class="main-title">智慧底座 - Dashboard</h1>
+          <p class="subtitle">站房运行概览 · 实时监控与智能分析平台</p>
+        </div>
+        <div class="header-right">
+          <div class="header-badge">
+            <span class="pulse"></span>
+            系统运行正常
+          </div>
+          <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">🌓 切换主题</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="top-grid" aria-label="站房运行概览顶部指标">
+      <article class="card status-card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico"><use href="#i-gear"></use></svg>站房整体状态评估</span>
+        </div>
+        <div class="health-main">
+          <svg class="shield green" viewBox="0 0 24 24"><use href="#i-shield"></use></svg>
+          <div class="health-state">
+            <strong>运行健康</strong>
+            <span>系统运行正常</span>
+          </div>
+        </div>
+        <p class="health-desc">全域运行平稳，用能态势优良</p>
+        <svg class="sparkline" viewBox="0 0 320 58" preserveAspectRatio="none" aria-label="健康趋势">
+          <defs>
+            <linearGradient id="sparkFade" x1="0" y1="0" x2="0" y2="1">
+              <stop stop-color="#0aaa61" stop-opacity="0.26"/>
+              <stop offset="1" stop-color="#0aaa61" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0 48 L26 38 L52 50 L72 42 L96 40 L122 48 L148 36 L170 42 L198 31 L224 39 L260 32 L280 36 L300 28 L320 34 L320 58 L0 58Z" fill="url(#sparkFade)"/>
+          <path d="M0 48 L26 38 L52 50 L72 42 L96 40 L122 48 L148 36 L170 42 L198 31 L224 39 L260 32 L280 36 L300 28 L320 34" fill="none" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </article>
+
+      <article class="card energy-card">
+        <div class="card-title headline-tight">
+          <span class="title-left"><svg class="ico"><use href="#i-leaf"></use></svg>车站能耗</span>
+        </div>
+        <div class="legend">
+          <span class="legend-item" style="color:#1268ff"><i class="line-key"></i>能耗预测曲线</span>
+          <span class="legend-item" style="color:#0caf64"><i class="line-key"></i>总能耗用曲线</span>
+          <span class="legend-item" style="color:#5b39ff"><i class="line-key dash"></i>客流曲线</span>
+          <span class="legend-item" style="color:#ff2116"><i class="line-key dash"></i>标准能耗基线</span>
+        </div>
+        <div class="chart-wrap">
+          <svg class="energy-chart" viewBox="0 0 470 190" preserveAspectRatio="none" aria-label="车站能耗实时曲线">
+            <text x="12" y="24" class="axis-label">能耗总额（kWh/m²）</text>
+            <text x="460" y="24" class="axis-label" text-anchor="end">客流（k人）</text>
+            <g>
+              <line x1="42" y1="42" x2="455" y2="42" class="grid-line"/>
+              <line x1="42" y1="73" x2="455" y2="73" class="grid-line"/>
+              <line x1="42" y1="104" x2="455" y2="104" class="grid-line"/>
+              <line x1="42" y1="135" x2="455" y2="135" class="grid-line"/>
+              <line x1="42" y1="166" x2="455" y2="166" class="grid-line"/>
+              <line x1="42" y1="42" x2="42" y2="166" stroke="#cfdcf0"/>
+              <line x1="455" y1="42" x2="455" y2="166" stroke="#cfdcf0"/>
+            </g>
+            <g class="tick">
+              <text x="14" y="47">40</text>
+              <text x="14" y="78">30</text>
+              <text x="14" y="109">20</text>
+              <text x="14" y="140">10</text>
+              <text x="24" y="171">0</text>
+              <text x="462" y="47">8</text>
+              <text x="462" y="78">6</text>
+              <text x="462" y="109">4</text>
+              <text x="462" y="140">2</text>
+              <text x="34" y="184">00:00</text>
+              <text x="104" y="184">04:00</text>
+              <text x="174" y="184">08:00</text>
+              <text x="244" y="184">12:00</text>
+              <text x="314" y="184">16:00</text>
+              <text x="384" y="184">20:00</text>
+              <text x="430" y="184">24:00</text>
+            </g>
+            <polyline points="42,135 55,120 69,114 82,109 96,101 110,96 123,88 137,82 151,84 164,76 178,79 192,72 205,74 219,68 233,70 247,80 260,88 274,83 288,88 301,94 315,96 329,106 342,110 356,114 370,126 383,131 397,138 411,145 424,151 438,146 452,148" fill="none" stroke="#1268ff" stroke-width="2.4"/>
+            <polyline points="42,149 55,132 69,127 82,129 96,118 110,117 123,111 137,109 151,96 164,92 178,86 192,80 205,84 219,76 233,73 247,78 260,88 274,92 288,99 301,104 315,98 329,108 342,106 356,94 370,95 383,107 397,128 411,136 424,148 438,155 452,153" fill="none" stroke="#0caf64" stroke-width="2.4"/>
+            <polyline points="49,145 65,135 72,125 82,128 100,116 110,110 120,109 135,107 151,94 164,90 178,84 192,78 205,82 219,74 233,71 247,76 260,86 274,90 288,97 301,102 315,96 329,108 347,114 366,100 375,98 386,105 397,126 411,134 424,146 438,153 452,151" fill="none" stroke="#5b39ff" stroke-width="2.4" stroke-dasharray="6 4"/>
+            <line x1="42" y1="48" x2="455" y2="48" stroke="#ff1d12" stroke-width="2.2" stroke-dasharray="8 5"/>
+          </svg>
+        </div>
+      </article>
+
+<!--      <article class="card">-->
+<!--        <div class="card-title">-->
+<!--          <span class="title-left"><svg class="ico"><use href="#i-cube"></use></svg>环境监测</span>-->
+<!--          <span class="more">更多 <svg width="14" height="14"><use href="#i-arrow"></use></svg></span>-->
+<!--        </div>-->
+<!--        <div class="env-table">-->
+<!--          <div class="head">区域</div><div class="head">温度(°C)</div><div class="head">湿度(%)</div><div class="head">照度(lx)</div><div class="head">异常</div><div class="head">建议</div>-->
+<!--          <div>站厅</div><div>24.2</div><div class="blue-text">48</div><div class="green-text">200</div><div>&#45;&#45;</div><div>&#45;&#45;</div>-->
+<!--          <div>一站台</div><div>24.5</div><div class="blue-text">52</div><div class="green-text">240</div><div>&#45;&#45;</div><div>&#45;&#45;</div>-->
+<!--          <div>二站台</div><div>24.8</div><div class="blue-text">48</div><div class="orange-text">100</div><div class="blue-text">照度低</div><div class="red-text">开灯</div>-->
+<!--          <div>设备间</div><div>25.1</div><div class="blue-text">55</div><div class="green-text">100</div><div>&#45;&#45;</div><div>&#45;&#45;</div>-->
+<!--        </div>-->
+<!--      </article>-->
+
+      <article class="card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico purple"><use href="#i-home"></use></svg><span class="blue-text">分区态势</span></span>
+          <span class="more">更多 <svg width="14" height="14"><use href="#i-arrow"></use></svg></span>
+        </div>
+        <div class="risk-grid">
+          <section class="risk-box green-box">
+            <div class="risk-head green-text">候车厅A区 <span class="pill ok">正常</span></div>
+            <div class="zone-data">
+              <div class="zone-env">
+                <span class="env-item">温度 <b>24.2</b>°C</span>
+                <span class="env-item">湿度 <b>48</b>%</span>
+                <span class="env-item">颗粒 <b>35</b>μg/m³</span>
+                <span class="env-item">照度 <b>200</b>lx</span>
+                <span class="env-item">噪声 <b>52</b>dB</span>
+                <span class="env-item">异常气味 无<b></b></span>
+              </div>
+              <div class="zone-status">
+                <span class="status-item">环境指标 <b>92分</b><b class="green-text"> 正常</b></span>
+                <span class="status-item">设备状况  <b class="green-text">26台全正常</b></span>
+                <span class="status-item">客流密度 <b>0.35人/㎡ </b><b class="green-text">正常</b></span>
+                <span class="status-item">今日能耗 <b>128kWh</b> <b class="green-text">正常</b></span>
+                <span class=" wide">建议： <b class="green-text">环境舒适设备运行良好，能耗处于合理区间，建议保持当前策略</b></span>
+              </div>
+            </div>
+          </section>
+          <section class="risk-box orange-box">
+            <div class="risk-head orange-text">候车厅B区 <span class="pill warn">注意</span></div>
+            <div class="zone-data">
+              <div class="zone-env">
+                <span class="env-item">温度 <b>28.5</b>°C</span>
+                <span class="env-item">湿度 <b>55</b>%</span>
+                <span class="env-item">颗粒 <b>42</b>μg/m³</span>
+                <span class="env-item">照度 <b>180</b>lx</span>
+                <span class="env-item">噪声 <b>58</b>dB</span>
+                <span class="env-item">异常气味 无<b></b></span>
+              </div>
+              <div class="zone-status">
+                <span class="status-item">环境指标 <b>76分</b><b class="orange-text">注意</b></span>
+                <span class="status-item">设备状况 <b>5台正常</b><b class="orange-text"> 1台故障</b></span>
+                <span class="status-item">客流密度 <b>0.52人/㎡ </b><b class="orange-text">注意</b></span>
+                <span class="status-item">今日能耗 <b>156kWh</b> <b class="orange-text">注意</b></span>
+                <span class="wide"> 建议： <b class="orange-text">客流密度较高是引起温度偏高的主要原因，建议先调低空调设定再排查故障设备排风机2#</b></span>
+              </div>
+            </div>
+          </section>
+          <section class="risk-box green-box">
+            <div class="risk-head blue-text">站台区 <span class="pill ok">正常</span></div>
+            <div class="zone-data">
+              <div class="zone-env">
+                <span class="env-item">温度 <b>25.1</b>°C</span>
+                <span class="env-item">湿度 <b>50</b>%</span>
+                <span class="env-item">颗粒 <b>28</b>μg/m³</span>
+                <span class="env-item">照度 <b>240</b>lx</span>
+                <span class="env-item">噪声 <b>55</b>dB</span>
+                <span class="env-item">异常气味 无<b></b></span>
+              </div>
+              <div class="zone-status">
+                <span class="status-item">环境指标 <b>95分</b><b class="green-text"> 正常</b></span>
+                <span class="status-item">设备状况 <b class="green-text">8台全正常</b></span>
+                <span class="status-item">客流密度 <b>0.42人/㎡</b> <b class="green-text">正常</b></span>
+                <span class="status-item">今日能耗 <b>142kWh </b><b class="green-text">正常</b></span>
+                <span class=" wide">建议： <b class="green-text">环境优良设备运转正常，能耗平稳，建议维持现有巡检频次</b></span>
+              </div>
+            </div>
+          </section>
+          <section class="risk-box orange-box">
+            <div class="risk-head orange-text">设备机房区 <span class="pill warn">注意</span></div>
+            <div class="zone-data">
+              <div class="zone-env">
+                <span class="env-item">温度 <b>32.6</b>°C</span>
+                <span class="env-item">湿度 <b>45</b>%</span>
+                <span class="env-item">颗粒 <b>38</b>μg/m³</span>
+                <span class="env-item">照度 <b>150</b>lx</span>
+                <span class="env-item">噪声 <b>65</b>dB</span>
+                <span class="env-item">异常气味 无<b></b></span>
+              </div>
+              <div class="zone-status">
+                <span class="status-item">环境指标 <b>71分</b><b class="orange-text"> 注意</b></span>
+                <span class="status-item">设备状况 <b class="red-text">4台正常 1个故障 1个告警</b></span>
+                <span class="status-item">客流密度 <b>0.08人/㎡ </b><b class="green-text">正常</b></span>
+                <span class="status-item">今日能耗kWh  <b>185</b><b class="orange-text">注意</b></span>
+                <span class=" wide">建议： <b class="orange-text">温度偏高噪声较大，检修水泵轴承，排查告警设备降低能耗</b></span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </article>
+    </section>
+
+    <section class="ai-banner" style="background:none;border:none;" aria-label="AI分析与建议">
+      <div class="ai-brand">
+        <div class="ai-orb">AI</div>
+        <strong style="font-size:22px">实时分析与建议</strong>
+      </div>
+      <div class="ai-copy">夹层1号电梯 温度38°C，启停次数126次，载荷波动12%，整体运行状态平稳无异常。建议维持常规巡检频次，早高峰客流回落时段重点复核曳引系统温度，密切监测温升变化，适时调整运行负荷，提前规避高温运行隐患，保障乘梯通行稳定安全。</div>
+      <div class="circle-btn"><svg width="22" height="22"><use href="#i-arrow"></use></svg></div>
+    </section>
+
+    <section class="mid-grid" aria-label="分析处理区域">
+      <article class="card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico green"><use href="#i-leaf"></use></svg>服务分析</span>
+        </div>
+        <div class="service-metrics">
+          <div class="service-box客流">
+            <div class="service-label">客流(到/发)</div>
+            <div class="service-value blue">12,458</div>
+            <div class="service-value green">11,832</div>
+          </div>
+          <div class="service-box安全">
+            <div class="service-label">安全指数</div>
+            <div class="service-value green large">94分</div>
+            <span class="pill ok">安全</span>
+          </div>
+          <div class="service-box雷达">
+            <svg viewBox="-20 -8 200 176" class="radar-chart" aria-label="环境雷达图">
+              <polygon points="80,18 134,50 114,118 46,118 26,50" fill="rgba(18,104,255,0.12)" stroke="#b9cef2" stroke-width="1.5"/>
+              <polygon points="80,38 118,60 102,106 58,106 42,60" fill="rgba(18,104,255,0.08)" stroke="#d8e5f7" stroke-width="1"/>
+              <polygon points="80,58 102,70 92,94 68,94 58,70" fill="rgba(18,104,255,0.06)" stroke="#e8eef7" stroke-width="1"/>
+              <line x1="80" y1="80" x2="80" y2="18" stroke="#c9d8f0" stroke-width="1"/>
+              <line x1="80" y1="80" x2="134" y2="50" stroke="#c9d8f0" stroke-width="1"/>
+              <line x1="80" y1="80" x2="114" y2="118" stroke="#c9d8f0" stroke-width="1"/>
+              <line x1="80" y1="80" x2="46" y2="118" stroke="#c9d8f0" stroke-width="1"/>
+              <line x1="80" y1="80" x2="26" y2="50" stroke="#c9d8f0" stroke-width="1"/>
+              <polygon points="80,28 124,54 108,110 52,110 34,58" fill="rgba(18,104,255,0.22)" stroke="#1268ff" stroke-width="2"/>
+              <circle cx="80" cy="28" r="3.5" fill="#1268ff"/>
+              <circle cx="124" cy="54" r="3.5" fill="#1268ff"/>
+              <circle cx="108" cy="110" r="3.5" fill="#1268ff"/>
+              <circle cx="52" cy="110" r="3.5" fill="#1268ff"/>
+              <circle cx="34" cy="58" r="3.5" fill="#1268ff"/>
+              <text x="80" y="10" text-anchor="middle" class="tick" font-size="11">温度</text>
+              <text x="138" y="50" text-anchor="start" class="tick" font-size="11">湿度</text>
+              <text x="124" y="130" text-anchor="middle" class="tick" font-size="11">照度</text>
+              <text x="36" y="130" text-anchor="middle" class="tick" font-size="11">气味</text>
+              <text x="22" y="50" text-anchor="end" class="tick" font-size="11">噪声</text>
+              <text x="80" y="84" text-anchor="middle" font-size="20" font-weight="900" fill="#08ae66">90</text>
+            </svg>
+          </div>
+        </div>
+        <div class="analysis">
+          <p><strong>分析结论</strong>当前站房客流平稳，安全指数 94 分处于安全区间，环境整体达标，服务保障态势良好。</p>
+          <p><strong class="suggest">建议措施</strong>可结合客流变化动态优化环境调控，持续维持旅客服务体验。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico"><use href="#i-gear"></use></svg>设备分析</span>
+        </div>
+        <div class="device-stats">
+        <div class="device-box故障">
+          <div class="device-label">故障</div>
+          <div class="device-value red">1</div>
+        </div>
+          <div class="device-box告警">
+            <div class="device-label">告警</div>
+            <div class="device-value orange">1</div>
+          </div>
+          <div class="device-box维修">
+            <div class="device-label">维修</div>
+            <div class="device-value green">1</div>
+          </div>
+        </div>
+        <div class="analysis">
+          <p><strong>分析结论</strong>3号水泵轴承振动超标（4.8mm/s），B区空调回风温度偏高（28.5°C），A区电梯存在轻微异响待检修。</p>
+<!--          ，1台电梯存在轻微异响待检修        3. 对异响电梯加强巡检频次，周末安排维保。 -->
+          <p><strong class="suggest">建议措施</strong>1. 优先安排3号水泵停机检修，更换轴承；2. 检查B区空调压缩机运行状态；3. 对异响电梯加强巡检频次，周末安排维保。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico red"><use href="#i-bell"></use></svg>预警处理</span>
+        </div>
+        <div class="metric-row warning-stats">
+          <div class="metric"><span class="label">告警总数</span><span class="value red-text">12</span></div>
+          <div class="metric"><span class="label">已处理</span><span class="value green-text">8</span></div>
+          <div class="metric"><span class="label">处理中</span><span class="value orange-text">2</span></div>
+          <div class="metric"><span class="label">待处理</span><span class="value red-text">2</span></div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="analysis">
+          <p><strong>分析结论</strong>当前 2 条待处理告警需尽快处理，设备影响运行。</p>
+          <p><strong class="suggest">建议措施</strong>优先处理高温报警与设备离线告警，完成后检查相关工单。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico purple"><use href="#i-flower"></use></svg><span class="blue-text">AI主动建议</span></span>
+          <span class="more">更多 <svg width="14" height="14"><use href="#i-arrow"></use></svg></span>
+        </div>
+        <div class="suggestions">
+          <div class="suggestion">
+<!--            <svg class="ico green"><use href="#i-leaf"></use></svg>-->
+            <svg class="ico orange"><use href="#i-bolt"></use></svg>
+            <span>建议对二站台温湿度阈值，期望湿度至 60%以下</span><b class="action">一键执行</b></div>
+          <div class="suggestion"><svg class="ico orange"><use href="#i-bolt"></use></svg><span>建议对二站台新风提升至 3500m³/h</span><b class="action">一键执行</b></div>
+          <div class="suggestion"><svg class="ico"><use href="#i-snow"></use></svg>
+
+            <span>建议对冷源 2# 进行换热保养</span><b class="action">自动派单</b></div>
+          <div class="suggestion">
+            <svg class="ico"><use href="#i-gear"></use></svg>
+<!--            <svg class="ico orange"><use href="#i-bell"></use></svg>-->
+            <span>排风机1#离线告警建议优先处理</span><b class="action">生成工单</b></div>
+        </div>
+      </article>
+    </section>
+
+    <div class="divider-title title-brand" ><span>底座实时监控</span></div>
+    <section class="bottom-grid " aria-label="底座实时监控">
+      <article class="card">
+        <div class="card-title">
+          <span class="title-left"><svg class="ico"><use href="#i-cube"></use></svg>算力实时指标</span>
+        </div>
+        <div class="compute-grid">
+          <div class="metric"><span class="label">GPU使用率</span><span class="value">68%</span></div>
+          <div class="metric"><span class="label">正在处理请求数</span><span class="value">128</span></div>
+          <div class="metric"><span class="label">排队请求数</span><span class="value">36</span></div>
+          <div class="metric"><span class="label">吞吐量(token/秒)</span><span class="value">1,248</span></div>
+          <div class="metric"><span class="label">推理耗时(ms)</span><span class="value">86</span></div>
+          <div class="metric"><span class="label">失败请求数</span><span class="value">2</span></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="agent-title"><span class="title-left">
+<!--            <svg class="ico green"><use href="#i-leaf"></use></svg>-->
+          <svg class="ico orange"><use href="#i-bolt"></use></svg>
+          </svg>能管Agent</span><span class="run-tag"><i class="dot"></i>运行中</span></div>
+        <div class="agent-layout">
+          <div class="ring" style="--p:94"><span><b>120/128</b><small>已确认/今日决策</small></span></div>
+          <div class="agent-kv">
+            <span>在线状态</span><span class="right green-text">在线</span>
+            <span>运行时长</span><span class="right">12天 4小时</span>
+            <span>决策成功率</span><span class="right">96.2%</span>
+            <span>API调用次数</span><span class="right">12,456</span>
+            <span>平均响应时间</span><span class="right">320 ms</span>
+            <span>词元消耗</span><span class="right">15.87M</span>
+          </div>
+        </div>
+        <div class="agent-footer" style="margin: 10px 20px; font-size: 13px; font-weight: 900; display: flex;flex-flow: row;">
+          较昨日 <span class="green-text" style="margin-left:4px"> ↓ 4%</span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="agent-title"><span class="title-left">
+
+          <svg class="ico"><use href="#i-gear"></use></svg>
+          客流压力Agent</span><span class="run-tag"><i class="dot"></i>运行中</span></div>
+        <div class="agent-layout">
+          <div class="ring" style="--p:92"><span><b>88/96</b><small>已确认/今日决策</small></span></div>
+          <div class="agent-kv">
+            <span>在线状态</span><span class="right green-text">在线</span>
+            <span>运行时长</span><span class="right">15天 8小时</span>
+            <span>决策成功率</span><span class="right">95.6%</span>
+            <span>API调用次数</span><span class="right">75,789</span>
+            <span>平均响应时间</span><span class="right">280 ms</span>
+            <span>词元消耗</span><span class="right">10.67M</span>
+          </div>
+        </div>
+        <div class="agent-footer" style="margin: 10px 20px; font-size: 13px; font-weight: 900; display: flex;flex-flow: row;">
+          较昨日 <span class="green-text" style="margin-left:4px"> ↓ 3%</span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="agent-title"><span class="title-left"><svg class="ico"><use href="#i-chip"></use></svg>智慧助手</span><span class="run-tag"><i class="dot"></i>在线</span></div>
+        <div class="cooling-layout">
+          <div>
+            <div class="compute-grid" style="grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px;">
+              <div class="metric" style="min-height: 72px;"><span class="label">今日对话</span><span class="value">156</span></div>
+              <div class="metric" style="min-height: 72px;"><span class="label">平均响应</span><span class="value">1.2s</span></div>
+              <div class="metric" style="min-height: 72px;"><span class="label">满意度</span><span class="value green-text">98%</span></div>
+              <div class="metric" style="min-height: 72px;"><span class="label">解决问题</span><span class="value">142</span></div>
+            </div>
+          </div>
+          <div class="agent-kv">
+            <span>在线状态</span><span class="right green-text">在线</span>
+            <span>运行时长</span><span class="right">30天 12小时</span>
+            <span>累计对话</span><span class="right">4,567</span>
+            <span>知识条目</span><span class="right">231</span>
+            <span>模型版本</span><span class="right">v2.4.1</span>
+            <span>支持能力</span><span class="right">6项</span>
+          </div>
+        </div>
+        <div class="agent-footer" style="margin: 10px 20px 0; font-size: 13px; font-weight: 900;">
+          <span class="blue-text">💡 AI洞察：</span>B区空调温度偏高，建议调低设定值1-2°C
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="agent-title"><span class="title-left"><svg class="ico"><use href="#i-cube"></use></svg>知识库统计</span></div>
+        <div class="knowledge-layout">
+          <div class="knowledge-ring"><span><b>231</b><small>总条目</small></span></div>
+          <div class="k-legend">
+            <span><i class="legend-dot" style="background:#156dff"></i>标准</span>
+            <span><i class="legend-dot" style="background:#1fc3d7"></i>规范</span>
+            <span><i class="legend-dot" style="background:#10b86b"></i>工程</span>
+            <span><i class="legend-dot" style="background:#ff9933"></i>经验</span>
+            <span><i class="legend-dot" style="background:#7b63f0"></i>预案</span>
+            <span><i class="legend-dot" style="background:#ff4444"></i>指标</span>
+            <span><i class="legend-dot" style="background:#20c4d6"></i>算法</span>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px;">
+          <div class="metric" style="min-height: 68px; padding: 8px 6px;">
+            <span class="label">检索次数</span>
+            <span class="value blue-text">3,456</span>
+          </div>
+          <div class="metric" style="min-height: 68px; padding: 8px 6px;">
+            <span class="label">知识命中率</span>
+            <span class="value green-text">87.5%</span>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <button class="assistant-fab" onclick="toggleAssistant()" aria-label="智慧助手">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  </button>
+
+  <div class="assistant-panel" id="assistantPanel">
+    <div class="assistant-header">
+      <div class="assistant-header-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        智慧助手
+      </div>
+      <button class="assistant-close" onclick="toggleAssistant()" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="assistant-messages" id="assistantMessages">
+      <div class="assistant-message bot">您好！我是智慧助手，请问有什么可以帮助您的？</div>
+    </div>
+    <div class="assistant-input-area">
+      <input class="assistant-input" id="assistantInput" placeholder="输入您的问题..." onkeypress="handleAssistantKeyPress(event)">
+      <button class="assistant-send" onclick="sendAssistantMessage()" aria-label="发送">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function toggleAssistant() {
+      const panel = document.getElementById('assistantPanel');
+      panel.classList.toggle('active');
+    }
+
+    function sendAssistantMessage() {
+      const input = document.getElementById('assistantInput');
+      const messages = document.getElementById('assistantMessages');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const userMsg = document.createElement('div');
+      userMsg.className = 'assistant-message user';
+      userMsg.textContent = text;
+      messages.appendChild(userMsg);
+
+      input.value = '';
+      messages.scrollTop = messages.scrollHeight;
+
+      setTimeout(() => {
+        const botMsg = document.createElement('div');
+        botMsg.className = 'assistant-message bot';
+        botMsg.textContent = '收到您的问题，我正在为您分析...';
+        messages.appendChild(botMsg);
+        messages.scrollTop = messages.scrollHeight;
+      }, 500);
+    }
+
+    function handleAssistantKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendAssistantMessage();
+      }
+    }
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next === 'light' ? '' : 'dark');
+      localStorage.setItem('theme', next);
+    }
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+</body>
+</html>

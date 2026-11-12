@@ -1,0 +1,2738 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0a0f1d;
+        }
+
+        .h-full {
+            height: 90%;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .agent-group {
+            transition: filter 0.3s ease;
+        }
+
+        .agent-group:hover {
+            cursor: pointer;
+        }
+
+        .agent-a:hover {
+            filter: url(#glow-a);
+        }
+
+        .agent-b:hover {
+            filter: url(#glow-b);
+        }
+
+        .agent-c:hover {
+            filter: url(#glow-c);
+        }
+
+        .agent-d:hover {
+            filter: url(#glow-d);
+        }
+
+        .agent-e:hover {
+            filter: url(#glow-e);
+        }
+
+        .agent-f:hover {
+            filter: url(#glow-f);
+        }
+
+        .info-card {
+            position: fixed;
+            display: none;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 220px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .info-card.show {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .info-card-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: white;
+        }
+
+        .info-card-name {
+            color: #e5e7eb;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .info-card-role {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .info-card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .info-card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-card-label {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .info-card-value {
+            color: #e5e7eb;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .status-resting {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-meeting {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .status-working {
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        .status-moving {
+            background: rgba(168, 85, 247, 0.2);
+            color: #a855f7;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .info-card-footer {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #334155;
+            display: flex;
+            gap: 8px;
+        }
+
+        .info-card-btn {
+            flex: 1;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .info-card-btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .info-card-btn-primary:hover {
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+        }
+
+        .info-card-btn-secondary {
+            background: #334155;
+            color: #9ca3af;
+        }
+
+        .info-card-btn-secondary:hover {
+            background: #475569;
+            color: #e5e7eb;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- svg容器 -->
+    <svg viewBox="0 0 1200 700" class="h-full w-full" preserveAspectRatio="xMidYMid meet">
+        <defs>
+            <filter id="building-shadow" x="-3%" y="-3%" width="106%" height="106%">
+                <feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity="0.5"></feDropShadow>
+            </filter>
+            <filter id="glow-a" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#ec4899" flood-opacity="0.6"></feDropShadow>
+                <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#ec4899" flood-opacity="0.3"></feDropShadow>
+            </filter>
+            <filter id="glow-b" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#8b5cf6" flood-opacity="0.6"></feDropShadow>
+                <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#8b5cf6" flood-opacity="0.3"></feDropShadow>
+            </filter>
+            <filter id="glow-c" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#22c55e" flood-opacity="0.6"></feDropShadow>
+                <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#22c55e" flood-opacity="0.3"></feDropShadow>
+            </filter>
+            <filter id="glow-d" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#eab308" flood-opacity="0.6"></feDropShadow>
+                <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#eab308" flood-opacity="0.3"></feDropShadow>
+            </filter>
+            <filter id="glow-e" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#3b82f6" flood-opacity="0.6"></feDropShadow>
+                <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#3b82f6" flood-opacity="0.3"></feDropShadow>
+            </filter>
+            <filter id="glow-f" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#f97316" flood-opacity="0.6"></feDropShadow>
+                <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#f97316" flood-opacity="0.3"></feDropShadow>
+            </filter>
+            <!-- 渐变定义 -->
+            <linearGradient id="fixed-workspace-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e293b"></stop>
+                <stop offset="100%" stop-color="#0f172a"></stop>
+            </linearGradient>
+            <!--  真实瓷砖拼接纹理（深浅方块交错） -->
+            <pattern id="tile-floor" width="20" height="20" patternUnits="userSpaceOnUse">
+                <rect width="20" height="20" fill="#0f172a" />
+                <rect x="0" y="0" width="10" height="10" fill="#1e293b" />
+                <rect x="10" y="10" width="10" height="10" fill="#1e293b" />
+            </pattern>
+            <!-- 走廊发光边缘 -->
+            <filter id="glow">
+                <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
+                <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+            <clipPath id="avatar-clip-main">
+                <circle r="18"></circle>
+            </clipPath>
+            <!-- 标题卡片阴影 -->
+            <filter id="title-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.4"></feDropShadow>
+            </filter>
+            <!-- 办公区标题渐变 -->
+            <linearGradient id="title-gradient-work" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e3a5f"></stop>
+                <stop offset="100%" stop-color="#0f172a"></stop>
+            </linearGradient>
+            <!-- 会议区标题渐变 -->
+            <linearGradient id="title-gradient-meet" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#2d1f4e"></stop>
+                <stop offset="100%" stop-color="#1a0f2e"></stop>
+            </linearGradient>
+            <!-- 忙碌区标题渐变 -->
+            <linearGradient id="title-gradient-busy" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3d2f0f"></stop>
+                <stop offset="100%" stop-color="#1a1408"></stop>
+            </linearGradient>
+            <!-- 休息区标题渐变 -->
+            <linearGradient id="title-gradient-rest" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1a3d2f"></stop>
+                <stop offset="100%" stop-color="#0a1f15"></stop>
+            </linearGradient>
+            <!-- Agent人物形象symbol - 多种颜色 -->
+            <symbol id="agent-avatar-a" viewBox="0 0 2000 2000">
+                <image href="file_pink.svg" x="0" y="0" width="2000" height="2000" />
+            </symbol>
+            <symbol id="agent-avatar-b" viewBox="0 0 2000 2000">
+                <image href="file_purple.svg" x="0" y="0" width="2000" height="2000" />
+            </symbol>
+            <symbol id="agent-avatar-c" viewBox="0 0 2000 2000">
+                <image href="file_green.svg" x="0" y="0" width="2000" height="2000" />
+            </symbol>
+            <symbol id="agent-avatar-d" viewBox="0 0 2000 2000">
+                <image href="file_orange.svg" x="0" y="0" width="2000" height="2000" />
+            </symbol>
+            <symbol id="agent-avatar-e" viewBox="0 0 2000 2000">
+                <image href="file_blue.svg" x="0" y="0" width="2000" height="2000" />
+            </symbol>
+            <symbol id="agent-avatar-f" viewBox="0 0 2000 2000">
+                <image href="file_red.svg" x="0" y="0" width="2000" height="2000" />
+            </symbol>
+        </defs>
+        <rect x="30" y="20" width="1140" height="660" rx="0" fill="#0f172a" stroke="#475569" stroke-width="6"
+            filter="url(#building-shadow)"></rect>
+        <rect x="30" y="20" width="556" height="316" opacity="2" fill="#0f172a"></rect>
+        <rect x="614" y="20" width="556" height="316" opacity="2" fill="#1e293b"></rect>
+        <rect x="30" y="364" width="556" height="316" opacity="2" fill="#0c1e39"></rect>
+        <rect x="614" y="364" width="556" height="316" opacity="2" fill="#180c24"></rect>
+        <!-- 走廊 -->
+        <g>
+            <!-- 你的十字走廊（瓷砖地面） -->
+            <rect x="30" y="336" width="1140" height="25" fill="url(#tile-floor)"></rect>
+            <rect x="586" y="20" width="25" height="660" fill="url(#tile-floor)"></rect>
+
+            <!--  暗淡轮廓线（分段绘制，避开交叉处） -->
+            <!-- 横向走廊上边线 -->
+            <line x1="30" y1="335" x2="585" y2="335" stroke="#334155" stroke-width="5" />
+            <line x1="611" y1="335" x2="1170" y2="335" stroke="#334155" stroke-width="5" />
+            <!-- 横向走廊下边线 -->
+            <line x1="30" y1="361" x2="585" y2="361" stroke="#334155" stroke-width="5" />
+            <line x1="611" y1="361" x2="1170" y2="361" stroke="#334155" stroke-width="5" />
+            <!-- 纵向走廊左边线 -->
+            <line x1="585" y1="20" x2="585" y2="335" stroke="#334155" stroke-width="5" />
+            <line x1="585" y1="361" x2="585" y2="680" stroke="#334155" stroke-width="5" />
+            <!-- 纵向走廊右边线 -->
+            <line x1="611" y1="20" x2="611" y2="335" stroke="#334155" stroke-width="5" />
+            <line x1="611" y1="361" x2="611" y2="680" stroke="#334155" stroke-width="5" />
+            <!-- 左上区域门 -->
+            <line x1="500" y1="335" x2="430" y2="335" stroke="#0f172a" stroke-width="6"></line>
+            <line x1="430" y1="335" x2="430" y2="300" stroke="#334155" stroke-width="6"></line>
+            <line x1="500" y1="300" x2="500" y2="335" stroke="#334155" stroke-width="6"></line>
+            <!-- 左下区域门 -->
+            <line x1="300" y1="361" x2="230" y2="361" stroke="#0c1e39" stroke-width="6"></line>
+            <line x1="230" y1="361" x2="230" y2="396" stroke="#334155" stroke-width="6"></line>
+            <line x1="300" y1="396" x2="300" y2="361" stroke="#334155" stroke-width="6"></line>
+            <!-- 右上区域门 -->
+            <line x1="650" y1="335" x2="720" y2="335" stroke="#1e293b" stroke-width="6"></line>
+            <line x1="720" y1="335" x2="720" y2="300" stroke="#334155" stroke-width="6"></line>
+            <line x1="650" y1="300" x2="650" y2="335" stroke="#334155" stroke-width="6"></line>
+            <!-- 右下区域门 -->
+            <line x1="800" y1="361" x2="870" y2="361" stroke="#180c24" stroke-width="6"></line>
+            <line x1="800" y1="361" x2="800" y2="396" stroke="#334155" stroke-width="6"></line>
+            <line x1="870" y1="396" x2="870" y2="361" stroke="#334155" stroke-width="6"></line>
+        </g>
+        <!-- 办公区 -->
+        <g id="desk1" transform="translate(100, 100) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-1"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#fff59d" stroke="#fbc02d" stroke-width="1"
+                    transform="rotate(-5)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+                <path d="M20,5 Q18,-8 25,-5" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M20,5 Q18,-8 25,-5;M20,3 Q18,-12 25,-8;M20,5 Q18,-8 25,-5"
+                        dur="2.5s" repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk2" transform="translate(240, 100) scale(0.2)">
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-2"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- ================= 椅子 ==================== -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#a8e6cf" stroke="#56ab91" stroke-width="1"
+                    transform="rotate(3)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk3" transform="translate(380, 100) scale(0.2)">
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-3"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- ==================== 椅子 ==================== -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#ffccbc" stroke="#ff8a65" stroke-width="1"
+                    transform="rotate(-8)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <!-- ==================== 办公区服务器机架 ==================== -->
+        <g id="server-rack-1" transform="translate(35, 250)">
+            <rect x="0" y="0" width="45" height="80" rx="3" fill="#1a1a2e" stroke="#3b82f6" stroke-width="1.5" />
+            <rect x="3" y="3" width="39" height="74" rx="2" fill="#16213e" stroke="#0f3460" stroke-width="1" />
+            <rect x="6" y="8" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="24" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="40" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="56" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <circle cx="10" cy="14" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="14" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="10" cy="30" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="30" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="10" cy="46" r="2" fill="#3b82f6">
+                <animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="46" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="10" cy="62" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.3s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="62" r="2" fill="#f59e0b">
+                <animate attributeName="opacity" values="1;0.4;1" dur="0.6s" repeatCount="indefinite" />
+            </circle>
+            <line x1="22" y1="12" x2="35" y2="12" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="14" x2="30" y2="14" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="28" x2="35" y2="28" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="30" x2="32" y2="30" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="44" x2="35" y2="44" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="46" x2="28" y2="46" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="60" x2="35" y2="60" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="62" x2="30" y2="62" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="70" width="33" height="4" rx="1" fill="#0f3460" />
+            <text x="22.5" y="73" fill="#3b82f6" font-size="3" text-anchor="middle"
+                font-family="monospace">IoT-SRV1</text>
+        </g>
+        <g id="server-rack-2" transform="translate(85, 250)">
+            <rect x="0" y="0" width="45" height="80" rx="3" fill="#1a1a2e" stroke="#3b82f6" stroke-width="1.5" />
+            <rect x="3" y="3" width="39" height="74" rx="2" fill="#16213e" stroke="#0f3460" stroke-width="1" />
+            <rect x="6" y="8" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="24" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="40" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="56" width="33" height="12" rx="1" fill="#1a1a2e" stroke="#3b82f6" stroke-width="0.5" />
+            <circle cx="10" cy="14" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.1s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="14" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="10" cy="30" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="30" r="2" fill="#3b82f6">
+                <animate attributeName="opacity" values="1;0.5;1" dur="1.8s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="10" cy="46" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="46" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="10" cy="62" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="0.7s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="16" cy="62" r="2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite" />
+            </circle>
+            <line x1="22" y1="12" x2="35" y2="12" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="14" x2="32" y2="14" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="28" x2="35" y2="28" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="30" x2="28" y2="30" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="44" x2="35" y2="44" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="46" x2="30" y2="46" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="60" x2="35" y2="60" stroke="#3b82f6" stroke-width="0.5" />
+            <line x1="22" y1="62" x2="32" y2="62" stroke="#3b82f6" stroke-width="0.5" />
+            <rect x="6" y="70" width="33" height="4" rx="1" fill="#0f3460" />
+            <text x="22.5" y="73" fill="#3b82f6" font-size="3" text-anchor="middle"
+                font-family="monospace">IoT-SRV2</text>
+        </g>
+        <!-- 区域标题 -->
+        <g>
+            <!-- 办公区标题卡片 -->
+            <g transform="translate(418, 25)">
+                <rect x="0" y="0" width="160" height="22" rx="6" fill="url(#title-gradient-work)" stroke="#3b82f6"
+                    opacity="0.5" stroke-width="1.5" filter="url(#title-shadow)" />
+                <circle cx="16" cy="12" r="5" fill="#3b82f6" opacity="0.8" />
+                <text x="85" y="16" fill="#e2e8f0" font-size="13" font-weight="700" letter-spacing="6px"
+                    text-anchor="middle">办公区</text>
+            </g>
+            <!-- 会议区标题卡片 -->
+            <g transform="translate(1005, 25)">
+                <rect x="0" y="0" width="160" height="22" rx="6" fill="url(#title-gradient-meet)" stroke="#8b5cf6"
+                    opacity="0.5" stroke-width="1.5" filter="url(#title-shadow)" />
+                <circle cx="16" cy="12" r="5" fill="#8b5cf6" opacity="0.8" />
+                <text x="85" y="16" fill="#e2e8f0" font-size="13" font-weight="700" letter-spacing="6px"
+                    text-anchor="middle">会议区</text>
+            </g>
+            <!-- 忙碌区标题卡片 -->
+            <g transform="translate(418, 370)">
+                <rect x="0" y="0" width="160" height="22" rx="6" fill="url(#title-gradient-busy)" stroke="#f59e0b"
+                    opacity="0.5" stroke-width="1.5" filter="url(#title-shadow)" />
+                <circle cx="16" cy="12" r="5" fill="#f59e0b" opacity="0.8" />
+                <text x="85" y="16" fill="#e2e8f0" font-size="13" font-weight="700" letter-spacing="6px"
+                    text-anchor="middle">忙碌区</text>
+            </g>
+            <!-- 休息区标题卡片 -->
+            <g transform="translate(1005, 370)">
+                <rect x="0" y="0" width="160" height="22" rx="6" fill="url(#title-gradient-rest)" stroke="#22c55e"
+                    opacity="0.5" stroke-width="1.5" filter="url(#title-shadow)" />
+                <circle cx="16" cy="12" r="5" fill="#22c55e" opacity="0.8" />
+                <text x="85" y="16" fill="#e2e8f0" font-size="13" font-weight="700" letter-spacing="6px"
+                    text-anchor="middle">休息区</text>
+            </g>
+        </g>
+        <!------------------ 会议区 -------------------->
+        <g transform="translate(50, -30)">
+            <g transform="translate(780, 110)">
+                <rect width="100" height="200" rx="6" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <!-- 内层 -->
+                <rect x="3" y="3" width="94" height="194" rx="4" fill="#162334" stroke="#2f3e52" stroke-width="2" />
+            </g>
+
+            <!-- 左上 -->
+            <g transform="translate(700, 100) scale(0.3) rotate(90,150,130)">
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+            </g>
+            <!-- 左中 -->
+            <g transform="translate(700, 175) scale(0.3) rotate(90,150,130)">
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+            </g>
+
+            <!-- 左下 -->
+            <g transform="translate(700, 250) scale(0.3) rotate(90,150,130)">
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+            </g>
+
+            <!-- 右上 -->
+            <g transform="translate(870, 100) scale(0.3) rotate(-90,150,130)">
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+            </g>
+            <!-- 右中 -->
+            <g transform="translate(870, 175) scale(0.3) rotate(-90,150,130)">
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+            </g>
+
+            <!-- 右下 -->
+            <g transform="translate(870, 250) scale(0.3) rotate(-90,150,130)">
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+            </g>
+            <g>
+                <text x="785" y="140" font-size="15" letter-spacing="10px">☕</text>
+                <text x="810" y="140" font-size="15" letter-spacing="10px">📝</text>
+            </g>
+            <!-- 会议桌上的物品 -->
+            <g transform="translate(790, 180)">
+                <rect x="0" y="0" width="35" height="25" rx="2" fill="#3d3d5c" stroke="#5a5a7a" stroke-width="1" />
+                <rect x="3" y="3" width="29" height="19" fill="#1a1a2e" />
+                <line x1="6" y1="8" x2="28" y2="8" stroke="#4a4a6a" stroke-width="0.5" />
+                <line x1="6" y1="12" x2="24" y2="12" stroke="#4a4a6a" stroke-width="0.5" />
+                <line x1="6" y1="16" x2="20" y2="16" stroke="#4a4a6a" stroke-width="0.5" />
+            </g>
+            <g transform="translate(835, 185)">
+                <rect x="0" y="0" width="12" height="20" rx="1" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.5" />
+                <rect x="2" y="2" width="8" height="16" fill="#e8e8e8" />
+                <line x1="3" y1="6" x2="9" y2="6" stroke="#9e9e9e" stroke-width="0.5" />
+                <line x1="3" y1="9" x2="9" y2="9" stroke="#9e9e9e" stroke-width="0.5" />
+                <line x1="3" y1="12" x2="7" y2="12" stroke="#9e9e9e" stroke-width="0.5" />
+            </g>
+            <g transform="translate(855, 230)">
+                <ellipse cx="8" cy="12" rx="8" ry="3" fill="rgba(0,0,0,0.1)" />
+                <rect x="0" y="0" width="16" height="12" rx="8" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.5" />
+                <ellipse cx="8" cy="2" rx="6" ry="2" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="0.5" />
+                <ellipse cx="8" cy="3" rx="5" ry="1.5" fill="#6d4c41" />
+            </g>
+            <!-- 左侧花瓶 -->
+            <g transform="translate(565, 315)">
+                <ellipse cx="12" cy="42" rx="10" ry="3" fill="rgba(0,0,0,0.15)" />
+                <path d="M4,42 L6,15 Q8,8 12,8 Q16,8 18,15 L20,42 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <line x1="12" y1="8" x2="12" y2="-15" stroke="#228b22" stroke-width="2" />
+                <line x1="12" y1="0" x2="6" y2="-20" stroke="#228b22" stroke-width="1.5" />
+                <line x1="12" y1="0" x2="18" y2="-18" stroke="#228b22" stroke-width="1.5" />
+                <ellipse cx="12" cy="-18" rx="6" ry="10" fill="#32cd32" />
+                <ellipse cx="6" cy="-22" rx="4" ry="7" fill="#228b22" />
+                <ellipse cx="18" cy="-20" rx="4" ry="6" fill="#32cd32" />
+            </g>
+            <!-- 右侧花瓶 -->
+            <g transform="translate(1055, 315)">
+                <ellipse cx="12" cy="42" rx="10" ry="3" fill="rgba(0,0,0,0.15)" />
+                <path d="M4,42 L6,15 Q8,8 12,8 Q16,8 18,15 L20,42 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <line x1="12" y1="8" x2="12" y2="-12" stroke="#228b22" stroke-width="2" />
+                <line x1="12" y1="0" x2="7" y2="-18" stroke="#228b22" stroke-width="1.5" />
+                <line x1="12" y1="0" x2="17" y2="-16" stroke="#228b22" stroke-width="1.5" />
+                <ellipse cx="12" cy="-15" rx="5" ry="8" fill="#32cd32" />
+                <ellipse cx="7" cy="-19" rx="3" ry="5" fill="#228b22" />
+                <ellipse cx="17" cy="-17" rx="3" ry="5" fill="#32cd32" />
+            </g>
+        </g>
+        <!-- 忙碌区 -->
+        <g id="desk4" transform="translate(100, 400) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-4"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#b3e5fc" stroke="#4fc3f7" stroke-width="1"
+                    transform="rotate(5)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk5" transform="translate(240, 400) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-5"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#e1bee7" stroke="#ba68c8" stroke-width="1"
+                    transform="rotate(-3)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk6" transform="translate(380, 400) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-6"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#ffcdd2" stroke="#ef9a9a" stroke-width="1"
+                    transform="rotate(7)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk7" transform="translate(100, 520) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-7"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#c8e6c9" stroke="#81c784" stroke-width="1"
+                    transform="rotate(-6)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk8" transform="translate(240, 520) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-8"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#ffe0b2" stroke="#ffb74d" stroke-width="1"
+                    transform="rotate(4)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <g id="desk9" transform="translate(380, 520) scale(0.2)">
+
+            <rect x="0" y="75" width="500" height="350" rx="6" fill="url(#fixed-workspace-gradient)" stroke="#334155"
+                stroke-width="3.5" />
+            <!-- ==================== 笔记本电脑 ==================== -->
+            <g transform="translate(100, 120) scale(1.7)">
+                <rect x="0" y="0" width="180" height="110" rx="4" fill="#2d3748" stroke="#4a5568" stroke-width="2" />
+                <rect x="8" y="8" width="164" height="94" fill="#1a202c" />
+                <!-- 代码滚动动画 - 由JS动态生成 -->
+                <g id="code-container-9"></g>
+                <rect x="-5" y="115" width="190" height="40" rx="2" fill="#4a5568" />
+            </g>
+            <!-- ==================== 键盘 ==================== -->
+            <g transform="translate(100, 325) scale(1.7)">
+                <rect x="0" y="0" width="150" height="30" rx="3" fill="#2d3748" stroke="#4a5568" stroke-width="1" />
+                <rect x="10" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="26" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="4" width="30" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="120" y="4" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="12" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="12" width="17" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="5" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="20" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="35" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="50" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="65" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="80" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="95" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="110" y="20" width="12" height="5" rx="0.5" fill="#4a5568" />
+                <rect x="125" y="20" width="17" height="5" rx="0.5" fill="#4a5568" />
+            </g>
+            <!-- ==================== 鼠标 ==================== -->
+            <g transform="translate(375, 350) scale(1)">
+                <rect x="-15" y="-25" width="30" height="50" rx="15" ry="15" fill="#b8c8d8" stroke="#7a8ca0"
+                    stroke-width="1" />
+                <line x1="-15" y1="0" x2="15" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <rect x="-4" y="-20" width="8" height="16" rx="15" fill="#7a8ca0" />
+                <line x1="0" y1="-25" x2="0" y2="0" stroke="#7a8ca0" stroke-width="1" />
+                <path d="M0,-25 C5,-35 15,-35 20,-25 C25,-15 35,-15 40,-25" stroke="#7a8ca0" stroke-width="4"
+                    fill="none" stroke-linecap="round" />
+            </g>
+            <!-- 椅子 -->
+            <g transform="translate(90, 400) scale(1)">
+
+                <!-- 坐垫阴影（更扁平） -->
+                <ellipse cx="150" cy="185" rx="60" ry="12" fill="rgba(0,0,0,0.15)" />
+
+                <!-- 坐垫主体（更硬朗） -->
+                <circle cx="150" cy="130" r="70" fill="#1f2d3d" stroke="#4a5568" stroke-width="3" />
+
+                <!-- 内圈（UI风装饰） -->
+                <circle cx="150" cy="130" r="45" fill="none" stroke="#4a5568" stroke-width="2" stroke-dasharray="3,5" />
+
+                <!-- 靠背（更几何化） -->
+                <path d="M 95 175 A 70 70 0 0 0 205 175 L 195 200 A 90 90 0 0 1 105 200 Z" fill="#243447"
+                    stroke="#4a5568" stroke-width="3" />
+
+                <!-- 靠背结构线（更机械感） -->
+                <path d="M 110 180 A 55 55 0 0 0 190 180" fill="none" stroke="#4a5568" stroke-width="2" />
+            </g>
+            <!-- ==================== 桌面装饰：小植物 ==================== -->
+            <g transform="translate(20, 150) scale(1.8)">
+                <rect x="0" y="30" width="30" height="25" rx="3" fill="#8b5a2b" stroke="#6b4423" stroke-width="1" />
+                <ellipse cx="15" cy="30" rx="18" ry="5" fill="#228b22" />
+                <ellipse cx="10" cy="22" rx="12" ry="8" fill="#32cd32" />
+                <ellipse cx="20" cy="20" rx="10" ry="7" fill="#228b22" />
+                <ellipse cx="15" cy="15" rx="8" ry="6" fill="#32cd32" />
+            </g>
+            <!-- ==================== 桌面装饰：便利贴 ==================== -->
+            <g transform="translate(10, 350) scale(1.4)">
+                <rect x="0" y="0" width="40" height="40" fill="#d1c4e9" stroke="#9575cd" stroke-width="1"
+                    transform="rotate(-2)" />
+                <line x1="8" y1="12" x2="32" y2="12" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="20" x2="28" y2="20" stroke="#9e9e9e" stroke-width="1" />
+                <line x1="8" y1="28" x2="25" y2="28" stroke="#9e9e9e" stroke-width="1" />
+            </g>
+            <!-- ==================== 桌面装饰：咖啡杯 ==================== -->
+            <g transform="translate(420, 280) scale(1.5)">
+                <ellipse cx="20" cy="35" rx="18" ry="5" fill="rgba(0,0,0,0.2)" />
+                <path d="M5,10 L8,35 L32,35 L35,10 Z" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="10" rx="15" ry="5" fill="#f5f5f5" stroke="#bdbdbd" stroke-width="1" />
+                <ellipse cx="20" cy="12" rx="12" ry="4" fill="#6d4c41" />
+                <path d="M35,15 Q50,15 50,25 Q50,35 35,35" fill="none" stroke="#bdbdbd" stroke-width="2" />
+                <path d="M10,5 Q8,-5 15,-3" stroke="#bdbdbd" stroke-width="1" fill="none" opacity="0.5">
+                    <animate attributeName="d" values="M10,5 Q8,-5 15,-3;M10,3 Q8,-8 15,-5;M10,5 Q8,-5 15,-3" dur="2s"
+                        repeatCount="indefinite" />
+                </path>
+            </g>
+        </g>
+        <!-- agent A  -->
+        <path id="ag_a_X_to_M" d="M 1050,600 
+       L 835,400 
+       L 835,345 
+       L 265,345 
+       L 265,400 
+       L 220,400 
+       L 220,627 
+       L 290,627" stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_a_X_to_H" d="M 1050,600 
+       L 835,400 
+       L 835,345 
+       L 685,345
+       L 685,260
+       L 795,260
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_a_H_to_M" d="M 795,260 
+       L 685,260 
+       L 685,345 
+       L 265,345
+       L 265,400
+       L 220,400 
+       L 220,627 
+       L 290,627
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_a_X_to_B" d="M 1050,600 
+        L 835,400 
+        L 835,345 
+        L 685,345 
+        L 465,345 
+        L 465,280 
+        L 148,206
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- Agent A: 办公区 → 会议区 -->
+        <path id="ag_a_B_to_H" d="M 148,206 
+        L 465,280 
+        L 465,345 
+        L 685,345 
+        L 685,260 
+        L 795,260
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- Agent A: 办公区 → 忙碌区 -->
+        <path id="ag_a_B_to_M" d="M 148,206 
+        L 465,280 
+        L 465,345 
+        L 265,345 
+        L 265,400 
+        L 220,400 
+        L 220,627 
+        L 290,627
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- agent B -->
+        <path id="ag_b_X_to_M" d="M 800,500 
+       L 835,400 
+       L 835,345 
+       L 265,345 
+       L 265,400 
+       L 510,400
+       L 510,627
+       L 430,627
+       " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_b_X_to_H" d="M 800,500 
+       L 835,400 
+       L 835,345 
+       L 685,345
+       L 685,300
+       L 1050,300
+       L 965,182 
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_b_H_to_M" d="M 965,182 
+       L 1050,300 
+       L 685,300 
+       L 685,345 
+       L 265,345
+       L 265,400
+       L 510,400
+       L 510,627
+       L 430,627
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_b_X_to_B" d="M 800,500 
+        L 835,400 
+        L 835,345 
+        L 685,345 
+        L 465,345 
+        L 465,280 
+        L 290,206
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- Agent B: 办公区 → 会议区 -->
+        <path id="ag_b_B_to_H" d="M 290,206 
+        L 465,280 
+        L 465,345 
+        L 685,345 
+        L 685,300 
+        L 1050,300 
+        L 965,182
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- Agent B: 办公区 → 忙碌区 -->
+        <path id="ag_b_B_to_M" d="M 290,206 
+        L 465,280 
+        L 465,345 
+        L 265,345 
+        L 265,400 
+        L 510,400 
+        L 510,627 
+        L 430,627
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- agent C-->
+        <path id="ag_c_X_to_M" d="M 650,500 
+       L 835,400 
+       L 835,345 
+       L 265,345 
+       L 265,400 
+       L 220,400 
+       L 220,627 
+       L 150,627" stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_c_X_to_H" d="M 650,500 
+       L 835,400 
+       L 835,345 
+       L 685,345
+       L 685,182
+       L 795,182
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_c_H_to_M" d="M 795,182 
+       L 685,182 
+       L 685,345 
+       L 265,345
+       L 265,400
+       L 220,400 
+       L 220,627 
+       L 150,627
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_c_X_to_B" d="M 650,500 
+        L 835,400 
+        L 835,345 
+        L 685,345 
+        L 465,345 
+        L 428,210 
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- Agent C: 办公区 → 会议区 -->
+        <path id="ag_c_B_to_H" d="M 428,210 
+        L 465,345 
+        L 685,345 
+        L 685,182 
+        L 795,182
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- Agent C: 办公区 → 忙碌区 -->
+        <path id="ag_c_B_to_M" d="M 428,210 
+        L 465,345 
+        L 265,345 
+        L 265,400 
+        L 220,400 
+        L 220,627 
+        L 150,627
+        " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- agent D -->
+        <path id="ag_d_X_to_M" d="M 700,600 
+       L 835,400 
+       L 835,345 
+       L 265,345 
+       L 265,400 
+       L 220,400 
+       L 220,505
+       L 150,505
+       " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_d_X_to_H" d="M 700,600 
+       L 835,400 
+       L 835,345 
+       L 685,345
+       L 685,110
+       L 795,110
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_d_H_to_M" d="M 795,110 
+       L 685,110 
+       L 685,345 
+       L 265,345
+       L 265,400
+       L 220,400 
+       L 220,505
+       L 150,505
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- agent E -->
+        <path id="ag_e_X_to_M" d="M 950,400 
+       L 835,400 
+       L 835,345 
+       L 265,345 
+       L 265,400 
+       L 220,400 
+       L 220,505
+       L 290,505
+       " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_e_X_to_H" d="M 950,400 
+       L 835,400 
+       L 835,345 
+       L 685,345
+       L 685,50
+       L 965,50
+       L 965,110 
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_e_H_to_M" d="M 965,110 
+       L 965,50 
+       L 685,50 
+       L 685,345 
+       L 265,345
+       L 265,400
+       L 220,400 
+       L 220,505
+       L 290,505
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <!-- agent F -->
+        <path id="ag_f_X_to_M" d="M 1050,500 
+       L 835,400 
+       L 835,345 
+       L 265,345 
+       L 265,400 
+       L 510,400
+       L 510,510
+       L 430,510
+       " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_f_X_to_H" d="M 1050,500 
+       L 835,400 
+       L 835,345 
+       L 685,345
+       L 685,300
+       L 965,300
+       L 965,260 
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <path id="ag_f_H_to_M" d="M 965,260 
+       L 965,300 
+       L 685,300 
+       L 685,345 
+       L 265,345
+       L 265,400
+       L 510,400
+       L 510,510
+       L 430,510
+      " stroke="#aaa" stroke-width="0" fill="none" />
+        <!------------------- 休息区 ---------------------->
+        <g transform="translate(450, 120)">
+            <!-- 时钟 -->
+            <g id="clock" transform="translate(170, 255) scale(0.7)">
+                <!-- 时钟外框阴影 -->
+                <circle cx="40" cy="40" r="38" fill="rgba(0,0,0,0.3)" />
+                <!-- 时钟外框 -->
+                <circle cx="40" cy="40" r="36" fill="#1e293b" stroke="#4a5568" stroke-width="3" />
+                <!-- 时钟内圈 -->
+                <circle cx="40" cy="40" r="32" fill="#180c24" stroke="#334155" stroke-width="1" />
+                <!-- 时钟刻度 - 小刻度 -->
+                <g stroke="#4a5568" stroke-width="1">
+                    <line x1="40" y1="12" x2="40" y2="16" />
+                    <line x1="40" y1="64" x2="40" y2="68" />
+                    <line x1="12" y1="40" x2="16" y2="40" />
+                    <line x1="64" y1="40" x2="68" y2="40" />
+                </g>
+                <!-- 时钟数字 -->
+                <text x="40" y="22" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="bold">12</text>
+                <text x="62" y="43" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="bold">3</text>
+                <text x="40" y="66" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="bold">6</text>
+                <text x="18" y="43" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="bold">9</text>
+                <!-- 时针 -->
+                <line id="hour-hand" x1="40" y1="40" x2="40" y2="24" stroke="#f8fafc" stroke-width="3"
+                    stroke-linecap="round" />
+                <!-- 分针 -->
+                <line id="minute-hand" x1="40" y1="40" x2="40" y2="18" stroke="#94a3b8" stroke-width="2"
+                    stroke-linecap="round" />
+                <!-- 秒针 -->
+                <line id="second-hand" x1="40" y1="40" x2="40" y2="14" stroke="#ef4444" stroke-width="1"
+                    stroke-linecap="round" />
+                <!-- 中心点 -->
+                <circle cx="40" cy="40" r="3" fill="#f8fafc" />
+                <circle cx="40" cy="40" r="1.5" fill="#ef4444" />
+            </g>
+            <g transform="translate(150, 215) scale(0.5)">
+                <!-- 茶几 -->
+                <rect x="300" y="450" width="200" height="60" rx="10" ry="10" fill="#8b4513" stroke="#5c3317"
+                    stroke-width="3" />
+                <!-- 茶几腿 -->
+                <!-- <rect x="310" y="510" width="20" height="40" fill="#5c3317" />
+                <rect x="470" y="510" width="20" height="40" fill="#5c3317" /> -->
+                <!-- 茶几上的两杯咖啡 -->
+                <text x="350" y="480" font-size="30" letter-spacing="10px">☕</text>
+                <text x="430" y="480" font-size="30" letter-spacing="10px">☕</text>
+            </g>
+            <g transform="translate(350,300) scale(0.5)">
+                <!-- 饮水机主体 -->
+                <rect x="650" y="300" width="70" height="180" rx="10" ry="10" fill="#c0c0c0" stroke="#808080"
+                    stroke-width="3" />
+                <!-- 饮水机水桶 -->
+                <ellipse cx="685" cy="300" rx="35" ry="25" fill="#87ceeb" stroke="#4682b4" stroke-width="3" />
+                <!-- 饮水机按钮 -->
+                <rect x="665" y="352" width="8" height="16" fill="#ff0000" stroke="#800000" stroke-width="2" />
+                <rect x="695" y="352" width="8" height="16" fill="#00ff00" stroke="#008000" stroke-width="2" />
+                <!-- 饮水机出水口 -->
+                <rect x="665" y="390" width="40" height="10" fill="#a5a2a2" />
+                <!-- 饮水机底座 -->
+                <rect x="655" y="480" width="60" height="10" fill="#a9a9a9" />
+            </g>
+            <g transform="translate(320,358) scale(0.5)">
+                <!-- 花盆1 -->
+                <rect x="150" y="350" width="50" height="50" rx="5" ry="5" fill="#ff6347" stroke="#b22222"
+                    stroke-width="3" />
+                <!-- 花1 -->
+                <circle cx="175" cy="340" r="10" fill="#ff69b4" />
+                <circle cx="165" cy="330" r="7" fill="#ff1493" />
+                <circle cx="185" cy="330" r="7" fill="#ff1493" />
+                <!-- 花杆1 -->
+                <rect x="172" y="350" width="6" height="15" fill="#006400" />
+
+                <!-- 花盆2 -->
+                <rect x="250" y="350" width="50" height="50" rx="5" ry="5" fill="#ff8c00" stroke="#b24d00"
+                    stroke-width="3" />
+                <!-- 花2 -->
+                <circle cx="275" cy="340" r="10" fill="#ffff00" />
+                <!-- 花杆2 -->
+                <rect x="272" y="350" width="6" height="15" fill="#228b22" />
+            </g>
+            <g transform="translate(450,130) scale(0.5)">
+                <!-- 花盆3 - 菊花样式 -->
+                <rect x="350" y="350" width="50" height="50" rx="5" ry="5" fill="#8a2be2" stroke="#4b0082"
+                    stroke-width="3" />
+                <!-- 菊花花瓣 -->
+                <g fill="#ffa500" stroke="#ff8c00" stroke-width="1">
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(0 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(45 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(90 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(135 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(180 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(225 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(270 375 335)" />
+                    <ellipse cx="375" cy="335" rx="3" ry="10" transform="rotate(315 375 335)" />
+                </g>
+                <rect x="372" y="350" width="6" height="15" fill="#006400" />
+
+                <!-- 花盆4 - 郁金香样式 -->
+                <rect x="450" y="350" width="50" height="50" rx="5" ry="5" fill="#20b2aa" stroke="#008080"
+                    stroke-width="3" />
+                <path d="M475 350 Q470 335 480 335 Q485 335 480 350 Z" fill="#ff1493" stroke="#c71585"
+                    stroke-width="1" />
+                <rect x="472" y="350" width="6" height="15" fill="#006400" />
+            </g>
+        </g>
+        <!--  双人沙发 -->
+        <g transform="translate(640, 635) rotate(-90) scale(0.6)">
+            <rect x="0" y="10" width="120" height="50" rx="6" fill="#BBDEFB" stroke="#1976D2" stroke-width="1.5" />
+            <rect x="5" y="0" width="110" height="15" rx="4" fill="#90CAF9" stroke="#1976D2" stroke-width="1" />
+            <rect x="-5" y="25" width="15" height="25" rx="3" fill="#90CAF9" stroke="#1976D2" stroke-width="1" />
+            <rect x="110" y="25" width="15" height="25" rx="3" fill="#90CAF9" stroke="#1976D2" stroke-width="1" />
+        </g>
+        <!-- 三人沙发 -->
+        <g transform="translate(840, 650) rotate(180) scale(0.6)">
+            <rect x="0" y="10" width="160" height="50" rx="8" fill="#EEEEEE" stroke="#757575" stroke-width="1.5" />
+            <rect x="5" y="0" width="150" height="18" rx="5" fill="#E0E0E0" stroke="#757575" stroke-width="1" />
+            <rect x="-8" y="30" width="16" height="20" rx="4" fill="#E0E0E0" stroke="#757575" stroke-width="1" />
+            <rect x="152" y="30" width="16" height="20" rx="4" fill="#E0E0E0" stroke="#757575" stroke-width="1" />
+        </g>
+        <!--  单人沙发 -->
+        <g transform="translate(960, 650) rotate(180) scale(0.6)">
+            <rect x="0" y="10" width="70" height="50" rx="6" fill="#B2DFDB" stroke="#00796B" stroke-width="1.5" />
+            <rect x="5" y="0" width="60" height="15" rx="4" fill="#80CBC4" stroke="#00796B" stroke-width="1" />
+            <rect x="-5" y="25" width="15" height="25" rx="3" fill="#80CBC4" stroke="#00796B" stroke-width="1" />
+            <rect x="60" y="25" width="15" height="25" rx="3" fill="#80CBC4" stroke="#00796B" stroke-width="1" />
+        </g>
+        <!-- Agent A -->
+        <g class="agent-group agent-a" transform="translate(1050, 600)">
+            <animateMotion id="agentA" calcMode="linear" fill="freeze" dur="10s" begin="indefinite">
+                <mpath href="#ag_a_X_to_M" />
+            </animateMotion>
+            <circle class="agent-circle" r="20" fill="none" stroke="#ec4899" stroke-width="3"></circle>
+            <g clip-path="url(#avatar-clip-main)">
+                <use href="#agent-avatar-a" x="-18" y="-18" width="36" height="36" />
+            </g>
+            <text x="0" y="35" text-anchor="middle" fill="#e5e7eb" font-size="10">Agent A</text>
+            <g class="status-tag" transform="translate(0, 48)">
+                <rect x="-20" y="-8" width="40" height="14" rx="7" fill="rgba(34, 197, 94, 0.2)"
+                    stroke="rgba(34, 197, 94, 0.4)" stroke-width="0.5" />
+                <text x="0" y="2" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">休息中</text>
+            </g>
+        </g>
+        <!-- Agent B -->
+        <g class="agent-group agent-b" transform="translate(800, 500)">
+            <animateMotion id="agentB" calcMode="linear" fill="freeze" dur="10s" begin="indefinite">
+                <mpath href="#ag_b_X_to_M" />
+            </animateMotion>
+            <circle class="agent-circle" r="20" fill="none" stroke="#8b5cf6" stroke-width="3"></circle>
+            <g clip-path="url(#avatar-clip-main)">
+                <use href="#agent-avatar-b" x="-18" y="-18" width="36" height="36" />
+            </g>
+            <text x="0" y="35" text-anchor="middle" fill="#e5e7eb" font-size="10">Agent B</text>
+            <g class="status-tag" transform="translate(0, 48)">
+                <rect x="-20" y="-8" width="40" height="14" rx="7" fill="rgba(34, 197, 94, 0.2)"
+                    stroke="rgba(34, 197, 94, 0.4)" stroke-width="0.5" />
+                <text x="0" y="2" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">休息中</text>
+            </g>
+        </g>
+        <!-- Agent C -->
+        <g class="agent-group agent-c" transform="translate(650, 500)">
+            <animateMotion id="agentC" calcMode="linear" fill="freeze" dur="10s" begin="indefinite">
+                <mpath href="#ag_c_X_to_M" />
+            </animateMotion>
+            <circle class="agent-circle" r="20" fill="none" stroke="#22c55e" stroke-width="3"></circle>
+            <g clip-path="url(#avatar-clip-main)">
+                <use href="#agent-avatar-c" x="-18" y="-18" width="36" height="36" />
+            </g>
+            <text x="0" y="35" text-anchor="middle" fill="#e5e7eb" font-size="10">Agent C</text>
+            <g class="status-tag" transform="translate(0, 48)">
+                <rect x="-20" y="-8" width="40" height="14" rx="7" fill="rgba(34, 197, 94, 0.2)"
+                    stroke="rgba(34, 197, 94, 0.4)" stroke-width="0.5" />
+                <text x="0" y="2" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">休息中</text>
+            </g>
+        </g>
+        <!-- Agent D -->
+        <g class="agent-group agent-d" transform="translate(700, 600)">
+            <animateMotion id="agentD" calcMode="linear" fill="freeze" dur="10s" begin="indefinite">
+                <mpath href="#ag_d_X_to_M" />
+            </animateMotion>
+            <circle class="agent-circle" r="20" fill="none" stroke="#eab308" stroke-width="3"></circle>
+            <g clip-path="url(#avatar-clip-main)">
+                <use href="#agent-avatar-d" x="-18" y="-18" width="36" height="36" />
+            </g>
+            <text x="0" y="35" text-anchor="middle" fill="#e5e7eb" font-size="10">Agent D</text>
+            <g class="status-tag" transform="translate(0, 48)">
+                <rect x="-20" y="-8" width="40" height="14" rx="7" fill="rgba(34, 197, 94, 0.2)"
+                    stroke="rgba(34, 197, 94, 0.4)" stroke-width="0.5" />
+                <text x="0" y="2" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">休息中</text>
+            </g>
+        </g>
+        <!-- Agent E -->
+        <g class="agent-group agent-e" transform="translate(950, 400)">
+            <animateMotion id="agentE" calcMode="linear" fill="freeze" dur="10s" begin="indefinite">
+                <mpath href="#ag_e_X_to_M" />
+            </animateMotion>
+            <circle class="agent-circle" r="20" fill="none" stroke="#3b82f6" stroke-width="3"></circle>
+            <g clip-path="url(#avatar-clip-main)">
+                <use href="#agent-avatar-e" x="-18" y="-18" width="36" height="36" />
+            </g>
+            <text x="0" y="35" text-anchor="middle" fill="#e5e7eb" font-size="10">Agent E</text>
+            <g class="status-tag" transform="translate(0, 48)">
+                <rect x="-20" y="-8" width="40" height="14" rx="7" fill="rgba(34, 197, 94, 0.2)"
+                    stroke="rgba(34, 197, 94, 0.4)" stroke-width="0.5" />
+                <text x="0" y="2" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">休息中</text>
+            </g>
+        </g>
+        <!-- Agent F -->
+        <g class="agent-group agent-f" transform="translate(1050, 500)">
+            <animateMotion id="agentF" calcMode="linear" fill="freeze" dur="10s" begin="indefinite">
+                <mpath href="#ag_f_X_to_M" />
+            </animateMotion>
+            <circle class="agent-circle" r="20" fill="none" stroke="#f97316" stroke-width="3"></circle>
+            <g clip-path="url(#avatar-clip-main)">
+                <use href="#agent-avatar-f" x="-18" y="-18" width="36" height="36" />
+            </g>
+            <text x="0" y="35" text-anchor="middle" fill="#e5e7eb" font-size="10">Agent F</text>
+            <g class="status-tag" transform="translate(0, 48)">
+                <rect x="-20" y="-8" width="40" height="14" rx="7" fill="rgba(34, 197, 94, 0.2)"
+                    stroke="rgba(34, 197, 94, 0.4)" stroke-width="0.5" />
+                <text x="0" y="2" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">休息中</text>
+            </g>
+        </g>
+    </svg>
+
+    <div id="agentInfoCard" class="info-card">
+        <div class="info-card-header">
+            <div class="info-card-avatar" id="cardAvatar">A</div>
+            <div>
+                <div class="info-card-name" id="cardName">Agent A</div>
+                <div class="info-card-role" id="cardRole">前端开发工程师</div>
+            </div>
+        </div>
+        <div class="info-card-body">
+            <div class="info-card-row">
+                <span class="info-card-label">当前状态</span>
+                <span class="status-badge status-resting" id="cardStatus">休息中</span>
+            </div>
+            <div class="info-card-row">
+                <span class="info-card-label">当前位置</span>
+                <span class="info-card-value" id="cardLocation">休息区</span>
+            </div>
+            <div class="info-card-row">
+                <span class="info-card-label">今日任务</span>
+                <span class="info-card-value" id="cardTasks">12 / 15</span>
+            </div>
+            <div class="info-card-row">
+                <span class="info-card-label">工作效率</span>
+                <span class="info-card-value" id="cardEfficiency">94%</span>
+            </div>
+            <div>
+                <div class="info-card-row">
+                    <span class="info-card-label">任务进度</span>
+                    <span class="info-card-value" id="cardProgress">80%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cardProgressBar"
+                        style="width: 80%; background: linear-gradient(90deg, #22c55e, #16a34a);"></div>
+                </div>
+            </div>
+            <div class="info-card-row">
+                <span class="info-card-label">在线时长</span>
+                <span class="info-card-value" id="cardOnlineTime">3小时28分</span>
+            </div>
+            <div class="info-card-row">
+                <span class="info-card-label">技能等级</span>
+                <span class="info-card-value" id="cardLevel">⭐⭐⭐⭐☆</span>
+            </div>
+        </div>
+        <div class="info-card-footer">
+            <button class="info-card-btn info-card-btn-secondary" onclick="closeInfoCard()">关闭</button>
+            <button class="info-card-btn info-card-btn-primary" onclick="viewDetails()">查看详情</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 代码滚动动画配置 ====================
+        const codeSnippets = [
+            {
+                id: 1,
+                duration: 30,
+                translate: -360,
+                lines: [
+                    [{ text: '<template>', color: '#569cd6', x: 12 }],
+                    [{ text: '  <div>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    <p>{{ count }}</p>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    <button', color: '#d4d4d4', x: 12 }, { text: '@click', color: '#9cdcfe', x: 54 }, { text: '=', color: '#d4d4d4', x: 70 }, { text: '"increment"', color: '#ce9178', x: 76 }],
+                    [{ text: '      Click me', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    </button>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  </div>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '</template>', color: '#569cd6', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '<script>', color: '#569cd6', x: 12 }],
+                    [{ text: 'import', color: '#569cd6', x: 12 }, { text: '{ ref }', color: '#9cdcfe', x: 42 }, { text: 'from', color: '#569cd6', x: 66 }, { text: "'vue'", color: '#ce9178', x: 82 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'export', color: '#569cd6', x: 12 }, { text: 'default', color: '#569cd6', x: 42 }, { text: '{', color: '#d4d4d4', x: 78 }],
+                    [{ text: '  setup()', color: '#dcdcaa', x: 12 }],
+                    [{ text: '    const', color: '#569cd6', x: 12 }, { text: 'count', color: '#9cdcfe', x: 42 }, { text: '=', color: '#d4d4d4', x: 62 }, { text: 'ref(0)', color: '#dcdcaa', x: 68 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    function', color: '#569cd6', x: 12 }, { text: 'increment()', color: '#dcdcaa', x: 50 }],
+                    [{ text: '      count.value++', color: '#9cdcfe', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    return', color: '#569cd6', x: 12 }, { text: '{ count, increment }', color: '#9cdcfe', x: 42 }],
+                    [{ text: '  }', color: '#d4d4d4', x: 12 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '<\/script>', color: '#569cd6', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '<style', color: '#569cd6', x: 12 }, { text: 'scoped', color: '#9cdcfe', x: 40 }],
+                    [{ text: 'button', color: '#4ec9b0', x: 12 }, { text: '{', color: '#d4d4d4', x: 44 }],
+                    [{ text: '  padding:', color: '#9cdcfe', x: 12 }, { text: '10px 20px;', color: '#b5cea8', x: 50 }],
+                    [{ text: '  background:', color: '#9cdcfe', x: 12 }, { text: '#42b983;', color: '#ce9178', x: 50 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '</style>', color: '#569cd6', x: 12 }],
+                ]
+            },
+            {
+                id: 2,
+                duration: 26,
+                translate: -264,
+                lines: [
+                    [{ text: 'interface', color: '#569cd6', x: 12 }, { text: 'User', color: '#4ec9b0', x: 52 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  id:', color: '#9cdcfe', x: 12 }, { text: 'number', color: '#4ec9b0', x: 32 }],
+                    [{ text: '  name:', color: '#9cdcfe', x: 12 }, { text: 'string', color: '#4ec9b0', x: 38 }],
+                    [{ text: '  email:', color: '#9cdcfe', x: 12 }, { text: 'string', color: '#4ec9b0', x: 44 }],
+                    [{ text: '  role:', color: '#9cdcfe', x: 12 }, { text: "'admin'", color: '#ce9178', x: 38 }, { text: '|', color: '#d4d4d4', x: 68 }, { text: "'user'", color: '#ce9178', x: 72 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'class', color: '#569cd6', x: 12 }, { text: 'UserService', color: '#dcdcaa', x: 36 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  private', color: '#569cd6', x: 12 }, { text: 'users:', color: '#9cdcfe', x: 50 }, { text: 'User[]', color: '#4ec9b0', x: 72 }, { text: '=[]', color: '#d4d4d4', x: 98 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  async', color: '#569cd6', x: 12 }, { text: 'getUser(id:', color: '#9cdcfe', x: 42 }, { text: 'number)', color: '#4ec9b0', x: 78 }],
+                    [{ text: '    return', color: '#569cd6', x: 12 }, { text: 'this.users.find(u', color: '#9cdcfe', x: 42 }, { text: '=>', color: '#569cd6', x: 98 }, { text: 'u.id', color: '#9cdcfe', x: 108 }, { text: '===', color: '#d4d4d4', x: 124 }, { text: 'id)', color: '#9cdcfe', x: 136 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  async', color: '#569cd6', x: 12 }, { text: 'createUser(data:', color: '#9cdcfe', x: 42 }, { text: 'User)', color: '#4ec9b0', x: 94 }],
+                    [{ text: '    const', color: '#569cd6', x: 12 }, { text: 'user', color: '#9cdcfe', x: 42 }, { text: '= { ...data, id:', color: '#d4d4d4', x: 62 }, { text: 'Date.now()', color: '#dcdcaa', x: 112 }, { text: '}', color: '#d4d4d4', x: 142 }],
+                    [{ text: '    this.users.push(user)', color: '#9cdcfe', x: 12 }],
+                    [{ text: '    return', color: '#569cd6', x: 12 }, { text: 'user', color: '#9cdcfe', x: 42 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                ]
+            },
+            {
+                id: 3,
+                duration: 24,
+                translate: -240,
+                lines: [
+                    [{ text: '<template>', color: '#569cd6', x: 12 }],
+                    [{ text: '  <div', color: '#d4d4d4', x: 12 }, { text: 'class=', color: '#9cdcfe', x: 32 }, { text: '"container"', color: '#ce9178', x: 56 }],
+                    [{ text: '    <h1>{{ title }}</h1>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    <ul>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '      <li', color: '#d4d4d4', x: 12 }, { text: 'v-for=', color: '#9cdcfe', x: 40 }, { text: '"item in items"', color: '#ce9178', x: 64 }, { text: ':key=', color: '#9cdcfe', x: 108 }, { text: '"item.id"', color: '#ce9178', x: 128 }],
+                    [{ text: '        {{ item.name }}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '      </li>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '    </ul>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  </div>', color: '#d4d4d4', x: 12 }],
+                    [{ text: '</template>', color: '#569cd6', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '<script', color: '#569cd6', x: 12 }, { text: 'setup>', color: '#9cdcfe', x: 40 }],
+                    [{ text: 'import', color: '#569cd6', x: 12 }, { text: '{ ref }', color: '#9cdcfe', x: 42 }, { text: 'from', color: '#569cd6', x: 66 }, { text: "'vue'", color: '#ce9178', x: 82 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'const', color: '#569cd6', x: 12 }, { text: 'title', color: '#9cdcfe', x: 42 }, { text: '=', color: '#d4d4d4', x: 62 }, { text: 'ref(', color: '#dcdcaa', x: 68 }, { text: "'My List'", color: '#ce9178', x: 86 }, { text: ')', color: '#d4d4d4', x: 118 }],
+                    [{ text: 'const', color: '#569cd6', x: 12 }, { text: 'items', color: '#9cdcfe', x: 42 }, { text: '=', color: '#d4d4d4', x: 62 }, { text: 'ref([])', color: '#dcdcaa', x: 68 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'async', color: '#569cd6', x: 12 }, { text: 'function', color: '#569cd6', x: 42 }, { text: 'fetchItems()', color: '#dcdcaa', x: 72 }],
+                    [{ text: '  items.value', color: '#9cdcfe', x: 12 }, { text: '=', color: '#d4d4d4', x: 56 }, { text: 'await', color: '#569cd6', x: 62 }, { text: 'fetch(', color: '#dcdcaa', x: 86 }, { text: "'/api/items'", color: '#ce9178', x: 106 }],
+                    [{ text: '<\/script>', color: '#569cd6', x: 12 }],
+                ]
+            },
+            {
+                id: 4,
+                duration: 20,
+                translate: -180,
+                lines: [
+                    [{ text: 'Error:', color: '#f44747', x: 12 }, { text: 'Network failed', color: '#ce9178', x: 42 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'async', color: '#569cd6', x: 12 }, { text: 'function', color: '#569cd6', x: 40 }, { text: 'retry(fn)', color: '#dcdcaa', x: 12 }],
+                    [{ text: '  for', color: '#569cd6', x: 12 }, { text: '(let', color: '#569cd6', x: 32 }, { text: 'i', color: '#9cdcfe', x: 52 }, { text: '= 0;', color: '#d4d4d4', x: 56 }, { text: 'i', color: '#9cdcfe', x: 74 }, { text: '< 3;', color: '#d4d4d4', x: 78 }, { text: 'i++', color: '#9cdcfe', x: 92 }],
+                    [{ text: '    try', color: '#569cd6', x: 12 }],
+                    [{ text: '      return', color: '#569cd6', x: 12 }, { text: 'await', color: '#569cd6', x: 62 }, { text: 'fn()', color: '#dcdcaa', x: 86 }],
+                    [{ text: '    }', color: '#d4d4d4', x: 12 }, { text: 'catch', color: '#569cd6', x: 32 }],
+                    [{ text: '      if', color: '#569cd6', x: 12 }, { text: '(i', color: '#d4d4d4', x: 44 }, { text: '=== 2)', color: '#d4d4d4', x: 52 }],
+                    [{ text: '        console.error(', color: '#dcdcaa', x: 12 }, { text: "'Failed'", color: '#ce9178', x: 70 }],
+                    [{ text: '      await', color: '#569cd6', x: 12 }, { text: 'sleep(1000)', color: '#dcdcaa', x: 70 }],
+                    [{ text: '    }', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  }', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  throw', color: '#f44747', x: 12 }, { text: 'new', color: '#569cd6', x: 44 }, { text: 'Error(', color: '#dcdcaa', x: 58 }, { text: "'Max retries'", color: '#ce9178', x: 82 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                ]
+            },
+            {
+                id: 5,
+                duration: 16,
+                translate: -156,
+                lines: [
+                    [{ text: 'OFFLINE', color: '#f44747', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'class', color: '#569cd6', x: 12 }, { text: 'Connection', color: '#dcdcaa', x: 34 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  private', color: '#569cd6', x: 12 }, { text: 'status', color: '#9cdcfe', x: 50 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  connect()', color: '#dcdcaa', x: 12 }],
+                    [{ text: '    this.status', color: '#9cdcfe', x: 12 }, { text: '=', color: '#d4d4d4', x: 46 }, { text: "'online'", color: '#ce9178', x: 54 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  disconnect()', color: '#dcdcaa', x: 12 }],
+                    [{ text: '    this.status', color: '#9cdcfe', x: 12 }, { text: '=', color: '#d4d4d4', x: 46 }, { text: "'offline'", color: '#ce9178', x: 54 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                ]
+            },
+            {
+                id: 6,
+                duration: 18,
+                translate: -180,
+                lines: [
+                    [{ text: 'Running...', color: '#4ec9b0', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'async', color: '#569cd6', x: 12 }, { text: 'function', color: '#569cd6', x: 40 }, { text: 'execute()', color: '#dcdcaa', x: 12 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  const', color: '#569cd6', x: 12 }, { text: 'result', color: '#9cdcfe', x: 42 }],
+                    [{ text: '    =', color: '#d4d4d4', x: 12 }, { text: 'await', color: '#569cd6', x: 34 }],
+                    [{ text: '  await', color: '#569cd6', x: 12 }, { text: 'process()', color: '#dcdcaa', x: 26 }],
+                    [{ text: '  await', color: '#569cd6', x: 12 }, { text: 'validate()', color: '#dcdcaa', x: 26 }],
+                    [{ text: '  await', color: '#569cd6', x: 12 }, { text: 'transform()', color: '#dcdcaa', x: 26 }],
+                    [{ text: '  await', color: '#569cd6', x: 12 }, { text: 'save()', color: '#dcdcaa', x: 26 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  return', color: '#569cd6', x: 12 }, { text: 'result', color: '#9cdcfe', x: 50 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                ]
+            },
+            {
+                id: 7,
+                duration: 20,
+                translate: -192,
+                lines: [
+                    [{ text: 'interface', color: '#569cd6', x: 12 }, { text: 'Config', color: '#4ec9b0', x: 52 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  name:', color: '#9cdcfe', x: 12 }, { text: 'string', color: '#4ec9b0', x: 48 }],
+                    [{ text: '  port:', color: '#9cdcfe', x: 12 }, { text: 'number', color: '#4ec9b0', x: 42 }],
+                    [{ text: '  debug:', color: '#9cdcfe', x: 12 }, { text: 'boolean', color: '#4ec9b0', x: 50 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'const', color: '#569cd6', x: 12 }, { text: 'config:', color: '#9cdcfe', x: 36 }, { text: 'Config', color: '#4ec9b0', x: 62 }, { text: '=', color: '#d4d4d4', x: 86 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  name:', color: '#9cdcfe', x: 12 }, { text: "'app'", color: '#ce9178', x: 48 }],
+                    [{ text: '  port:', color: '#9cdcfe', x: 12 }, { text: '3000', color: '#b5cea8', x: 46 }],
+                    [{ text: '  debug:', color: '#9cdcfe', x: 12 }, { text: 'true', color: '#569cd6', x: 54 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'export', color: '#569cd6', x: 12 }, { text: 'default', color: '#569cd6', x: 42 }, { text: 'config', color: '#9cdcfe', x: 78 }],
+                ]
+            },
+            {
+                id: 8,
+                duration: 20,
+                translate: -180,
+                lines: [
+                    [{ text: 'SELECT', color: '#569cd6', x: 12 }, { text: '*', color: '#9cdcfe', x: 44 }, { text: 'FROM', color: '#569cd6', x: 50 }],
+                    [{ text: '  users', color: '#9cdcfe', x: 12 }],
+                    [{ text: 'WHERE', color: '#569cd6', x: 12 }],
+                    [{ text: '  status', color: '#9cdcfe', x: 12 }, { text: '=', color: '#d4d4d4', x: 48 }, { text: "'active'", color: '#ce9178', x: 54 }],
+                    [{ text: '  AND', color: '#569cd6', x: 12 }, { text: 'role', color: '#9cdcfe', x: 38 }, { text: '=', color: '#d4d4d4', x: 54 }, { text: "'admin'", color: '#ce9178', x: 60 }],
+                    [{ text: 'ORDER', color: '#569cd6', x: 12 }, { text: 'BY', color: '#569cd6', x: 44 }],
+                    [{ text: '  created_at', color: '#9cdcfe', x: 12 }, { text: 'DESC', color: '#569cd6', x: 66 }],
+                    [{ text: 'LIMIT', color: '#569cd6', x: 12 }, { text: '10', color: '#b5cea8', x: 44 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'INSERT', color: '#569cd6', x: 12 }, { text: 'INTO', color: '#569cd6', x: 48 }],
+                    [{ text: '  logs (user_id, action)', color: '#9cdcfe', x: 12 }],
+                    [{ text: 'VALUES', color: '#569cd6', x: 12 }],
+                    [{ text: '  (1, ', color: '#d4d4d4', x: 12 }, { text: "'login'", color: '#ce9178', x: 32 }, { text: ', NOW())', color: '#dcdcaa', x: 60 }],
+                ]
+            },
+            {
+                id: 9,
+                duration: 18,
+                translate: -180,
+                lines: [
+                    [{ text: 'package', color: '#569cd6', x: 12 }, { text: 'main', color: '#9cdcfe', x: 52 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'import', color: '#569cd6', x: 12 }, { text: '"fmt"', color: '#ce9178', x: 42 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'func', color: '#569cd6', x: 12 }, { text: 'main()', color: '#dcdcaa', x: 34 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  fmt.Println(', color: '#dcdcaa', x: 12 }, { text: '"Hello"', color: '#ce9178', x: 26 }],
+                    [{ text: '  server.Start()', color: '#dcdcaa', x: 12 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                    [{ text: '', color: '#d4d4d4', x: 12 }],
+                    [{ text: 'func', color: '#569cd6', x: 12 }, { text: 'handler(w, r)', color: '#dcdcaa', x: 34 }],
+                    [{ text: '{', color: '#d4d4d4', x: 12 }],
+                    [{ text: '  w.Write([]byte(', color: '#dcdcaa', x: 12 }, { text: '"OK"', color: '#ce9178', x: 30 }],
+                    [{ text: '}', color: '#d4d4d4', x: 12 }],
+                ]
+            }
+        ];
+
+        // 生成代码滚动动画
+        function generateCodeAnimation(containerId, config) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const svgNS = 'http://www.w3.org/2000/svg';
+
+            // 创建clipPath
+            const clipPath = document.createElementNS(svgNS, 'clipPath');
+            clipPath.setAttribute('id', `screen-clip-${config.id}`);
+            const clipRect = document.createElementNS(svgNS, 'rect');
+            clipRect.setAttribute('x', '8');
+            clipRect.setAttribute('y', '8');
+            clipRect.setAttribute('width', '164');
+            clipRect.setAttribute('height', '94');
+            clipPath.appendChild(clipRect);
+            container.appendChild(clipPath);
+
+            // 创建clipPath组
+            const clipGroup = document.createElementNS(svgNS, 'g');
+            clipGroup.setAttribute('clip-path', `url(#screen-clip-${config.id})`);
+
+            // 创建内容组
+            const contentGroup = document.createElementNS(svgNS, 'g');
+
+            // 计算总行数（原始 + 重复）
+            const totalLines = config.lines.length * 2;
+            let y = 20;
+
+            // 生成两份代码内容（用于无缝滚动）
+            for (let repeat = 0; repeat < 2; repeat++) {
+                config.lines.forEach(line => {
+                    line.forEach(token => {
+                        const text = document.createElementNS(svgNS, 'text');
+                        text.setAttribute('x', token.x);
+                        text.setAttribute('y', y);
+                        text.setAttribute('fill', token.color);
+                        text.setAttribute('font-size', '6');
+                        text.setAttribute('font-family', 'monospace');
+                        text.textContent = token.text;
+                        contentGroup.appendChild(text);
+                    });
+                    y += 12;
+                });
+            }
+
+            // 添加动画
+            const animate = document.createElementNS(svgNS, 'animateTransform');
+            animate.setAttribute('attributeName', 'transform');
+            animate.setAttribute('type', 'translate');
+            animate.setAttribute('values', `0,0;0,${config.translate}`);
+            animate.setAttribute('dur', `${config.duration}s`);
+            animate.setAttribute('repeatCount', 'indefinite');
+            contentGroup.appendChild(animate);
+
+            clipGroup.appendChild(contentGroup);
+            container.appendChild(clipGroup);
+        }
+
+        // 页面加载后生成所有代码动画
+        document.addEventListener('DOMContentLoaded', function () {
+            codeSnippets.forEach(config => {
+                generateCodeAnimation(`code-container-${config.id}`, config);
+            });
+        });
+
+        // ==================== Agent动画配置 ====================
+        const agents = [
+            {
+                id: 'agentA',
+                name: 'Agent A',
+                role: '设备运维Agent',
+                color: '#ec4899',
+                paths: ['ag_a_X_to_M', 'ag_a_X_to_H', 'ag_a_H_to_M', 'ag_a_X_to_B', 'ag_a_B_to_H', 'ag_a_B_to_M'],
+                currentPath: 'ag_a_X_to_M',
+                currentLocation: 'X',
+                isReversed: false,
+                status: 'resting',
+                tasks: { completed: 12, total: 15 },
+                efficiency: 94,
+                progress: 80,
+                onlineTime: '3小时28分',
+                level: 4
+            },
+            {
+                id: 'agentB',
+                name: 'Agent B',
+                role: '照明Agent',
+                color: '#8b5cf6',
+                paths: ['ag_b_X_to_M', 'ag_b_X_to_H', 'ag_b_H_to_M', 'ag_b_X_to_B', 'ag_b_B_to_H', 'ag_b_B_to_M'],
+                currentPath: 'ag_b_X_to_M',
+                currentLocation: 'X',
+                isReversed: false,
+                status: 'resting',
+                tasks: { completed: 8, total: 12 },
+                efficiency: 87,
+                progress: 67,
+                onlineTime: '2小时15分',
+                level: 3
+            },
+            {
+                id: 'agentC',
+                name: 'Agent C',
+                role: '数据库Agent',
+                color: '#22c55e',
+                paths: ['ag_c_X_to_M', 'ag_c_X_to_H', 'ag_c_H_to_M', 'ag_c_X_to_B', 'ag_c_B_to_H', 'ag_c_B_to_M'],
+                currentPath: 'ag_c_X_to_M',
+                currentLocation: 'X',
+                isReversed: false,
+                status: 'resting',
+                tasks: { completed: 18, total: 20 },
+                efficiency: 96,
+                progress: 90,
+                onlineTime: '4小时52分',
+                level: 5
+            },
+            {
+                id: 'agentD',
+                name: 'Agent D',
+                role: '测试Agent',
+                color: '#eab308',
+                paths: ['ag_d_X_to_M', 'ag_d_X_to_H', 'ag_d_H_to_M'],
+                currentPath: 'ag_d_X_to_M',
+                currentLocation: 'X',
+                isReversed: false,
+                status: 'resting',
+                tasks: { completed: 5, total: 8 },
+                efficiency: 78,
+                progress: 62,
+                onlineTime: '1小时45分',
+                level: 2
+            },
+            {
+                id: 'agentE',
+                name: 'Agent E',
+                role: '能管Agent',
+                color: '#3b82f6',
+                paths: ['ag_e_X_to_M', 'ag_e_X_to_H', 'ag_e_H_to_M'],
+                currentPath: 'ag_e_X_to_M',
+                currentLocation: 'X',
+                isReversed: false,
+                status: 'resting',
+                tasks: { completed: 15, total: 18 },
+                efficiency: 91,
+                progress: 83,
+                onlineTime: '3小时10分',
+                level: 4
+            },
+            {
+                id: 'agentF',
+                name: 'Agent F',
+                role: '智能分析Agent',
+                color: '#f97316',
+                paths: ['ag_f_X_to_M', 'ag_f_X_to_H', 'ag_f_H_to_M'],
+                currentPath: 'ag_f_X_to_M',
+                currentLocation: 'X',
+                isReversed: false,
+                status: 'resting',
+                tasks: { completed: 10, total: 14 },
+                efficiency: 85,
+                progress: 71,
+                onlineTime: '2小时38分',
+                level: 3
+            }
+        ];
+
+        // 解析路径，提取所有坐标点
+        function parsePathPoints(pathId) {
+            const path = document.getElementById(pathId);
+            if (!path) return [];
+            const d = path.getAttribute('d');
+            if (!d) return [];
+            const points = [];
+            // 使用正则表达式匹配所有坐标点
+            const regex = /([ML])\s*([\d.]+),([\d.]+)/g;
+            let match;
+            while ((match = regex.exec(d)) !== null) {
+                points.push({ x: parseFloat(match[2]), y: parseFloat(match[3]) });
+            }
+            return points;
+        }
+
+        // 计算路径总长度
+        function calculatePathLength(pathId) {
+            const path = document.getElementById(pathId);
+            if (!path) return 0;
+            return path.getTotalLength();
+        }
+
+        // 反转路径，生成新的路径字符串
+        function reversePath(pathId) {
+            const points = parsePathPoints(pathId);
+            if (points.length === 0) return null;
+            // 反转点的顺序
+            points.reverse();
+            // 构建新的路径字符串
+            let newD = `M ${points[0].x},${points[0].y}`;
+            for (let i = 1; i < points.length; i++) {
+                newD += ` L ${points[i].x},${points[i].y}`;
+            }
+            return newD;
+        }
+
+        // 根据当前位置和目标位置，确定需要的路径
+        function getRequiredPath(currentLocation, targetLocation, paths) {
+            // 路径映射关系：
+            // X_to_M: 休息区到忙碌区
+            // X_to_H: 休息区到会议区
+            // X_to_B: 休息区到办公区
+            // H_to_M: 会议区到忙碌区
+            // B_to_H: 办公区到会议区
+            // B_to_M: 办公区到忙碌区
+            const prefix = paths[0].split('_').slice(0, 2).join('_'); // 例如: ag_a
+
+            if (currentLocation === 'X') {
+                // 当前在休息区
+                if (targetLocation === 'M') {
+                    return { pathId: `${prefix}_X_to_M`, isReversed: false };
+                } else if (targetLocation === 'H') {
+                    return { pathId: `${prefix}_X_to_H`, isReversed: false };
+                } else if (targetLocation === 'B') {
+                    return { pathId: `${prefix}_X_to_B`, isReversed: false };
+                }
+            } else if (currentLocation === 'M') {
+                // 当前在忙碌区
+                if (targetLocation === 'X') {
+                    return { pathId: `${prefix}_X_to_M`, isReversed: true };
+                } else if (targetLocation === 'H') {
+                    return { pathId: `${prefix}_H_to_M`, isReversed: true };
+                } else if (targetLocation === 'B') {
+                    return { pathId: `${prefix}_B_to_M`, isReversed: true };
+                }
+            } else if (currentLocation === 'H') {
+                // 当前在会议区
+                if (targetLocation === 'M') {
+                    return { pathId: `${prefix}_H_to_M`, isReversed: false };
+                } else if (targetLocation === 'X') {
+                    return { pathId: `${prefix}_X_to_H`, isReversed: true };
+                } else if (targetLocation === 'B') {
+                    return { pathId: `${prefix}_B_to_H`, isReversed: true };
+                }
+            } else if (currentLocation === 'B') {
+                // 当前在办公区
+                if (targetLocation === 'M') {
+                    return { pathId: `${prefix}_B_to_M`, isReversed: false };
+                } else if (targetLocation === 'H') {
+                    return { pathId: `${prefix}_B_to_H`, isReversed: false };
+                } else if (targetLocation === 'X') {
+                    return { pathId: `${prefix}_X_to_B`, isReversed: true };
+                }
+            }
+            return null;
+        }
+
+        // 变更agent的移动路径
+        function changeAgentPath(agentInfo) {
+            // 获取animateMotion元素
+            const animElement = document.getElementById(agentInfo.id);
+            if (!animElement) return;
+
+            // 定义目标位置（排除当前位置）
+            const locations = ['X', 'M', 'H', 'B'];
+            const otherLocations = locations.filter(loc => loc !== agentInfo.currentLocation);
+
+            // 随机选择一个目标位置
+            const targetLocation = otherLocations[Math.floor(Math.random() * otherLocations.length)];
+
+            // 获取需要的路径信息
+            const pathInfo = getRequiredPath(agentInfo.currentLocation, targetLocation, agentInfo.paths);
+            if (!pathInfo) return;
+
+            // 检查路径是否真实存在（防止Agent D/E/F选择B位置时路径不存在）
+            const pathElement = document.getElementById(pathInfo.pathId);
+            if (!pathElement) return;
+
+            // 获取animateMotion的父元素（g元素）
+            const gElement = animElement.parentElement;
+
+            // 移除初始位置的transform，让animateMotion接管位置
+            if (gElement && gElement.hasAttribute('transform')) {
+                gElement.removeAttribute('transform');
+            }
+
+            // 计算路径长度，决定动画时长
+            const pathLength = calculatePathLength(pathInfo.pathId);
+            // 根据路径长度计算动画时长：
+            // 默认6s，600~700为6s，700~800为7s，依次类推，最高13s
+            let animDuration = 6;
+            if (pathLength >= 600) {
+                // 计算百位数，例如700~800的百位数是7，对应7s
+                animDuration = Math.min(13, Math.floor(pathLength / 100));
+            }
+
+            // 获取mpath元素
+            const mpath = animElement.querySelector('mpath');
+            if (!mpath) return;
+
+            if (pathInfo.isReversed) {
+                // 需要反向路径，生成临时路径
+                const reversedD = reversePath(pathInfo.pathId);
+                if (reversedD) {
+                    // 创建或获取临时路径元素
+                    const tempPathId = `temp_${agentInfo.id}`;
+                    let tempPath = document.getElementById(tempPathId);
+                    if (!tempPath) {
+                        tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        tempPath.setAttribute('id', tempPathId);
+                        tempPath.setAttribute('stroke', '#aaa');
+                        tempPath.setAttribute('stroke-width', '0');
+                        tempPath.setAttribute('fill', 'none');
+                        animElement.closest('svg').appendChild(tempPath);
+                    }
+                    tempPath.setAttribute('d', reversedD);
+                    mpath.setAttribute('href', `#${tempPathId}`);
+                }
+            } else {
+                // 正向路径，直接使用原路径
+                mpath.setAttribute('href', `#${pathInfo.pathId}`);
+            }
+
+            // 更新动画时长
+            animElement.setAttribute('dur', `${animDuration}s`);
+
+            // 更新agent的状态
+            agentInfo.currentPath = pathInfo.pathId;
+            agentInfo.currentLocation = targetLocation;
+            agentInfo.isReversed = pathInfo.isReversed;
+
+            // 设置为移动中状态
+            agentInfo.status = 'moving';
+            updateAgentStatusTag(agentInfo.id, 'moving');
+
+            // 重新启动动画
+            animElement.beginElement();
+
+            // 动画结束后更新状态
+            setTimeout(() => {
+                // 根据位置确定状态
+                if (agentInfo.currentLocation === 'X') {
+                    agentInfo.status = 'resting';
+                } else if (agentInfo.currentLocation === 'H') {
+                    agentInfo.status = 'meeting';
+                } else if (agentInfo.currentLocation === 'B') {
+                    agentInfo.status = 'working';
+                } else {
+                    agentInfo.status = 'working';
+                }
+                updateAgentStatusTag(agentInfo.id, agentInfo.status);
+            }, animDuration * 1000);
+        }
+
+        // 每15秒执行一次路径变更
+        setInterval(() => {
+            startAgentAnimation();
+        }, 15000);
+        startAgentAnimation();
+        function startAgentAnimation() {
+            agents.forEach(agentInfo => {
+                changeAgentPath(agentInfo);
+            });
+        }
+        // 更新时钟
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours() % 12;
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+
+            // 计算角度
+            const hourAngle = (hours * 30) + (minutes * 0.5);
+            const minuteAngle = minutes * 6;
+            const secondAngle = seconds * 6;
+
+            // 获取指针元素
+            const hourHand = document.getElementById('hour-hand');
+            const minuteHand = document.getElementById('minute-hand');
+            const secondHand = document.getElementById('second-hand');
+
+            // 设置旋转（围绕中心点40,40旋转）
+            hourHand.setAttribute('transform', `rotate(${hourAngle}, 40, 40)`);
+            minuteHand.setAttribute('transform', `rotate(${minuteAngle}, 40, 40)`);
+            secondHand.setAttribute('transform', `rotate(${secondAngle}, 40, 40)`);
+        }
+
+        // 初始化时钟并每秒更新
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ==================== Agent信息卡片功能 ====================
+        const infoCard = document.getElementById('agentInfoCard');
+        let currentAgentId = null;
+
+        // 获取位置名称
+        function getLocationName(location) {
+            const locationMap = {
+                'X': '休息区',
+                'M': '忙碌区',
+                'H': '会议区'
+            };
+            return locationMap[location] || '未知';
+        }
+
+        // 获取状态名称和样式
+        function getStatusInfo(status) {
+            const statusMap = {
+                'resting': { text: '休息中', class: 'status-resting' },
+                'working': { text: '工作中', class: 'status-working' },
+                'meeting': { text: '会议中', class: 'status-meeting' },
+                'moving': { text: '移动中', class: 'status-moving' }
+            };
+            return statusMap[status] || { text: '未知', class: 'status-resting' };
+        }
+
+        // 生成星级
+        function getStarRating(level) {
+            let stars = '';
+            for (let i = 0; i < 5; i++) {
+                stars += i < level ? '⭐' : '☆';
+            }
+            return stars;
+        }
+
+        // 显示信息卡片
+        function showInfoCard(agentId, event) {
+            const agent = agents.find(a => a.id === agentId);
+            if (!agent) return;
+
+            currentAgentId = agentId;
+
+            // 更新卡片内容
+            document.getElementById('cardAvatar').textContent = agent.name.replace('Agent ', '');
+            document.getElementById('cardAvatar').style.background = agent.color;
+            document.getElementById('cardName').textContent = agent.name;
+            document.getElementById('cardRole').textContent = agent.role;
+
+            const statusInfo = getStatusInfo(agent.status);
+            const statusBadge = document.getElementById('cardStatus');
+            statusBadge.textContent = statusInfo.text;
+            statusBadge.className = 'status-badge ' + statusInfo.class;
+
+            document.getElementById('cardLocation').textContent = getLocationName(agent.currentLocation);
+            document.getElementById('cardTasks').textContent = `${agent.tasks.completed} / ${agent.tasks.total}`;
+            document.getElementById('cardEfficiency').textContent = `${agent.efficiency}%`;
+            document.getElementById('cardProgress').textContent = `${agent.progress}%`;
+            document.getElementById('cardProgressBar').style.width = `${agent.progress}%`;
+            document.getElementById('cardOnlineTime').textContent = agent.onlineTime;
+            document.getElementById('cardLevel').textContent = getStarRating(agent.level);
+
+            // 设置卡片位置
+            const rect = event.target.closest('.agent-group').getBoundingClientRect();
+            const cardWidth = 240;
+            const cardHeight = 320;
+
+            let left = rect.right + 10;
+            let top = rect.top;
+
+            // 防止超出屏幕右侧
+            if (left + cardWidth > window.innerWidth) {
+                left = rect.left - cardWidth - 10;
+            }
+
+            // 防止超出屏幕底部
+            if (top + cardHeight > window.innerHeight) {
+                top = window.innerHeight - cardHeight - 10;
+            }
+
+            infoCard.style.left = left + 'px';
+            infoCard.style.top = top + 'px';
+            infoCard.classList.add('show');
+        }
+
+        // 关闭信息卡片
+        function closeInfoCard() {
+            infoCard.classList.remove('show');
+            currentAgentId = null;
+        }
+
+        // 查看详情
+        function viewDetails() {
+            if (currentAgentId) {
+                alert(`查看 ${agents.find(a => a.id === currentAgentId)?.name} 的详细信息`);
+            }
+        }
+
+        // 更新Agent状态标签
+        function updateAgentStatusTag(agentId, status) {
+            const agentGroup = document.querySelector(`[id="${agentId}"]`)?.closest('.agent-group');
+            if (!agentGroup) return;
+
+            const statusTag = agentGroup.querySelector('.status-tag');
+            if (!statusTag) return;
+
+            const statusInfo = getStatusInfo(status);
+            const rect = statusTag.querySelector('rect');
+            const text = statusTag.querySelector('text');
+
+            // 更新颜色
+            const colorMap = {
+                'meeting': { fill: 'rgba(59, 130, 246, 0.2)', stroke: 'rgba(59, 130, 246, 0.4)', text: '#3b82f6' },
+                'resting': { fill: 'rgba(34, 197, 94, 0.2)', stroke: 'rgba(34, 197, 94, 0.4)', text: '#22c55e' },
+                'working': { fill: 'rgba(234, 179, 8, 0.2)', stroke: 'rgba(234, 179, 8, 0.4)', text: '#eab308' },
+                'moving': { fill: 'rgba(168, 85, 247, 0.2)', stroke: 'rgba(168, 85, 247, 0.4)', text: '#a855f7' }
+            };
+
+            const colors = colorMap[status] || colorMap['resting'];
+            rect.setAttribute('fill', colors.fill);
+            rect.setAttribute('stroke', colors.stroke);
+            text.setAttribute('fill', colors.text);
+            text.textContent = statusInfo.text;
+        }
+
+        // 为每个Agent添加点击事件
+        document.querySelectorAll('.agent-group').forEach((group, index) => {
+            group.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const agentId = agents[index]?.id;
+                if (agentId) {
+                    showInfoCard(agentId, e);
+                }
+            });
+        });
+
+        // 点击页面其他地方关闭卡片
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.info-card') && !e.target.closest('.agent-group')) {
+                closeInfoCard();
+            }
+        });
+    </script>
+
+</body>
+
+
+</html>

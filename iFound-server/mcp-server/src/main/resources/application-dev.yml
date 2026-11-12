@@ -1,0 +1,60 @@
+server:
+  port: 9006
+  iot-ip: 192.168.128.191
+  local-ip: 192.168.128.37
+NACOS_SERVER_ADDR: ${server.iot-ip}:8848
+spring:
+  config:
+    import: optional:nacos:${NACOS_SERVER_ADDR}
+  application:
+    name: mcp-server
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR}
+        #        username: ${NACOS_USERNAME:nacos}
+        #        password: ${NACOS_PASSWORD:nacos}
+        group: iotBuilder
+        ip: ${server.local-ip}
+  #      config:
+  #        server-addr: ${NACOS_SERVER_ADDR}
+  #        file-extension: yml
+  #        group: iotBuilder
+  #        shared-configs:
+  #          - data-id: common-config.yml
+  #            group: iotBuilder
+  #            refresh: true
+  ai:
+    mcp:
+      server:
+        enabled: true # 启用MCP服务
+
+        # 传输协议：默认sse，stdio，Streamable HTTP
+        #        sse-message-endpoint: /mcp/message # SSE消息端点 在客户端需要同时配置
+        stdio: false # 必须禁用stdio传输
+        protocol: STREAMABLE  # 关键配置：启用 Streamable HTTP 协议
+        streamable-http:
+          mcp-endpoint: /mcp
+
+        name: mcp-server # 服务名称
+        version: 1.0.0 # 版本号
+        type: sync # 同步
+        capabilities:
+          completion: true #启用MCP服务完成后通知客户端
+          tool: true # 启用服务提供工具
+          resource: true # 启用向客户端提供资源访问
+          prompt: true # 启用自动提示
+        resource-change-notification: true # 启用资源更改通知
+        prompt-change-notification: true # 启用更改提示通知
+        tool-change-notification: true # 启用工具更改通知
+        request-timeout: 20s # 请求超时
+  ops-knowledge:
+    # 应急预案知识库API地址
+    url: http://192.168.128.235:21003/ragflowQuery
+    # 绑定的RagFlow中的chatId
+    chat-id: 9e8e17147e8b11f191580bb256f6c5db
+  device-fault:
+    # 机电设备运维规范与故障处理知识库API地址
+    url: http://192.168.128.235:21003/ragflowQuery
+    # 绑定的RagFlow中的chatId
+    chat-id: bbf9f49c7f2811f191580bb256f6c5db

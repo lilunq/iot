@@ -1,0 +1,141 @@
+# ==================== 设备联动决策规则 ====================
+# 触发条件类型：temperature(温度)、co2(二氧化碳)、crowd_density(客流密度)、illumination(照度)
+# 操作符：>(高于)、<(低于)、>=(不低于)、<=(不高于)
+# decisions.action：turn_on(开启)、turn_off(关闭)、set_temp(设定温度)、dispatch_repair(派发维修工单)
+# decisions.deviceType：ac(空调)、fan(风机)、lighting(照明)、new_fan(新风机)
+#
+# 使用说明：
+# - 告警设备id会匹配 trigger.deviceIds 列表，命中则按对应规则决策
+# - AI 需使用 MCP getDeviceStatePage 工具传参 deviceId=获取设备名称，拼入 decisionContent
+# ==================== 规则列表 ====================
+
+rules:
+  # -------- 环境温度规则 --------
+  - id: rule-temp-high-zoneA
+    trigger:
+      type: temperature
+      operator: ">"
+      threshold: 28
+      deviceIds:
+        - "1231342073462919168"
+    decisions:
+      - action: turn_on
+        deviceType: ac
+        deviceId: "1257023718559846400"
+        setTemp: 24
+        point: "设定温度"
+      - action: turn_on
+        deviceType: ac
+        deviceId: "1258388441058512896"
+        setTemp: 24
+        point: "设定温度"
+    expectedEffect: "降低区域温度至24℃以下，恢复环境舒适"
+
+  - id: rule-temp-high-zoneB
+    trigger:
+      type: temperature
+      operator: ">"
+      threshold: 28
+      deviceIds:
+        - "1226586220969070592"
+    decisions:
+      - action: turn_on
+        deviceType: ac
+        deviceId: "1257023719092523008"
+        setTemp: 24
+        point: "设定温度"
+    expectedEffect: "降低区域温度至24℃以下，恢复环境舒适"
+
+  - id: rule-temp-high-zoneC
+    trigger:
+      type: temperature
+      operator: ">"
+      threshold: 28
+      deviceIds:
+        - "1226586221128454144"
+    decisions:
+      - action: turn_on
+        deviceType: ac
+        deviceId: "1257023719713280000"
+        setTemp: 24
+        point: "设定温度"
+    expectedEffect: "降低区域温度至24℃以下，恢复环境舒适"
+
+  - id: rule-temp-high-zoneD
+    trigger:
+      type: temperature
+      operator: ">"
+      threshold: 28
+      deviceIds:
+        - "1231342073504862208"
+    decisions:
+      - action: turn_on
+        deviceType: ac
+        deviceId: "1258388439938633728"
+        setTemp: 24
+        point: "设定温度"
+    expectedEffect: "降低区域温度至24℃以下，恢复环境舒适"
+
+  # -------- 二氧化碳规则（示例，后期补充设备id） --------
+  - id: rule-co2-high
+    trigger:
+      type: co2
+      operator: ">"
+      threshold: 1000
+      deviceIds: []
+    decisions:
+      - action: turn_on
+        deviceType: new_fan
+        deviceId: ""
+        setTemp: null
+        point: "启停控制"
+    expectedEffect: "降低二氧化碳浓度，改善空气质量"
+
+  # -------- 客流密度规则（示例，后期补充设备id） --------
+  - id: rule-crowd-density-high
+    trigger:
+      type: crowd_density
+      operator: ">"
+      threshold: 5
+      deviceIds: []
+    decisions:
+      - action: turn_on
+        deviceType: ac
+        deviceId: ""
+        setTemp: 22
+        point: "设定温度"
+      - action: turn_on
+        deviceType: fan
+        deviceId: ""
+        setTemp: null
+        point: "启停控制"
+    expectedEffect: "加大通风和降温力度，缓解客流密度"
+
+  # -------- 照度规则（示例，后期补充设备id） --------
+  - id: rule-illumination-low
+    trigger:
+      type: illumination
+      operator: "<"
+      threshold: 200
+      deviceIds: []
+    decisions:
+      - action: turn_on
+        deviceType: lighting
+        deviceId: ""
+        setTemp: null
+        point: "启停控制"
+    expectedEffect: "补充照明，保障安全"
+
+  - id: rule-illumination-high
+    trigger:
+      type: illumination
+      operator: ">"
+      threshold: 2000
+      deviceIds: []
+    decisions:
+      - action: turn_off
+        deviceType: lighting
+        deviceId: ""
+        setTemp: null
+        point: "启停控制"
+    expectedEffect: "降低照明强度，节约能耗"
