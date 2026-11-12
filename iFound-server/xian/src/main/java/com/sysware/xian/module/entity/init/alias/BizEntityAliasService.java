@@ -15,6 +15,19 @@ import java.util.List;
 public class BizEntityAliasService {
     private final BizEntityAliasMapper mapper;
 
+    public List<String> findEnabledDataIds(EntityType type, String normalizedAlias) {
+        if (normalizedAlias == null || normalizedAlias.isBlank()) return List.of();
+        return mapper.selectList(new LambdaQueryWrapper<BizEntityAlias>()
+                        .select(BizEntityAlias::getDataId)
+                        .eq(BizEntityAlias::getEntityType, type.name())
+                        .eq(BizEntityAlias::getNormalizedAlias, normalizedAlias)
+                        .eq(BizEntityAlias::getEnabled, 1))
+                .stream()
+                .map(BizEntityAlias::getDataId)
+                .distinct()
+                .toList();
+    }
+
     public List<BizEntityAlias> listEnabled(EntityType type, Collection<String> dataIds) {
         if (dataIds == null || dataIds.isEmpty()) return List.of();
         return mapper.selectList(new LambdaQueryWrapper<BizEntityAlias>()
