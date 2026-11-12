@@ -92,6 +92,10 @@ public class EntityResolverService {
         }
 
         List<Map<String, Object>> should = new ArrayList<>();
+        // 别名精确命中后回查稳定业务标识；设备过滤仍在 bool.filter 中生效。
+        if (aliasDataIds != null && !aliasDataIds.isEmpty()) {
+            should.add(Map.of("terms", Map.of(type.getBusinessIdField(), aliasDataIds, "boost", 150)));
+        }
         switch (type) {
             case AREA -> {
                 exact(should, "cascade_cid", query, 120);
