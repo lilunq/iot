@@ -140,6 +140,7 @@ public class EntitySourceSyncService {
         // 统一实体中心对外使用的分类稳定标识则是分类记录 id，需先完成映射。
         Map<String, Map<String, Object>> deviceTypesByCascade = loadDeviceTypesByCascadeId();
         int written = 0;
+        int actualPageSize = -1;
         for (int page = 1; page <= MAX_PAGES; page++) {
             Map<String, Object> params = new LinkedHashMap<>();
             params.put("page", Integer.toString(page));
@@ -148,6 +149,7 @@ public class EntitySourceSyncService {
             AjaxResultVO response = scadaClient.listPage(params);
             assertSuccess(response, "设备列表第 " + page + " 页");
             List<Map<String, Object>> rows = readRows(response.get("data"));
+            if (actualPageSize < 0) actualPageSize = rows.size();
             Map<String, Map<String, Object>> documents = new LinkedHashMap<>();
             for (Map<String, Object> row : rows) {
                 String id = firstText(row, "id");
@@ -179,7 +181,7 @@ public class EntitySourceSyncService {
                 documents.put(id, doc);
             }
             written += writeWithAliases(EntityType.DEVICE, documents);
-            if (rows.size() < PAGE_SIZE) return written;
+            if (!hasNextPage(response, rows.size(), page, actualPageSize)) return written;
             if (page == MAX_PAGES) {
                 throw new IllegalStateException("设备同步达到最大分页保护值 " + MAX_PAGES + "，请检查分页参数或总量");
             }
@@ -201,11 +203,13 @@ public class EntitySourceSyncService {
 
     public int syncCameras() {
         int written = 0;
+        int actualPageSize = -1;
         for (int page = 1; page <= MAX_PAGES; page++) {
             AjaxResultVO response = videoClient.listPage(null, null,
                     Integer.toString(page), Integer.toString(PAGE_SIZE));
             assertSuccess(response, "摄像头列表第 " + page + " 页");
             List<Map<String, Object>> rows = readRows(response.get("data"));
+            if (actualPageSize < 0) actualPageSize = rows.size();
             Map<String, Map<String, Object>> documents = new LinkedHashMap<>();
             for (Map<String, Object> row : rows) {
                 String id = firstText(row, "id");
@@ -226,7 +230,7 @@ public class EntitySourceSyncService {
                 documents.put(id, doc);
             }
             written += writeWithAliases(EntityType.CAMERA, documents);
-            if (rows.size() < PAGE_SIZE) return written;
+            if (!hasNextPage(response, rows.size(), page, actualPageSize)) return written;
             if (page == MAX_PAGES) {
                 throw new IllegalStateException("摄像头同步达到最大分页保护值 " + MAX_PAGES + "，请检查分页参数或总量");
             }
@@ -266,6 +270,24 @@ public class EntitySourceSyncService {
             if (nested != null && nested != data) return readRows(nested);
         }
         throw new IllegalStateException("源系统 data 不是数组，实际类型: " + data.getClass().getName());
+    }
+
+    /**
+     * 优先使用源接口 count 计算分页；若服务端限制了单页最大条数，
+     * 则以第一页实际返回条数作为页容量，避免因 limit 被服务端截断而漏同步。
+     */
+    private boolean hasNextPage(AjaxResultVO response, int rowsSize, int page, int actualPageSize) {
+        if (rowsSize == 0 || actualPageSize <= 0) return false;
+        Object countValue = response.get("count");
+        if (countValue != null) {
+            try {
+                long total = Long.parseLong(countValue.toString());
+                return (long) page * actualPageSize < total && rowsSize >= actualPageSize;
+            } catch (NumberFormatException ignored) {
+                // count 格式异常时回退到请求的 PAGE_SIZE 判断。
+            }
+        }
+        return rowsSize >= PAGE_SIZE;
     }
 
     private String firstText(Map<?, ?> map, String... names) {
