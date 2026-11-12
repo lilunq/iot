@@ -2,7 +2,7 @@ package com.sysware.xian.swcloud.fegin;
 
 import com.sysware.xian.swcloud.domain.AjaxResultVO;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Map;
@@ -15,10 +15,10 @@ import java.util.Map;
 public interface ScadaClient {
 
     /** 分页查询设备，支持 org_id、device_name、device_alias、subarea_cid 等条件。 */
-    @GetMapping("/base/device/listPage")
+    @RequestMapping("/base/device/listPage")
     AjaxResultVO listPage(@RequestParam Map<String, Object> inMap);
 
     /** 获取设备分类树。 */
-    @GetMapping("/base/device/type/list")
+    @RequestMapping("/base/device/type/list")
     AjaxResultVO listDeviceTypes();
 }
