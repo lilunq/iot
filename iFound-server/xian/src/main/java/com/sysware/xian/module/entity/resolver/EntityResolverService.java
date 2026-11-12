@@ -7,7 +7,7 @@ import com.sysware.xian.module.entity.common.EntityResolveRequest;
 import com.sysware.xian.module.entity.common.EntityResolveResponse;
 import com.sysware.xian.module.entity.common.EntityTextNormalizer;
 import com.sysware.xian.module.entity.common.EntityType;
-import com.sysware.xian.module.entity.config.EntityCenterProperties;
+import com.sysware.xian.module.entity.config.EntityCenterProperties;\nimport com.sysware.xian.module.entity.init.alias.BizEntityAliasService;
 import com.sysware.xian.module.entity.repository.EntityIndexRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,7 +28,7 @@ import java.util.Map;
 public class EntityResolverService {
     private final EntityIndexRepository repository;
     private final EntityCenterProperties properties;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;\n    private final BizEntityAliasService aliasService;
 
     public EntityResolveResponse resolve(EntityResolveRequest request) {
         if (request == null || request.getQuery() == null || request.getQuery().isBlank()) {
@@ -38,7 +38,7 @@ public class EntityResolverService {
         String query = request.getQuery().trim();
         String normalized = EntityTextNormalizer.normalize(query);
 
-        JsonNode result = repository.search(type.getIndexAlias(), buildQuery(type, request, query));
+        List<String> aliasDataIds = aliasService.findEnabledDataIds(type, normalized);\n        JsonNode result = repository.search(type.getIndexAlias(), buildQuery(type, request, query, aliasDataIds));
         List<EntityCandidate> candidates = toCandidates(type, result, requestLimit(request.getLimit()));
 
         String status;
@@ -76,7 +76,7 @@ public class EntityResolverService {
                 .build();
     }
 
-    private Map<String, Object> buildQuery(EntityType type, EntityResolveRequest request, String query) {
+    private Map<String, Object> buildQuery(EntityType type, EntityResolveRequest request, String query, List<String> aliasDataIds) {
         List<Map<String, Object>> filters = new ArrayList<>();
         filters.add(term("enabled", true));
 
