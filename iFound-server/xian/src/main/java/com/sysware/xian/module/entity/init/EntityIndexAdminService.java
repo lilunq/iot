@@ -66,25 +66,30 @@ public class EntityIndexAdminService {
         Map<String, Object> fields = new LinkedHashMap<>();
         switch (type) {
             case AREA -> {
-                keyword(fields, "cascade_cid", "parent_cascade_cid", "org_id");
+                keyword(fields, "cascade_cid", "parent_cascade_cid", "parent_id", "org_id", "is_leaf");
+                integer(fields, "sort_no");
                 text(fields, "area_name", "parent_name", "aliases");
                 bool(fields, "enabled");
             }
             case SYSTEM -> {
-                keyword(fields, "element_key");
-                text(fields, "element_value", "aliases");
+                keyword(fields, "element_key", "enum_key");
+                integer(fields, "sort_no");
+                text(fields, "element_value", "enum_name", "aliases");
                 bool(fields, "enabled");
             }
             case DEVICE_TYPE -> {
-                keyword(fields, "id", "parent_id", "cascade_id");
-                text(fields, "name", "aliases");
+                keyword(fields, "id", "parent_id", "cascade_id", "is_folder", "is_expand", "ext_code");
+                integer(fields, "sort_no");
+                text(fields, "name", "remark", "aliases");
                 bool(fields, "enabled");
             }
             case DEVICE -> {
-                keyword(fields, "id", "org_id", "device_code", "subarea_cid",
-                        "system_key", "device_type_id", "parent_device_id");
+                keyword(fields, "id", "org_id", "device_code", "subarea_cid", "subarea_id",
+                        "system_key", "device_type_id", "device_type_cascade_id", "parent_device_id",
+                        "factory", "production_date", "install_date", "nfc", "fire_key", "device_fac_id");
+                integer(fields, "sort_no");
                 text(fields, "device_name", "device_alias", "aliases",
-                        "subarea_name", "system_name", "device_type_name");
+                        "subarea_name", "system_name", "device_type_name", "location");
                 bool(fields, "enabled");
             }
             case CAMERA -> {
