@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -224,7 +223,8 @@ public class EntitySourceSyncService {
                 put(doc, "main_channel", firstNumber(row, "main_channel", "mainChannel"));
                 put(doc, "sub_channel", firstNumber(row, "sub_channel", "subChannel"));
                 put(doc, "scada_no", firstNumber(row, "scada_no", "scadaNo"));
-                doc.put("online", isEnabled(firstValue(row, "Online", "online")));
+                Object online = firstValue(row, "Online", "online");
+                if (online != null) doc.put("online", isEnabled(online));
                 doc.put("enabled", true);
                 // 摄像头不写区域字段，也不接收区域过滤条件。
                 documents.put(id, doc);
