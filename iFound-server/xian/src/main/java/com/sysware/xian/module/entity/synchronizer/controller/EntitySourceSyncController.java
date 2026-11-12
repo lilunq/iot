@@ -34,6 +34,11 @@ public class EntitySourceSyncController {
         return syncService.syncSystems();
     }
 
+    @PostMapping("/device-types")
+    public int syncDeviceTypes() {
+        return syncService.syncDeviceTypes();
+    }
+
     @PostMapping("/devices")
     public int syncDevices() {
         return syncService.syncDevices();
