@@ -112,7 +112,8 @@ public class EntityResolverService {
                 pinyin(should, "aliases", query, 5);
             }
             case DEVICE_TYPE -> {
-                exact(should, "id", query, 120);
+                exact(should, "id", query, 125);
+                exact(should, "cascade_id", query, 115);
                 match(should, "name", query, 12);
                 match(should, "aliases", query, 10);
                 pinyin(should, "name", query, 6);
