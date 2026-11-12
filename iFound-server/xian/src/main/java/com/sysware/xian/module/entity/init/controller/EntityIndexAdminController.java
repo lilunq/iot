@@ -11,7 +11,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/entity-center/admin")
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = "admin-api-enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = {"enabled", "admin-api-enabled"}, havingValue = "true")
 public class EntityIndexAdminController {
     private final EntityIndexAdminService indexAdminService;
 
