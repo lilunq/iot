@@ -110,7 +110,7 @@
           </button>
         </div>
         <div v-if="syncMessage" class="sync-message" :class="{ error: syncError }">{{ syncMessage }}</div>
-        <p class="footnote">当前同步采用稳定业务ID进行 Bulk upsert，不会自动删除源系统已不存在的旧记录。设备分类数据源尚待确认。</p>
+        <p class="footnote">五类实体均采用源系统稳定业务ID进行 Bulk upsert；设备分类按 cascade_id 映射为分类 id，摄像头独立索引且不做区域过滤。同步不会自动删除源系统已不存在的旧记录。</p>
       </div>
 
       <div class="panel">
@@ -173,10 +173,11 @@ const resolveResult = ref(null)
 const resolving = ref(false)
 
 const syncItems = [
-  { key: 'available', label: '同步已接入数据源', description: '区域、系统、设备、摄像头', icon: '↻' },
-  { key: 'areas', label: '区域数据', description: 'cascade_cid', icon: '⌖' },
+  { key: 'available', label: '同步全部五类实体', description: '区域、系统、分类、设备、摄像头', icon: '↻' },
+  { key: 'areas', label: '区域数据', description: 'cascade_id → cascade_cid', icon: '⌖' },
   { key: 'systems', label: '系统枚举', description: 'element_key', icon: '▦' },
-  { key: 'devices', label: '设备目录', description: '设备稳定ID', icon: '▣' },
+  { key: 'device-types', label: '设备分类', description: '分类 id + cascade_id', icon: '▤' },
+  { key: 'devices', label: '设备目录', description: 'device_type 映射分类 id', icon: '▣' },
   { key: 'cameras', label: '摄像头目录', description: '独立索引，不做区域过滤', icon: '◉' }
 ]
 const syncing = ref('')
