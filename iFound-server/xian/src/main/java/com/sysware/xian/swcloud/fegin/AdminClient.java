@@ -24,6 +24,10 @@ public interface AdminClient {
      */
     @GetMapping(value="/subarea/list")
     public AjaxResultVO getSubareaList(@RequestParam Map<String, Object> inMap);
+    /** 获取设备系统字典，返回 element_key / element_value 等字段。 */
+    @GetMapping(value = "/enum/getEnumKeyValues")
+    public List<Map<String, Object>> getEnumKeyValues(@RequestParam("key") String key);
+
     @GetMapping(value = "/listUserPage")
     public AjaxResultVO listUserPage(@RequestParam Map<String, Object> inMap);
 }
