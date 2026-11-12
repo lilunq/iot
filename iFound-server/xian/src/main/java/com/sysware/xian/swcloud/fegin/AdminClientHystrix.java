@@ -16,6 +16,10 @@ public class AdminClientHystrix implements AdminClient {
     public AjaxResultVO getSubareaList(@RequestParam Map<String, Object> inMap){return AjaxResultVO.error();};
 
     @Override
+    @GetMapping(value = "/enum/getEnumKeyValues")
+    public List<Map<String, Object>> getEnumKeyValues(@RequestParam("key") String key){return null;}
+
+    @Override
     @GetMapping(value = "/listUserPage")
     public AjaxResultVO listUserPage(@RequestParam Map<String, Object> inMap){return AjaxResultVO.error();};
 }
