@@ -194,7 +194,7 @@ public class EntitySourceSyncService {
         if (data instanceof List<?> list) {
             return list.stream().filter(Objects::nonNull)
                     .map(value -> objectMapper.convertValue(value,
-                            new TypeReference<LinkedHashMap<String, Object>>() { }))
+                            new TypeReference<Map<String, Object>>() { }))
                     .toList();
         }
         if (data instanceof Map<?, ?> map) {

@@ -20,7 +20,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/iot/, '')
       },
       '/xian': {
-        target: 'http://192.168.128.191:10098',
+        target: 'http://192.168.128.37:10098',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/xian/, '')
       },

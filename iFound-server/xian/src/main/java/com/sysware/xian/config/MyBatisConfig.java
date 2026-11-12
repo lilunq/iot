@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
  * @author sysware
  */
 @Configuration
-@MapperScan("com.sysware.xian.mapper")
+@MapperScan({"com.sysware.xian.mapper", "com.sysware.xian.module.entity.init.alias"})
 public class MyBatisConfig {
 
 //    @Bean
