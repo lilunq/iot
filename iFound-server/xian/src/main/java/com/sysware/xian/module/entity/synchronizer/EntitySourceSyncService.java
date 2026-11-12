@@ -136,6 +136,9 @@ public class EntitySourceSyncService {
     }
 
     public int syncDevices() {
+        // 设备源字段 device_type 保存的是分类 cascade_id（如 1.005），
+        // 统一实体中心对外使用的分类稳定标识则是分类记录 id，需先完成映射。
+        Map<String, Map<String, Object>> deviceTypesByCascade = loadDeviceTypesByCascadeId();
         int written = 0;
         for (int page = 1; page <= MAX_PAGES; page++) {
             Map<String, Object> params = new LinkedHashMap<>();
@@ -154,7 +157,13 @@ public class EntitySourceSyncService {
                 put(doc, "org_id", firstText(row, "org_id", "orgId"));
                 put(doc, "device_name", firstText(row, "device_name", "deviceName"));
                 put(doc, "device_alias", firstText(row, "device_alias", "deviceAlias"));
-                put(doc, "device_type_id", firstText(row, "device_type", "device_type_id", "deviceType"));
+                String deviceTypeCascadeId = firstText(row, "device_type", "device_type_cascade_id", "deviceType");
+                Map<String, Object> deviceType = deviceTypesByCascade.get(deviceTypeCascadeId);
+                put(doc, "device_type_id", deviceType == null
+                        ? firstText(row, "device_type_id", "deviceTypeId", "device_type")
+                        : firstText(deviceType, "id"));
+                put(doc, "device_type_cascade_id", deviceTypeCascadeId);
+                put(doc, "device_type_name", deviceType == null ? null : firstText(deviceType, "name"));
                 put(doc, "system_key", firstText(row, "system_type", "system_key", "systemType"));
                 put(doc, "subarea_cid", firstText(row, "subarea_cid", "subareaCid"));
                 put(doc, "subarea_id", firstText(row, "subarea_id", "subareaId"));
@@ -176,6 +185,18 @@ public class EntitySourceSyncService {
             }
         }
         return written;
+    }
+
+    private Map<String, Map<String, Object>> loadDeviceTypesByCascadeId() {
+        AjaxResultVO response = scadaClient.listDeviceTypes();
+        assertSuccess(response, "设备分类映射");
+        List<Map<String, Object>> rows = readRows(response.get("data"));
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String cascadeId = firstText(row, "cascade_id", "cascadeId");
+            if (!isBlank(cascadeId)) result.put(cascadeId, row);
+        }
+        return result;
     }
 
     public int syncCameras() {
