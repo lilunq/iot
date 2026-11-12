@@ -93,17 +93,18 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 
 首版已接入当前工程中能够确认的数据源：
 
-- 区域：现有 `AdminClient.getSubareaList`。
-- 系统：`/device/enum/getEnumKeyValues?key=device_system_type`，以 `element_key` 作为稳定 ID。
-- 设备：现有 `MCPXClient.StateListPage` 分页接口，以设备 `id` 作为稳定 ID。
-- 摄像头：现有 `/camera/listPage` 分页接口，以摄像头 `id` 作为稳定 ID；不写入区域字段。
-- 设备分类：源系统接口尚未确认，本阶段不做猜测性同步。
+- 区域：`AdminClient.getSubareaList`，源字段 `cascade_id` 映射为实体中心字段 `cascade_cid`，区域名称取 `name`；通过 `parent_id` 关联父区域并补充父级 `cascade_cid`。
+- 系统：`AdminClient.getEnumKeyValues("device_system_type")`，接口直接返回列表，以 `element_key` 作为稳定 ID，`element_value` 作为名称。
+- 设备分类：`ScadaClient.listDeviceTypes` 对应 `/base/device/type/list`，以分类记录 `id` 作为稳定 ID，同时保存 `cascade_id` 层级编码。
+- 设备：`ScadaClient.listPage` 对应 `/base/device/listPage` 分页接口，以设备 `id` 作为稳定 ID；设备源字段 `device_type` 保存分类 `cascade_id`，同步时通过分类列表映射为统一实体分类 `id`。
+- 摄像头：`VideoClient.listPage` 对应 `/camera/listPage` 分页接口，以摄像头 `id` 作为稳定 ID；不写入区域字段，也不传入区域查询条件。
 
 同步 API 默认关闭，启用前应先执行 SQL、初始化索引，并由现有网关/权限体系限制访问：
 
 - `POST /api/entity-center/admin/sync/available`
 - `POST /api/entity-center/admin/sync/areas`
 - `POST /api/entity-center/admin/sync/systems`
+- `POST /api/entity-center/admin/sync/device-types`
 - `POST /api/entity-center/admin/sync/devices`
 - `POST /api/entity-center/admin/sync/cameras`
 
@@ -120,7 +121,7 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 ## 当前开发边界
 
 当前提交已包含可选 ES 基础设施、五类索引 Mapping、别名持久化、解析 API，
-区域/系统/设备/摄像头的首版手动分页同步、MCP Tool 和 Vue3 管理页面。
+区域/系统/设备分类/设备/摄像头的首版手动分页同步、MCP Tool 和 Vue3 管理页面。
 尚未完成设备分类数据源适配、增量同步游标/事件监听、同步任务审计与失败重试、
 索引重建和安全 Alias 切换，以及完整的端到端联调。上述功能需在确认真实源系统字段、
 同步频率和权限边界后继续实现。
