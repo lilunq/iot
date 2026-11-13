@@ -15,7 +15,7 @@
           <h3>实体解析测试</h3>
           <p>验证实体名称、业务编号和别名能否准确映射到稳定业务标识。</p>
         </div>
-        <span class="hint">POST /api/entity-center/resolve</span>
+        <span class="hint">POST /entity-center/resolve</span>
       </div>
       <div class="form-grid">
         <label>
@@ -99,7 +99,7 @@
             <h3>数据同步</h3>
             <p>对已接入源系统执行手动幂等同步。</p>
           </div>
-          <span class="hint">POST /api/entity-center/admin/sync</span>
+          <span class="hint">POST /entity-center/admin/sync</span>
         </div>
         <div class="sync-grid">
           <button v-for="item in syncItems" :key="item.key" class="sync-item"
@@ -119,7 +119,7 @@
             <h3>别名维护</h3>
             <p>为实体添加业务常用称呼，解析时按标准化别名精确回查实体ID。</p>
           </div>
-          <span class="hint">/api/entity-center/aliases</span>
+          <span class="hint">/entity-center/aliases</span>
         </div>
         <div class="alias-form">
           <label><span>实体类型</span>
@@ -205,7 +205,7 @@ async function resolveEntity() {
     delete payload.deviceTypeId
   }
   try {
-    const response = await aiRequest.post('/api/entity-center/resolve', payload)
+    const response = await aiRequest.post('/entity-center/resolve', payload)
     resolveResult.value = response
   } catch (error) {
     resolveResult.value = { status: 'SERVICE_UNAVAILABLE', message: error?.response?.data?.message || error.message, candidates: [] }
@@ -224,7 +224,7 @@ async function runSync(item) {
   syncMessage.value = ''
   syncError.value = false
   try {
-    const response = await aiRequest.post('/api/entity-center/admin/sync/' + item.key)
+    const response = await aiRequest.post('/entity-center/admin/sync/' + item.key)
     syncMessage.value = item.key === 'available'
       ? '同步完成：' + Object.entries(response || {}).map(([key, value]) => key + ' ' + value + ' 条').join('，')
       : item.label + '同步完成，共写入 ' + response + ' 条。'
@@ -239,7 +239,7 @@ async function runSync(item) {
 async function saveAlias() {
   savingAlias.value = true
   try {
-    await aiRequest.post('/api/entity-center/aliases', { ...aliasForm, enabled: 1, source: 'MANUAL' })
+    await aiRequest.post('/entity-center/aliases', { ...aliasForm, enabled: 1, source: 'MANUAL' })
     syncMessage.value = '别名已保存。'
     syncError.value = false
     aliasForm.aliasName = ''
@@ -263,7 +263,7 @@ async function loadAliases() {
   loadingAliases.value = true
   aliasQueried.value = false
   try {
-    aliases.value = await aiRequest.get('/api/entity-center/aliases', {
+    aliases.value = await aiRequest.get('/entity-center/aliases', {
       params: { entityType: aliasForm.entityType, dataId: lookupDataId.value }
     })
     aliasQueried.value = true
