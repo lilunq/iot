@@ -12,7 +12,7 @@ import java.util.Map;
  * 当前操作为幂等 upsert，不会删除源系统已不存在的旧文档。
  */
 @RestController
-@RequestMapping("/api/entity-center/admin/sync")
+@RequestMapping("/entity-center/admin/sync")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch",
         name = {"enabled", "sync-api-enabled"}, havingValue = "true")
