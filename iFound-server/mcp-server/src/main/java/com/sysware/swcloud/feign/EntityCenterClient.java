@@ -9,6 +9,6 @@ import java.util.Map;
 /** 调用 xian-ai 中的统一业务实体解析 API。 */
 @FeignClient(name = "xian-ai", fallback = EntityCenterClientFallback.class)
 public interface EntityCenterClient {
-    @PostMapping("/api/entity-center/resolve")
+    @PostMapping("/entity-center/resolve")
     Map<String, Object> resolve(@RequestBody Map<String, Object> request);
 }
