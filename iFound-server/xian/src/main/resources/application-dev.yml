@@ -232,3 +232,16 @@ logging:
     # Mapper 包设为 INFO，屏蔽 MyBatis SQL 执行日志（Preparing/Parameters）
     com.sysware.xian.mapper: INFO
     com.alibaba.cloud.ai: DEBUG
+
+
+# 统一业务实体解析中心（开发环境）
+# ES 密码通过环境变量 ENTITY_CENTER_ES_PASSWORD 注入，不写入仓库
+entity-center:
+  elasticsearch:
+    enabled: ${ENTITY_CENTER_ES_ENABLED:true}
+    uri: ${ENTITY_CENTER_ES_URI:http://192.168.128.191:9200}
+    username: ${ENTITY_CENTER_ES_USERNAME:elastic}
+    password: ${ENTITY_CENTER_ES_PASSWORD:}
+    admin-api-enabled: ${ENTITY_CENTER_ADMIN_API_ENABLED:true}
+    sync-api-enabled: ${ENTITY_CENTER_SYNC_API_ENABLED:true}
+  alias-api-enabled: ${ENTITY_CENTER_ALIAS_API_ENABLED:true}
