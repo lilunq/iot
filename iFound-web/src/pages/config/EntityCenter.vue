@@ -101,6 +101,11 @@
           </div>
           <span class="hint">POST /entity-center/admin/sync</span>
         </div>
+        <div class="panel-actions" style="margin-bottom: 14px">
+          <button class="btn-secondary" :disabled="indexInitializing" @click="initializeIndexes">
+            {{ indexInitializing ? '初始化中…' : '初始化 ES 索引' }}
+          </button>
+        </div>
         <div class="sync-grid">
           <button v-for="item in syncItems" :key="item.key" class="sync-item"
             :disabled="syncing !== ''" @click="runSync(item)">
@@ -181,6 +186,7 @@ const syncItems = [
   { key: 'cameras', label: '摄像头目录', description: '独立索引，不做区域过滤', icon: '◉' }
 ]
 const syncing = ref('')
+const indexInitializing = ref(false)
 const syncMessage = ref('')
 const syncError = ref(false)
 
@@ -217,6 +223,21 @@ async function resolveEntity() {
 function clearResolve() {
   resolveForm.query = ''
   resolveResult.value = null
+}
+
+async function initializeIndexes() {
+  indexInitializing.value = true
+  syncMessage.value = ''
+  syncError.value = false
+  try {
+    const response = await aiRequest.post('/entity-center/admin/indexes/initialize')
+    syncMessage.value = 'ES 索引初始化完成：' + Object.entries(response || {}).map(([key, value]) => key + ' ' + value).join('，')
+  } catch (error) {
+    syncError.value = true
+    syncMessage.value = error?.response?.data?.message || error.message || 'ES 索引初始化失败，请检查 ES 连接和后端日志。'
+  } finally {
+    indexInitializing.value = false
+  }
 }
 
 async function runSync(item) {
