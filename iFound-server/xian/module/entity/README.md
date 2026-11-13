@@ -26,26 +26,26 @@
 
 ## 配置
 
-在 Nacos 或部署环境配置，模块默认关闭：
+在 Nacos 或部署环境配置，模块默认关闭（部署环境按需开启）：
 
 ```yaml
 entity-center:
   elasticsearch:
     enabled: true
-    uri: http://127.0.0.1:9200
-    username: ${ENTITY_ES_USERNAME:}
-    password: ${ENTITY_ES_PASSWORD:}
-    admin-api-enabled: false
-    sync-api-enabled: false
+    uri: http://192.168.128.191:9200
+    username: ${ENTITY_CENTER_ES_USERNAME:elastic}
+    password: ${ENTITY_CENTER_ES_PASSWORD:}
+    admin-api-enabled: true
+    sync-api-enabled: true
   resolver:
     default-limit: 5
     max-limit: 20
     minimum-score: 3.0
     minimum-score-gap: 1.0
-  alias-api-enabled: false
+  alias-api-enabled: true
 ```
 
-Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插件。
+开发环境 ES 地址为 `http://192.168.128.191:9200`，账号使用 `elastic`；密码通过环境变量 `ENTITY_CENTER_ES_PASSWORD` 注入，不要提交到代码仓库。生产环境应按实际 ES 地址及权限配置调整。\n\nElasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插件。
 首次创建索引前先验证插件：
 
 - `ik_max_word`、`ik_smart` 可用。
@@ -58,11 +58,11 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 
 启用索引管理接口后：
 
-`POST /api/entity-center/admin/indexes/initialize`
+`POST /entity-center/admin/indexes/initialize`
 
 启用解析模块后：
 
-`POST /api/entity-center/resolve`
+`POST /entity-center/resolve`
 
 请求示例：
 
@@ -82,8 +82,8 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 
 启用别名维护接口后：
 
-- `GET /api/entity-center/aliases?entityType=DEVICE&dataId=设备id`
-- `POST /api/entity-center/aliases`
+- `GET /entity-center/aliases?entityType=DEVICE&dataId=设备id`
+- `POST /entity-center/aliases`
 
 别名 SQL 位于 `src/main/resources/db/entity-center/V1__create_biz_entity_alias.sql`。
 需确认目标业务库后手工执行，不会随应用启动自动执行。别名接口启用前应通过
@@ -101,12 +101,12 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 
 同步 API 默认关闭，启用前应先执行 SQL、初始化索引，并由现有网关/权限体系限制访问：
 
-- `POST /api/entity-center/admin/sync/available`
-- `POST /api/entity-center/admin/sync/areas`
-- `POST /api/entity-center/admin/sync/systems`
-- `POST /api/entity-center/admin/sync/device-types`
-- `POST /api/entity-center/admin/sync/devices`
-- `POST /api/entity-center/admin/sync/cameras`
+- `POST /entity-center/admin/sync/available`
+- `POST /entity-center/admin/sync/areas`
+- `POST /entity-center/admin/sync/systems`
+- `POST /entity-center/admin/sync/device-types`
+- `POST /entity-center/admin/sync/devices`
+- `POST /entity-center/admin/sync/cameras`
 
 同步采用稳定业务 ID 作为 ES 文档 `_id`，当前行为是幂等 Bulk upsert；
 不会自动删除源系统已不存在的旧文档，也不会在同步失败时切换索引 Alias。
@@ -114,7 +114,7 @@ Elasticsearch 9.5.6 需要预先安装与 ES 版本匹配的 IK 和 Pinyin 插�
 ## MCP 与 Vue3
 
 - MCP Tool：`resolveBusinessEntity`，由 `mcp-server` 注册，转发到 Nacos 服务
-  `xian-ai` 的 `/api/entity-center/resolve`。当解析状态为 `AMBIGUOUS` 时，
+  `xian-ai` 的 `/entity-center/resolve`。当解析状态为 `AMBIGUOUS` 时，
   Agent 应展示候选并向用户澄清，不得自行猜测。
 - Vue 页面：`/config/entity-center`，已加入配置管理导航，包含解析测试、已接入数据源同步和别名维护入口。
 
