@@ -11,7 +11,7 @@ import java.util.List;
 
 /** 别名维护接口默认关闭，启用前应由现有网关/权限体系限制访问。 */
 @RestController
-@RequestMapping("/api/entity-center/aliases")
+@RequestMapping("/entity-center/aliases")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "entity-center", name = "alias-api-enabled", havingValue = "true")
 public class EntityAliasController {
