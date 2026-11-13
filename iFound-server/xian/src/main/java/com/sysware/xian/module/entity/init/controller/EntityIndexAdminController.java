@@ -9,7 +9,7 @@ import java.util.Map;
 
 /** 管理接口默认关闭，需在受控环境显式开启。 */
 @RestController
-@RequestMapping("/api/entity-center/admin")
+@RequestMapping("/entity-center/admin")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = {"enabled", "admin-api-enabled"}, havingValue = "true")
 public class EntityIndexAdminController {
