@@ -17,6 +17,7 @@ public class EntityCenterProperties {
         private String username = "";
         private String password = "";
         private boolean adminApiEnabled = false;
+        private boolean syncApiEnabled = false;
     }
 
     @Data
