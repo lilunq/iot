@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 /** 统一业务实体解析 REST 接口。 */
 @RestController
-@RequestMapping("/api/entity-center")
+@RequestMapping("/entity-center")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = "enabled", havingValue = "true")
 public class EntityResolverController {
