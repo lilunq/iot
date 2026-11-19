@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Repository;
@@ -19,7 +18,6 @@ import java.util.Map;
 /** Elasticsearch 访问边界。上层服务不直接拼装 HTTP 请求。 */
 @Repository
 @RequiredArgsConstructor
-@Slf4j
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = "enabled", havingValue = "true")
 public class EntityIndexRepository {
     private final RestClient entityElasticsearchRestClient;
@@ -34,11 +32,44 @@ public class EntityIndexRepository {
                 .body(JsonNode.class);
     }
 
+    /** 查询索引中启用实体数量。 */
+    public long countEnabled(String indexAlias) {
+        JsonNode response = entityElasticsearchRestClient.post()
+                .uri("/{index}/_count", indexAlias)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("query", Map.of("term", Map.of("enabled", true))))
+                .retrieve()
+                .body(JsonNode.class);
+        return response == null ? 0L : response.path("count").asLong(0L);
+    }
+
+    /** 按稳定业务 ID 读取完整 _source。 */
+    public JsonNode getDocument(String indexAlias, String id) {
+        try {
+            return entityElasticsearchRestClient.get()
+                    .uri("/{index}/_doc/{id}", indexAlias, id)
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 404) return null;
+            throw ex;
+        }
+    }
+
+    /** 使用映射字段的拼音 multi-field 获取 ES 实际分析 token，不在 Java 侧生成拼音。 */
+    public JsonNode analyze(String indexAlias, String field, String text) {
+        return entityElasticsearchRestClient.post()
+                .uri("/{index}/_analyze", indexAlias)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("field", field, "text", text))
+                .retrieve()
+                .body(JsonNode.class);
+    }
+
     /** 通过源系统稳定业务 ID 作为 ES 文档 ID，重复执行具备幂等性。 */
     public int bulkIndex(String indexAlias, Map<String, Map<String, Object>> documents) {
         if (documents == null || documents.isEmpty()) return 0;
         StringBuilder ndjson = new StringBuilder();
-        int diagnosticSample = 0;
         try {
             for (Map.Entry<String, Map<String, Object>> entry : documents.entrySet()) {
                 if (entry.getKey() == null || entry.getKey().isBlank()) {
@@ -48,16 +79,6 @@ public class EntityIndexRepository {
                         Map.of("_index", indexAlias, "_id", entry.getKey()));
                 ndjson.append(objectMapper.writeValueAsString(action)).append('\n');
                 String documentJson = objectMapper.writeValueAsString(entry.getValue());
-                if ("station_devices".equals(indexAlias) && diagnosticSample < 5) {
-                    diagnosticSample++;
-                    String deviceName = entry.getValue().get("device_name") == null
-                            ? null : entry.getValue().get("device_name").toString();
-                    String serializedName = objectMapper.readTree(documentJson)
-                            .path("device_name").asText(null);
-                    log.info("[实体中心设备名称诊断] phase=Bulk JSON序列化后, sample={}, id={}, deviceName={}, codePoints={}, serializedDeviceName={}, serializedCodePoints={}",
-                            diagnosticSample, entry.getKey(), deviceName, unicodeCodePoints(deviceName),
-                            serializedName, unicodeCodePoints(serializedName));
-                }
                 ndjson.append(documentJson).append('\n');
             }
         } catch (JsonProcessingException ex) {
@@ -67,8 +88,6 @@ public class EntityIndexRepository {
         // StringHttpMessageConverter 在未声明 charset 时可能使用 ISO-8859-1，
         // 导致中文在 HTTP 发送前被替换为问号。显式构造 UTF-8 字节，避免默认字符集介入。
         byte[] requestBody = ndjson.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        log.info("[实体中心Bulk编码诊断] indexAlias={}, contentType=application/x-ndjson;charset=UTF-8, bodyBytes={}",
-                indexAlias, requestBody.length);
         JsonNode response = entityElasticsearchRestClient.post()
                 .uri("/_bulk")
                 .contentType(MediaType.parseMediaType("application/x-ndjson;charset=UTF-8"))
@@ -89,14 +108,6 @@ public class EntityIndexRepository {
             throw new EntityBulkWriteException("ES Bulk 部分写入失败: " + String.join("; ", failures));
         }
         return documents.size();
-    }
-
-    private String unicodeCodePoints(String value) {
-        if (value == null) return "null";
-        if (value.isEmpty()) return "(empty)";
-        return value.codePoints()
-                .mapToObj(codePoint -> String.format("U+%04X", codePoint))
-                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     public List<Map<String, Object>> sources(JsonNode response) {

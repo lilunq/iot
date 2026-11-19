@@ -61,9 +61,11 @@ public class EntitySourceSyncService {
         List<Map<String, Object>> rows = readRows(response.get("data"));
 
         Map<String, String> cascadeById = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> rowsById = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
             String id = firstText(row, "id");
             String cascadeId = firstText(row, "cascade_id", "cascadeId");
+            if (!isBlank(id)) rowsById.put(id, row);
             if (!isBlank(id) && !isBlank(cascadeId)) cascadeById.put(id, cascadeId);
         }
 
@@ -77,7 +79,10 @@ public class EntitySourceSyncService {
             String parentId = firstText(row, "parent_id", "parentId");
             Map<String, Object> doc = new LinkedHashMap<>();
             doc.put("cascade_cid", cascadeId);
+            put(doc, "area_id", firstText(row, "id"));
             put(doc, "area_name", firstText(row, "name"));
+            Map<String, Object> parentRow = rowsById.get(parentId);
+            put(doc, "parent_name", parentRow == null ? null : firstText(parentRow, "name"));
             put(doc, "parent_cascade_cid", cascadeById.get(parentId));
             put(doc, "parent_id", parentId);
             put(doc, "org_id", firstText(row, "org_id", "orgId"));
@@ -138,6 +143,8 @@ public class EntitySourceSyncService {
         // 设备源字段 device_type 保存的是分类 cascade_id（如 1.005），
         // 统一实体中心对外使用的分类稳定标识则是分类记录 id，需先完成映射。
         Map<String, Map<String, Object>> deviceTypesByCascade = loadDeviceTypesByCascadeId();
+        Map<String, Map<String, Object>> areasByCascade = loadAreasByCascadeId();
+        Map<String, String> systemNames = loadSystemNames();
         int written = 0;
         int actualPageSize = -1;
         for (int page = 1; page <= MAX_PAGES; page++) {
@@ -149,9 +156,6 @@ public class EntitySourceSyncService {
             assertSuccess(response, "设备列表第 " + page + " 页");
             List<Map<String, Object>> rows = readRows(response.get("data"));
             // 仅在第一页抽样输出，避免全量同步时产生大量日志。
-            if (page == 1) {
-                logDeviceNameDiagnostics("SCADA响应反序列化后", rows);
-            }
             if (actualPageSize < 0) actualPageSize = rows.size();
             Map<String, Map<String, Object>> documents = new LinkedHashMap<>();
             for (Map<String, Object> row : rows) {
@@ -161,17 +165,30 @@ public class EntitySourceSyncService {
                 doc.put("id", id);
                 put(doc, "org_id", firstText(row, "org_id", "orgId"));
                 put(doc, "device_name", firstText(row, "device_name", "deviceName"));
+                // device_code 只映射源接口明确提供的独立编码，不把 device_alias 冒充为设备编码。
+                put(doc, "device_code", firstText(row, "device_code", "deviceCode"));
                 put(doc, "device_alias", firstText(row, "device_alias", "deviceAlias"));
+                put(doc, "parent_device_id", firstText(row, "parent_device_id", "parentDeviceId"));
                 String deviceTypeCascadeId = firstText(row, "device_type", "device_type_cascade_id", "deviceType");
                 Map<String, Object> deviceType = deviceTypesByCascade.get(deviceTypeCascadeId);
-                put(doc, "device_type_id", deviceType == null
-                        ? firstText(row, "device_type_id", "deviceTypeId", "device_type")
-                        : firstText(deviceType, "id"));
+                String deviceTypeId = deviceType == null
+                        ? firstText(row, "device_type_id", "deviceTypeId")
+                        : firstText(deviceType, "id");
+                put(doc, "device_type_id", deviceTypeId);
+                if (deviceType == null && !isBlank(deviceTypeCascadeId)) {
+                    log.warn("设备分类 cascade_id 未找到对应分类主键，保留 cascade_id 但不伪造 device_type_id: deviceId={}, cascadeId={}",
+                            id, deviceTypeCascadeId);
+                }
                 put(doc, "device_type_cascade_id", deviceTypeCascadeId);
                 put(doc, "device_type_name", deviceType == null ? null : firstText(deviceType, "name"));
-                put(doc, "system_key", firstText(row, "system_type", "system_key", "systemType"));
-                put(doc, "subarea_cid", firstText(row, "subarea_cid", "subareaCid"));
+                String systemKey = firstText(row, "system_type", "system_key", "systemType");
+                put(doc, "system_key", systemKey);
+                put(doc, "system_name", systemNames.get(systemKey));
+                String subareaCid = firstText(row, "subarea_cid", "subareaCid");
+                put(doc, "subarea_cid", subareaCid);
                 put(doc, "subarea_id", firstText(row, "subarea_id", "subareaId"));
+                Map<String, Object> area = areasByCascade.get(subareaCid);
+                put(doc, "subarea_name", area == null ? null : firstText(area, "name"));
                 put(doc, "factory", firstText(row, "factory"));
                 put(doc, "production_date", firstText(row, "production_date", "productionDate"));
                 put(doc, "install_date", firstText(row, "install_date", "installDate"));
@@ -183,9 +200,6 @@ public class EntitySourceSyncService {
                 doc.put("enabled", true);
                 documents.put(id, doc);
             }
-            if (page == 1) {
-                logDeviceDocumentDiagnostics("ES写入前字段映射完成", documents);
-            }
             written += writeWithAliases(EntityType.DEVICE, documents);
             if (!hasNextPage(response, rows.size(), page, actualPageSize)) return written;
             if (page == MAX_PAGES) {
@@ -195,42 +209,30 @@ public class EntitySourceSyncService {
         return written;
     }
 
-    /**
-     * 设备名称链路诊断：只抽样第一页最多 5 条，打印字符码点以区分真实问号和终端显示问题。
-     */
-    private void logDeviceNameDiagnostics(String phase, List<Map<String, Object>> rows) {
-        int sampleSize = Math.min(rows.size(), 5);
-        for (int i = 0; i < sampleSize; i++) {
-            Map<String, Object> row = rows.get(i);
-            Object value = firstValue(row, "device_name", "deviceName");
-            String name = value == null ? null : value.toString();
-            log.info("[实体中心设备名称诊断] phase={}, sample={}, id={}, valueType={}, deviceName={}, codePoints={}",
-                    phase,
-                    i + 1,
-                    firstText(row, "id"),
-                    value == null ? "null" : value.getClass().getName(),
-                    name,
-                    unicodeCodePoints(name));
+    private Map<String, Map<String, Object>> loadAreasByCascadeId() {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("org_id", ORG_ID);
+        AjaxResultVO response = adminClient.getSubareaList(params);
+        assertSuccess(response, "设备区域名称映射");
+        List<Map<String, Object>> rows = readRows(response.get("data"));
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String cascadeId = firstText(row, "cascade_id", "cascadeId");
+            if (!isBlank(cascadeId)) result.put(cascadeId, row);
         }
+        return result;
     }
 
-    private void logDeviceDocumentDiagnostics(String phase, Map<String, Map<String, Object>> documents) {
-        int sample = 0;
-        for (Map.Entry<String, Map<String, Object>> entry : documents.entrySet()) {
-            if (sample++ >= 5) break;
-            Object value = entry.getValue().get("device_name");
-            String name = value == null ? null : value.toString();
-            log.info("[实体中心设备名称诊断] phase={}, sample={}, id={}, deviceName={}, codePoints={}",
-                    phase, sample, entry.getKey(), name, unicodeCodePoints(name));
+    private Map<String, String> loadSystemNames() {
+        List<Map<String, Object>> rows = adminClient.getEnumKeyValues("device_system_type");
+        if (rows == null) throw new IllegalStateException("设备系统枚举接口返回空响应");
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String key = firstText(row, "element_key", "elementKey");
+            String name = firstText(row, "element_value", "elementValue");
+            if (!isBlank(key) && !isBlank(name)) result.put(key, name);
         }
-    }
-
-    private String unicodeCodePoints(String value) {
-        if (value == null) return "null";
-        if (value.isEmpty()) return "(empty)";
-        return value.codePoints()
-                .mapToObj(codePoint -> String.format("U+%04X", codePoint))
-                .collect(Collectors.joining(" "));
+        return result;
     }
 
     private Map<String, Map<String, Object>> loadDeviceTypesByCascadeId() {

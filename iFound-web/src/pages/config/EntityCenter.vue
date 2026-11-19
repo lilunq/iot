@@ -1,161 +1,205 @@
 <template>
-  <div class="entity-center-page">
-    <div class="page-heading">
+  <div class="entity-center">
+    <header class="page-header">
       <div>
         <div class="eyebrow">ENTITY RESOLUTION CENTER</div>
         <h2>统一业务实体解析中心</h2>
-        <p>统一管理实体别名、执行数据同步，并验证自然语言实体解析结果。</p>
+        <p>以稳定业务标识为核心，统一管理实体目录、自然语言解析与多维检索。</p>
       </div>
-      <span class="module-tag">DEV MODULE</span>
-    </div>
+      <div class="header-actions">
+        <span class="status-pill"><i></i> ES 数据目录</span>
+        <button class="btn ghost" :disabled="loadingSummary" @click="loadSummary">刷新数据</button>
+      </div>
+    </header>
 
-    <section class="panel">
-      <div class="panel-heading">
-        <div>
-          <h3>实体解析测试</h3>
-          <p>验证实体名称、业务编号和别名能否准确映射到稳定业务标识。</p>
-        </div>
-        <span class="hint">POST /entity-center/resolve</span>
-      </div>
-      <div class="form-grid">
-        <label>
-          <span>实体类型</span>
-          <select v-model="resolveForm.entityType">
-            <option value="AREA">区域 AREA</option>
-            <option value="SYSTEM">系统 SYSTEM</option>
-            <option value="DEVICE_TYPE">设备分类 DEVICE_TYPE</option>
-            <option value="DEVICE">设备 DEVICE</option>
-            <option value="CAMERA">摄像头 CAMERA</option>
-          </select>
-        </label>
-        <label class="query-field">
-          <span>名称 / 编号 / 别名</span>
-          <input v-model.trim="resolveForm.query" placeholder="例如：2号冷水机组" @keyup.enter="resolveEntity" />
-        </label>
-        <label>
-          <span>区域 cascade_cid（设备可选）</span>
-          <input v-model.trim="resolveForm.areaId" placeholder="输入区域级联标识" :disabled="resolveForm.entityType !== 'DEVICE'" />
-        </label>
-        <label>
-          <span>系统 element_key（设备可选）</span>
-          <input v-model.trim="resolveForm.systemKey" placeholder="输入系统稳定标识" :disabled="resolveForm.entityType !== 'DEVICE'" />
-        </label>
-        <label>
-          <span>设备分类 id（设备可选）</span>
-          <input v-model.trim="resolveForm.deviceTypeId" placeholder="输入设备分类ID" :disabled="resolveForm.entityType !== 'DEVICE'" />
-        </label>
-        <label>
-          <span>候选数量</span>
-          <select v-model.number="resolveForm.limit">
-            <option :value="5">5</option>
-            <option :value="10">10</option>
-            <option :value="20">20</option>
-          </select>
-        </label>
-      </div>
-      <div class="panel-actions">
-        <button class="btn-primary" :disabled="resolving || !resolveForm.query" @click="resolveEntity">
-          {{ resolving ? '解析中…' : '开始解析' }}
-        </button>
-        <button class="btn-secondary" @click="clearResolve">清空</button>
-      </div>
-
-      <div v-if="resolveResult" class="result-block">
-        <div class="result-summary">
-          <div>
-            <span class="result-label">解析状态</span>
-            <strong :class="'status-' + resolveResult.status">{{ statusText(resolveResult.status) }}</strong>
-          </div>
-          <div>
-            <span class="result-label">标准化查询</span>
-            <code>{{ resolveResult.normalizedQuery || '—' }}</code>
-          </div>
-          <p>{{ resolveResult.message }}</p>
-        </div>
-        <div v-if="resolveResult.resolved" class="resolved-card">
-          <span>已确认实体</span>
-          <strong>{{ resolveResult.resolved.name || '未命名实体' }}</strong>
-          <code>{{ resolveResult.resolved.entityType }} / {{ resolveResult.resolved.entityId }}</code>
-        </div>
-        <div class="candidate-list" v-if="resolveResult.candidates?.length">
-          <div class="candidate-head">
-            <span>候选实体</span><span>相关度分值</span>
-          </div>
-          <div v-for="item in resolveResult.candidates" :key="item.entityId" class="candidate-row">
-            <div>
-              <strong>{{ item.name || '未命名实体' }}</strong>
-              <small>{{ item.entityType }} · {{ item.entityId }}</small>
-            </div>
-            <code>{{ Number(item.score || 0).toFixed(2) }}</code>
-          </div>
-        </div>
+    <section class="summary-grid">
+      <button v-for="item in summaryItems" :key="item.entityType"
+        class="summary-card" :class="{ active: activeType === item.entityType }"
+        @click="selectType(item.entityType)">
+        <span class="summary-icon">{{ typeIcon[item.entityType] }}</span>
+        <span class="summary-label">{{ item.label }}</span>
+        <strong>{{ formatNumber(item.count) }}</strong>
+        <small>{{ item.indexAlias }}</small>
+      </button>
+      <div class="summary-total">
+        <span>实体总量</span>
+        <strong>{{ formatNumber(summaryTotal) }}</strong>
+        <small>五类实体 · 稳定ID索引</small>
       </div>
     </section>
 
-    <section class="two-column">
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <h3>数据同步</h3>
-            <p>对已接入源系统执行手动幂等同步。</p>
-          </div>
-          <span class="hint">POST /entity-center/admin/sync</span>
-        </div>
-        <div class="panel-actions" style="margin-bottom: 14px">
-          <button class="btn-secondary" :disabled="indexInitializing" @click="initializeIndexes">
-            {{ indexInitializing ? '初始化中…' : '初始化 ES 索引' }}
+    <section class="workspace">
+      <div class="section-title">
+        <div><span class="section-kicker">01 / CATALOG</span><h3>实体目录</h3></div>
+        <div class="section-tools">
+          <span class="section-note">点击实体查看完整模型、别名与拼音分析</span>
+          <button class="btn ghost" @click="catalogExpanded = !catalogExpanded">
+            {{ catalogExpanded ? '收起工作区' : '放大工作区' }}
           </button>
         </div>
-        <div class="sync-grid">
-          <button v-for="item in syncItems" :key="item.key" class="sync-item"
-            :disabled="syncing !== ''" @click="runSync(item)">
-            <span class="sync-icon">{{ item.icon }}</span>
-            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-            <span class="sync-arrow">→</span>
-          </button>
-        </div>
-        <div v-if="syncMessage" class="sync-message" :class="{ error: syncError }">{{ syncMessage }}</div>
-        <p class="footnote">五类实体均采用源系统稳定业务ID进行 Bulk upsert；设备分类按 cascade_id 映射为分类 id，摄像头独立索引且不做区域过滤。同步不会自动删除源系统已不存在的旧记录。</p>
       </div>
+      <div class="catalog-grid" :class="{ expanded: catalogExpanded }">
+        <button v-if="catalogExpanded" class="btn ghost expand-close" @click="catalogExpanded = false">收起工作区 ×</button>
+        <div class="panel catalog-panel">
+          <div class="catalog-toolbar">
+            <div class="type-tabs">
+              <button v-for="item in summaryItems" :key="item.entityType"
+                :class="{ selected: activeType === item.entityType }"
+                @click="selectType(item.entityType)">{{ item.label }}</button>
+            </div>
+            <div class="search-line">
+              <input v-model.trim="catalogKeyword" placeholder="按名称、业务编号、别名或全拼检索"
+                @keyup.enter="loadCatalog(1)" />
+              <button class="btn primary" :disabled="loadingCatalog" @click="loadCatalog(1)">
+                {{ loadingCatalog ? '检索中…' : '检索' }}
+              </button>
+            </div>
+          </div>
+          <div v-if="catalogError" class="inline-error">{{ catalogError }}</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>实体名称</th><th>稳定业务标识</th><th>业务别名</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr v-for="row in catalogRows" :key="row.entityId"
+                  :class="{ chosen: selectedDetail?.entityId === row.entityId }"
+                  @click="loadDetail(row.entityId)">
+                  <td><strong>{{ row.name || '未命名实体' }}</strong><small>{{ activeTypeLabel }}</small></td>
+                  <td><code>{{ row.entityId }}</code></td>
+                  <td><span v-if="row.aliases?.length" class="alias-inline">{{ row.aliases.join(' / ') }}</span><span v-else class="muted">—</span></td>
+                  <td><button class="text-action" @click.stop="loadDetail(row.entityId)">查看详情 →</button></td>
+                </tr>
+                <tr v-if="!catalogRows.length && !loadingCatalog"><td colspan="4" class="empty-cell">暂无数据，请先完成索引初始化和数据同步。</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span>共 {{ catalogTotal }} 条 · 第 {{ catalogPage }} / {{ catalogPages || 1 }} 页</span>
+            <div><button class="btn ghost" :disabled="catalogPage <= 1 || loadingCatalog" @click="loadCatalog(catalogPage - 1)">上一页</button>
+              <button class="btn ghost" :disabled="catalogPage >= catalogPages || loadingCatalog" @click="loadCatalog(catalogPage + 1)">下一页</button></div>
+          </div>
+        </div>
 
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <h3>别名维护</h3>
-            <p>为实体添加业务常用称呼，解析时按标准化别名精确回查实体ID。</p>
+        <aside class="panel detail-panel">
+          <div class="panel-head"><div><span class="section-kicker">ENTITY MODEL</span><h3>实体模型详情</h3></div>
+            <span v-if="selectedDetail" class="detail-type">{{ activeTypeLabel }}</span></div>
+          <div v-if="detailLoading" class="detail-empty">正在读取实体模型…</div>
+          <div v-else-if="selectedDetail" class="detail-content">
+            <div class="detail-name">{{ selectedDetail.name || '未命名实体' }}</div>
+            <div class="detail-id">{{ selectedDetail.entityType }} · {{ selectedDetail.entityId }}</div>
+            <div class="detail-block">
+              <h4>业务别名 <small>{{ selectedDetail.aliases?.length || 0 }}</small></h4>
+              <div v-if="selectedDetail.aliases?.length" class="chips">
+                <span v-for="alias in selectedDetail.aliases" :key="alias.id">{{ alias.aliasName }} <small>{{ alias.source }}</small></span>
+              </div>
+              <p v-else class="muted">尚未配置业务别名</p>
+            </div>
+            <div class="detail-block">
+              <h4>全拼检索分析</h4>
+              <div v-if="selectedDetail.pinyinAvailable && selectedDetail.pinyinTokens?.length" class="chips pinyin-chips">
+                <span v-for="(token, index) in selectedDetail.pinyinTokens" :key="index">{{ token }}</span>
+              </div>
+              <p v-else class="muted">拼音由 Elasticsearch Pinyin Analyzer 在检索时处理，当前未返回分析 token。</p>
+            </div>
+            <div class="detail-block">
+              <h4>完整模型字段 <small>{{ Object.keys(selectedDetail.source || {}).length }} 项</small></h4>
+              <div class="field-list">
+                <div v-for="(value, key) in selectedDetail.source" :key="key" class="field-row">
+                  <span>{{ key }}</span><code>{{ displayValue(value) }}</code>
+                </div>
+              </div>
+            </div>
           </div>
-          <span class="hint">/entity-center/aliases</span>
-        </div>
-        <div class="alias-form">
-          <label><span>实体类型</span>
-            <select v-model="aliasForm.entityType">
-              <option value="AREA">区域 AREA</option><option value="SYSTEM">系统 SYSTEM</option>
-              <option value="DEVICE_TYPE">设备分类 DEVICE_TYPE</option><option value="DEVICE">设备 DEVICE</option>
-              <option value="CAMERA">摄像头 CAMERA</option>
-            </select>
-          </label>
-          <label><span>实体稳定业务标识</span><input v-model.trim="aliasForm.dataId" placeholder="区域cascade_cid / 系统element_key / 其他实体id" /></label>
-          <label><span>别名</span><input v-model.trim="aliasForm.aliasName" placeholder="例如：冷机2号" /></label>
-          <label><span>备注（可选）</span><input v-model.trim="aliasForm.remark" placeholder="别名来源或说明" /></label>
-        </div>
-        <div class="panel-actions">
-          <button class="btn-primary" :disabled="savingAlias || !aliasForm.dataId || !aliasForm.aliasName" @click="saveAlias">
-            {{ savingAlias ? '保存中…' : '保存别名' }}
+          <div v-else class="detail-empty">从左侧列表选择实体，查看完整模型详情。</div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="section-title">
+        <div><span class="section-kicker">02 / AI RESOLUTION</span><h3>自然语言实体解析</h3></div>
+        <span class="section-note">LLM 负责理解与结构化 · Elasticsearch 负责真实数据召回</span>
+      </div>
+      <div class="panel assistant-panel">
+        <div class="prompt-row">
+          <textarea v-model="assistantPrompt" rows="2" placeholder="例如：帮我找一下地下层冷冻机房的排风机，优先看设备名称和别名…" @keydown.ctrl.enter="runAssistant"></textarea>
+          <button class="btn primary assistant-submit" :disabled="assistantLoading || !assistantPrompt.trim()" @click="runAssistant">
+            {{ assistantLoading ? 'AI 解析中…' : 'AI 解析并检索' }}
           </button>
-          <button class="btn-secondary" @click="clearAlias">清空</button>
         </div>
-        <div class="alias-lookup">
-          <div class="lookup-title">查询已配置别名</div>
-          <div class="lookup-controls">
-            <input v-model.trim="lookupDataId" placeholder="输入实体稳定业务标识" />
-            <button class="btn-secondary" :disabled="loadingAliases || !lookupDataId" @click="loadAliases">
-              {{ loadingAliases ? '查询中…' : '查询' }}
-            </button>
+        <div v-if="assistantError" class="inline-error">{{ assistantError }}</div>
+        <div v-if="assistantResult" class="assistant-columns">
+          <div class="assistant-result">
+            <div class="panel-head"><div><span class="section-kicker">LLM STRUCTURED OUTPUT</span><h3>自然语言结构化结果</h3></div><span class="ai-tag">LLM</span></div>
+            <div class="parsed-grid">
+              <div><small>实体类型</small><strong>{{ assistantResult.parsed.entityLabel }} · {{ assistantResult.parsed.entityType }}</strong></div>
+              <div><small>检索关键词</small><strong>{{ assistantResult.parsed.keyword }}</strong></div>
+              <div><small>识别区域</small><strong>{{ assistantResult.parsed.areaName || '未指定' }}</strong></div>
+              <div><small>识别系统</small><strong>{{ assistantResult.parsed.systemName || '未指定' }}</strong></div>
+              <div><small>识别分类</small><strong>{{ assistantResult.parsed.deviceTypeName || '未指定' }}</strong></div>
+              <div><small>区域稳定 ID</small><code>{{ assistantResult.parsed.areaId || '未指定' }}</code></div>
+              <div><small>系统稳定 Key</small><code>{{ assistantResult.parsed.systemKey || '未指定' }}</code></div>
+              <div><small>分类稳定 ID</small><code>{{ assistantResult.parsed.deviceTypeId || '未指定' }}</code></div>
+              <div><small>意图说明</small><strong>{{ assistantResult.parsed.intent }}</strong></div>
+            </div>
+            <div v-if="assistantResult.status === 'NEEDS_CLARIFICATION'" class="filter-warning">
+              识别到的区域、系统或分类条件存在歧义或未找到，已暂停 ES 设备检索，避免返回其他范围的设备。
+            </div>
+            <div v-if="Object.keys(assistantResult.filterResolutions || {}).length" class="filter-resolution-list">
+              <div v-for="(item, key) in assistantResult.filterResolutions" :key="key">
+                <strong>{{ key === 'area' ? '区域' : key === 'system' ? '系统' : '设备分类' }}</strong>
+                <span :class="'resolve-' + item.status">{{ item.status }}</span>
+                <small>{{ item.message }}</small>
+              </div>
+            </div>
+            <details class="raw-json"><summary>查看 LLM 原始结构化响应</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
           </div>
-          <div v-if="aliases.length" class="alias-chips">
-            <span v-for="item in aliases" :key="item.id">{{ item.aliasName }} <small>{{ item.source }}</small></span>
+          <div class="assistant-result">
+            <div class="panel-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条</span></div>
+            <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
+              <button v-for="row in assistantResult.searchResult.records" :key="row.entityId"
+                class="candidate-card" @click="selectType(row.entityType); loadDetail(row.entityId)">
+                <span><strong>{{ row.name || '未命名实体' }}</strong><small>{{ row.entityId }}</small></span>
+                <span class="candidate-score">{{ Number(row.score || 0).toFixed(2) }}</span>
+              </button>
+            </div>
+            <div v-else class="detail-empty">
+              {{ assistantResult.status === 'NEEDS_CLARIFICATION' ? '过滤条件需要确认，已暂停检索。' : 'ES 没有召回匹配实体。' }}
+            </div>
           </div>
-          <p v-else-if="aliasQueried" class="empty-note">没有查询到已启用的别名。</p>
+        </div>
+        <div v-else class="assistant-placeholder">输入自然语言检索需求，系统将先由 LLM 提取实体类型、关键词和明确过滤条件，再由 ES 返回真实候选，不会让模型生成实体 ID。</div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="section-title">
+        <div><span class="section-kicker">03 / OPERATIONS</span><h3>数据同步与别名维护</h3></div>
+        <span class="section-note">保留现有管理能力 · 手动触发 · 幂等写入</span>
+      </div>
+      <div class="operations-grid">
+        <div class="panel">
+          <div class="panel-head"><div><h3>数据同步</h3><p>同步源系统数据至五类 ES 索引。</p></div></div>
+          <div class="sync-actions">
+            <button class="btn ghost" :disabled="indexInitializing" @click="initializeIndexes">{{ indexInitializing ? '初始化中…' : '初始化 ES 索引' }}</button>
+            <button v-for="item in syncItems" :key="item.key" class="btn ghost"
+              :disabled="syncing !== ''" @click="runSync(item)">{{ syncing === item.key ? '同步中…' : item.label }}</button>
+          </div>
+          <div v-if="syncMessage" class="sync-message" :class="{ error: syncError }">{{ syncMessage }}</div>
+          <p class="footnote">区域稳定 ID 为 cascade_cid，系统为 element_key，分类/设备/摄像头为 id。设备分类按 cascade_id 映射；摄像头不做区域过滤。普通同步不自动删除源系统已不存在的记录。</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>业务别名维护</h3><p>为实体添加常用简称，别名精确回查实体稳定 ID。</p></div></div>
+          <div class="alias-form">
+            <label>实体类型<select v-model="aliasForm.entityType"><option v-for="item in summaryItems" :key="item.entityType" :value="item.entityType">{{ item.label }}</option></select></label>
+            <label>稳定业务标识<input v-model.trim="aliasForm.dataId" placeholder="输入 cascade_cid / element_key / id" /></label>
+            <label>别名<input v-model.trim="aliasForm.aliasName" placeholder="例如：冷机2号" /></label>
+            <label>备注<input v-model.trim="aliasForm.remark" placeholder="可选" /></label>
+          </div>
+          <div class="action-line"><button class="btn primary" :disabled="savingAlias || !aliasForm.dataId || !aliasForm.aliasName" @click="saveAlias">{{ savingAlias ? '保存中…' : '保存别名' }}</button></div>
+          <div class="alias-query"><input v-model.trim="lookupDataId" placeholder="按实体稳定标识查询别名" />
+            <button class="btn ghost" :disabled="loadingAliases || !lookupDataId" @click="loadAliases">{{ loadingAliases ? '查询中…' : '查询别名' }}</button></div>
+          <div v-if="aliases.length" class="chips"><span v-for="alias in aliases" :key="alias.id">{{ alias.aliasName }} <small>{{ alias.source }}</small></span></div>
+          <p v-else-if="aliasQueried" class="muted">没有查询到已启用的别名。</p>
         </div>
       </div>
     </section>
@@ -163,33 +207,43 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { aiRequest } from '@/utils/request'
 
-const resolveForm = reactive({
-  query: '',
-  entityType: 'DEVICE',
-  areaId: '',
-  systemKey: '',
-  deviceTypeId: '',
-  limit: 5
-})
-const resolveResult = ref(null)
-const resolving = ref(false)
+const typeIcon = { AREA: '⌖', SYSTEM: '▦', DEVICE_TYPE: '▤', DEVICE: '▣', CAMERA: '◉' }
+const summaryItems = ref([])
+const summaryTotal = ref(0)
+const loadingSummary = ref(false)
+const activeType = ref('DEVICE')
+const activeTypeLabel = computed(() => summaryItems.value.find(item => item.entityType === activeType.value)?.label || '设备')
+const catalogKeyword = ref('')
+const catalogRows = ref([])
+const catalogTotal = ref(0)
+const catalogPage = ref(1)
+const catalogPages = ref(0)
+const loadingCatalog = ref(false)
+const catalogError = ref('')
+const selectedDetail = ref(null)
+const detailLoading = ref(false)
+const catalogExpanded = ref(false)
+
+const assistantPrompt = ref('')
+const assistantLoading = ref(false)
+const assistantError = ref('')
+const assistantResult = ref(null)
 
 const syncItems = [
-  { key: 'available', label: '同步全部五类实体', description: '区域、系统、分类、设备、摄像头', icon: '↻' },
-  { key: 'areas', label: '区域数据', description: 'cascade_id → cascade_cid', icon: '⌖' },
-  { key: 'systems', label: '系统枚举', description: 'element_key', icon: '▦' },
-  { key: 'device-types', label: '设备分类', description: '分类 id + cascade_id', icon: '▤' },
-  { key: 'devices', label: '设备目录', description: 'device_type 映射分类 id', icon: '▣' },
-  { key: 'cameras', label: '摄像头目录', description: '独立索引，不做区域过滤', icon: '◉' }
+  { key: 'available', label: '同步全部五类实体' },
+  { key: 'areas', label: '同步区域' },
+  { key: 'systems', label: '同步系统' },
+  { key: 'device-types', label: '同步设备分类' },
+  { key: 'devices', label: '同步设备' },
+  { key: 'cameras', label: '同步摄像头' }
 ]
 const syncing = ref('')
 const indexInitializing = ref(false)
 const syncMessage = ref('')
 const syncError = ref(false)
-
 const aliasForm = reactive({ entityType: 'DEVICE', dataId: '', aliasName: '', remark: '' })
 const savingAlias = ref(false)
 const lookupDataId = ref('')
@@ -197,89 +251,106 @@ const aliases = ref([])
 const loadingAliases = ref(false)
 const aliasQueried = ref(false)
 
-function statusText(status) {
-  return ({ FOUND: '已确认', AMBIGUOUS: '需要消歧', NOT_FOUND: '未找到', SERVICE_UNAVAILABLE: '服务不可用' })[status] || status || '未知'
+function formatNumber(value) { return new Intl.NumberFormat('zh-CN').format(value || 0) }
+function displayValue(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
-
-async function resolveEntity() {
-  resolving.value = true
-  resolveResult.value = null
-  const payload = { ...resolveForm }
-  if (payload.entityType !== 'DEVICE') {
-    delete payload.areaId
-    delete payload.systemKey
-    delete payload.deviceTypeId
-  }
+async function loadSummary() {
+  loadingSummary.value = true
   try {
-    const response = await aiRequest.post('/entity-center/resolve', payload)
-    resolveResult.value = response
+    const response = await aiRequest.get('/entity-center/catalog/summary')
+    summaryItems.value = response.items || []
+    summaryTotal.value = response.total || 0
   } catch (error) {
-    resolveResult.value = { status: 'SERVICE_UNAVAILABLE', message: error?.response?.data?.message || error.message, candidates: [] }
-  } finally {
-    resolving.value = false
+    catalogError.value = error?.response?.data?.message || error.message || '实体统计加载失败'
+  } finally { loadingSummary.value = false }
+}
+async function selectType(type) {
+  if (activeType.value !== type) {
+    activeType.value = type
+    selectedDetail.value = null
   }
+  await loadCatalog(1)
 }
-
-function clearResolve() {
-  resolveForm.query = ''
-  resolveResult.value = null
+async function loadCatalog(page = 1) {
+  loadingCatalog.value = true
+  catalogError.value = ''
+  try {
+    const response = await aiRequest.get('/entity-center/catalog/' + activeType.value, {
+      params: { keyword: catalogKeyword.value || undefined, page, size: 20 }
+    })
+    catalogRows.value = response.records || []
+    catalogTotal.value = response.total || 0
+    catalogPage.value = response.page || page
+    catalogPages.value = response.pages || 0
+  } catch (error) {
+    catalogError.value = error?.response?.data?.message || error.message || '实体目录加载失败'
+  } finally { loadingCatalog.value = false }
 }
-
+async function loadDetail(id) {
+  detailLoading.value = true
+  try {
+    selectedDetail.value = await aiRequest.get('/entity-center/catalog/' + activeType.value + '/' + encodeURIComponent(id))
+  } catch (error) {
+    catalogError.value = error?.response?.data?.message || error.message || '实体详情加载失败'
+  } finally { detailLoading.value = false }
+}
+async function runAssistant() {
+  assistantLoading.value = true
+  assistantError.value = ''
+  assistantResult.value = null
+  try {
+    assistantResult.value = await aiRequest.post('/entity-center/assistant/search', { prompt: assistantPrompt.value })
+  } catch (error) {
+    assistantError.value = error?.response?.data?.message || error.message || '自然语言解析失败'
+  } finally { assistantLoading.value = false }
+}
 async function initializeIndexes() {
   indexInitializing.value = true
   syncMessage.value = ''
-  syncError.value = false
   try {
     const response = await aiRequest.post('/entity-center/admin/indexes/initialize')
-    syncMessage.value = 'ES 索引初始化完成：' + Object.entries(response || {}).map(([key, value]) => key + ' ' + value).join('，')
+    syncMessage.value = '索引初始化完成：' + Object.entries(response || {}).map(([key, value]) => key + ' ' + value).join('，')
+    syncError.value = false
+    await loadSummary()
   } catch (error) {
     syncError.value = true
-    syncMessage.value = error?.response?.data?.message || error.message || 'ES 索引初始化失败，请检查 ES 连接和后端日志。'
-  } finally {
-    indexInitializing.value = false
-  }
+    syncMessage.value = error?.response?.data?.message || error.message || '索引初始化失败'
+  } finally { indexInitializing.value = false }
 }
-
 async function runSync(item) {
   syncing.value = item.key
   syncMessage.value = ''
-  syncError.value = false
   try {
     const response = await aiRequest.post('/entity-center/admin/sync/' + item.key)
     syncMessage.value = item.key === 'available'
       ? '同步完成：' + Object.entries(response || {}).map(([key, value]) => key + ' ' + value + ' 条').join('，')
-      : item.label + '同步完成，共写入 ' + response + ' 条。'
+      : item.label + '完成，写入 ' + response + ' 条。'
+    syncError.value = false
+    await loadSummary()
+    await loadCatalog(1)
   } catch (error) {
     syncError.value = true
-    syncMessage.value = error?.response?.data?.message || error.message || '同步失败，请检查后端功能开关和服务日志。'
-  } finally {
-    syncing.value = ''
-  }
+    syncMessage.value = error?.response?.data?.message || error.message || '数据同步失败'
+  } finally { syncing.value = '' }
 }
-
 async function saveAlias() {
   savingAlias.value = true
   try {
     await aiRequest.post('/entity-center/aliases', { ...aliasForm, enabled: 1, source: 'MANUAL' })
-    syncMessage.value = '别名已保存。'
+    syncMessage.value = '别名保存成功'
     syncError.value = false
     aliasForm.aliasName = ''
-    aliasForm.remark = ''
     if (lookupDataId.value === aliasForm.dataId) await loadAliases()
+    await loadCatalog(catalogPage.value)
+    if (selectedDetail.value?.entityId === aliasForm.dataId) await loadDetail(aliasForm.dataId)
   } catch (error) {
-    syncMessage.value = error?.response?.data?.message || error.message || '别名保存失败。'
+    syncMessage.value = error?.response?.data?.message || error.message || '别名保存失败'
     syncError.value = true
-  } finally {
-    savingAlias.value = false
-  }
+  } finally { savingAlias.value = false }
 }
-
-function clearAlias() {
-  aliasForm.dataId = ''
-  aliasForm.aliasName = ''
-  aliasForm.remark = ''
-}
-
 async function loadAliases() {
   loadingAliases.value = true
   aliasQueried.value = false
@@ -292,70 +363,95 @@ async function loadAliases() {
     aliases.value = []
     aliasQueried.value = true
     syncError.value = true
-    syncMessage.value = error?.response?.data?.message || error.message || '别名查询失败。'
-  } finally {
-    loadingAliases.value = false
-  }
+    syncMessage.value = error?.response?.data?.message || error.message || '别名查询失败'
+  } finally { loadingAliases.value = false }
 }
+watch(activeType, type => { aliasForm.entityType = type })
+onMounted(async () => {
+  await loadSummary()
+  await loadCatalog(1)
+})
 </script>
 
 <style scoped>
-.entity-center-page { color: #e8f1ff; display: flex; flex-direction: column; gap: 18px; }
-.page-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:2px; }
-.eyebrow { color:#42bdf5; font-size:10px; letter-spacing:2px; font-weight:800; margin-bottom:7px; }
-.page-heading h2 { margin:0; font-size:23px; color:#f4f8ff; letter-spacing:.2px; }
-.page-heading p,.panel-heading p { color:rgba(226,239,255,.58); font-size:12px; margin:7px 0 0; line-height:1.6; }
-.module-tag,.hint { color:#7fcdf5; font-size:10px; border:1px solid rgba(76,185,239,.22); border-radius:20px; padding:5px 9px; white-space:nowrap; }
-.panel { background:rgba(5,30,62,.74); border:1px solid rgba(132,190,232,.14); border-radius:13px; padding:20px; box-shadow:0 12px 36px rgba(0,0,0,.12); min-width:0; }
-.panel-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:17px; }
-.panel-heading h3 { color:#f1f7ff; margin:0; font-size:15px; font-weight:750; }
-.form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; }
-.form-grid label,.alias-form label { display:flex; flex-direction:column; gap:7px; min-width:0; }
-.form-grid label span,.alias-form label span { font-size:11px; color:rgba(226,239,255,.68); }
-input,select { width:100%; box-sizing:border-box; min-height:37px; border:1px solid rgba(142,190,228,.2); border-radius:7px; background:rgba(1,17,39,.62); color:#e8f3ff; padding:8px 10px; font-size:12px; outline:none; }
-input:focus,select:focus { border-color:rgba(42,177,239,.75); box-shadow:0 0 0 2px rgba(42,177,239,.1); }
-input:disabled { opacity:.38; cursor:not-allowed; }
-input::placeholder { color:rgba(211,229,248,.3); }
-.panel-actions { display:flex; gap:9px; margin-top:14px; }
-button { cursor:pointer; transition:.18s ease; }
-button:disabled { opacity:.45; cursor:not-allowed; }
-.btn-primary,.btn-secondary { border-radius:7px; min-height:34px; padding:0 14px; font-size:12px; font-weight:700; }
-.btn-primary { color:#05213b; background:linear-gradient(135deg,#4ed0ff,#32aaf0); border:0; }
-.btn-primary:hover:not(:disabled) { filter:brightness(1.08); }
-.btn-secondary { color:#c9e6fb; background:rgba(255,255,255,.04); border:1px solid rgba(143,193,230,.18); }
-.btn-secondary:hover:not(:disabled) { background:rgba(255,255,255,.09); }
-.result-block { margin-top:16px; border-top:1px solid rgba(144,193,230,.12); padding-top:15px; }
-.result-summary { display:grid; grid-template-columns:150px 1fr; gap:8px 18px; align-items:center; }
-.result-summary>div { display:flex; flex-direction:column; gap:5px; }
-.result-label { color:rgba(226,239,255,.48); font-size:10px; }
-.result-summary strong { font-size:13px; }
-.result-summary p { grid-column:1/-1; color:rgba(226,239,255,.65); font-size:12px; margin:4px 0 0; }
-.status-FOUND { color:#54d6a2; }.status-AMBIGUOUS { color:#ffc56b; }.status-NOT_FOUND,.status-SERVICE_UNAVAILABLE { color:#ff8989; }
-.result-summary code,.candidate-row code,.resolved-card code { color:#9fc9e9; font-size:11px; }
-.resolved-card { margin-top:13px; display:flex; flex-direction:column; gap:5px; padding:12px; border:1px solid rgba(73,206,158,.25); border-radius:8px; background:rgba(42,171,125,.07); }
-.resolved-card span { font-size:10px; color:#71d9b2; }.resolved-card strong { font-size:14px; }
-.candidate-list { margin-top:13px; border:1px solid rgba(142,190,228,.12); border-radius:8px; overflow:hidden; }
-.candidate-head,.candidate-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 12px; }
-.candidate-head { color:rgba(226,239,255,.48); background:rgba(255,255,255,.035); font-size:10px; }
-.candidate-row { border-top:1px solid rgba(142,190,228,.09); }
-.candidate-row>div { display:flex; flex-direction:column; gap:4px; }.candidate-row strong { font-size:12px; }.candidate-row small { color:rgba(226,239,255,.45); font-size:10px; }
-.two-column { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
-.sync-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
-.sync-item { display:flex; align-items:center; gap:10px; text-align:left; min-height:62px; padding:10px; border-radius:8px; border:1px solid rgba(142,190,228,.14); color:#e8f3ff; background:rgba(255,255,255,.025); }
-.sync-item:hover:not(:disabled) { border-color:rgba(63,185,240,.5); background:rgba(43,151,207,.08); }
-.sync-icon { display:grid; place-items:center; width:30px; height:30px; border-radius:8px; background:rgba(42,177,239,.12); color:#59c8f5; font-size:18px; flex-shrink:0; }
-.sync-item>span:nth-child(2) { display:flex; flex-direction:column; gap:4px; min-width:0; }.sync-item strong { font-size:11px; }.sync-item small { color:rgba(226,239,255,.45); font-size:9px; line-height:1.4; }
-.sync-arrow { margin-left:auto; color:#6fc8ef; }
-.sync-message { margin-top:12px; border-radius:7px; padding:9px 11px; color:#83e0bb; background:rgba(36,167,119,.1); border:1px solid rgba(36,167,119,.2); font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
-.sync-message.error { color:#ffabab; background:rgba(220,70,70,.08); border-color:rgba(220,70,70,.2); }
-.footnote,.empty-note { color:rgba(226,239,255,.4); font-size:10px; line-height:1.6; margin:12px 0 0; }
-.alias-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.alias-lookup { margin-top:18px; padding-top:14px; border-top:1px solid rgba(142,190,228,.12); }
-.lookup-title { color:#dceeff; font-size:11px; font-weight:700; margin-bottom:9px; }
-.lookup-controls { display:flex; gap:8px; }.lookup-controls input { flex:1; min-width:0; }
-.alias-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
-.alias-chips span { border:1px solid rgba(86,188,236,.2); background:rgba(55,153,205,.09); color:#bde7ff; padding:6px 9px; border-radius:20px; font-size:10px; }
-.alias-chips small { color:rgba(226,239,255,.4); margin-left:4px; }
-@media(max-width:1100px) { .two-column { grid-template-columns:1fr; } }
-@media(max-width:760px) { .form-grid,.alias-form,.sync-grid { grid-template-columns:1fr; } .panel-heading { flex-direction:column; } .result-summary { grid-template-columns:1fr; } .page-heading h2 { font-size:19px; } }
+.entity-center { color:#eaf3ff; display:flex; flex-direction:column; gap:22px; min-width:0; }
+.page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.eyebrow,.section-kicker { color:#51c5f3; font-size:10px; letter-spacing:1.8px; font-weight:800; }
+.page-header h2 { margin:7px 0 0; color:#f4f8ff; font-size:24px; letter-spacing:.2px; }
+.page-header p,.panel-head p { margin:7px 0 0; color:rgba(225,239,255,.56); font-size:12px; line-height:1.6; }
+.header-actions { display:flex; align-items:center; gap:10px; }
+.status-pill { color:#8ce0be; font-size:10px; border:1px solid rgba(90,214,165,.22); background:rgba(57,178,128,.08); border-radius:20px; padding:7px 10px; white-space:nowrap; }
+.status-pill i { display:inline-block; width:6px; height:6px; border-radius:50%; background:#5ad5a0; margin-right:6px; }
+.summary-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)) 1.1fr; gap:10px; }
+.summary-card,.summary-total { min-width:0; border:1px solid rgba(133,185,229,.15); background:linear-gradient(145deg,rgba(9,39,74,.86),rgba(4,23,49,.9)); border-radius:12px; padding:13px 14px; text-align:left; color:#eaf3ff; display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
+.summary-card { cursor:pointer; transition:.18s ease; }
+.summary-card:hover,.summary-card.active { border-color:rgba(69,190,244,.6); background:linear-gradient(145deg,rgba(15,61,99,.94),rgba(5,31,59,.95)); transform:translateY(-1px); }
+.summary-icon { color:#5bcaf5; font-size:18px; }
+.summary-label { color:rgba(225,239,255,.68); font-size:11px; }
+.summary-card strong,.summary-total strong { font-size:25px; line-height:1.2; font-weight:750; font-variant-numeric:tabular-nums; }
+.summary-card small,.summary-total small { color:rgba(225,239,255,.35); font-size:9px; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.summary-total { justify-content:center; background:linear-gradient(145deg,rgba(15,71,106,.9),rgba(5,33,61,.96)); }
+.workspace { display:flex; flex-direction:column; gap:12px; }
+.section-title { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
+.section-title h3 { margin:4px 0 0; font-size:17px; color:#f2f7ff; }
+.section-note { color:rgba(220,237,255,.42); font-size:10px; text-align:right; }
+.section-tools { display:flex; align-items:center; gap:10px; }
+.catalog-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr); gap:13px; align-items:stretch; }
+.catalog-grid.expanded { position:fixed; inset:16px; z-index:1000; padding:54px 18px 18px; overflow:auto; background:#06182e; border:1px solid rgba(105,190,235,.24); border-radius:14px; box-shadow:0 24px 90px rgba(0,0,0,.55); grid-template-columns:minmax(0,1.55fr) minmax(360px,1fr); }
+.expand-close { position:absolute; top:12px; right:18px; z-index:3; }
+.catalog-grid.expanded .catalog-panel,.catalog-grid.expanded .detail-panel { max-height:calc(100vh - 54px); overflow:auto; }
+.panel { min-width:0; border:1px solid rgba(132,190,232,.14); border-radius:13px; padding:17px; background:rgba(5,30,62,.76); box-shadow:0 12px 34px rgba(0,0,0,.1); }
+.catalog-toolbar { display:flex; flex-direction:column; gap:12px; }
+.type-tabs { display:flex; flex-wrap:wrap; gap:6px; }
+.type-tabs button { color:rgba(224,239,255,.62); background:rgba(255,255,255,.035); border:1px solid rgba(140,190,228,.13); border-radius:6px; padding:7px 11px; font-size:10px; }
+.type-tabs button.selected { color:#8cddff; border-color:rgba(69,190,244,.48); background:rgba(48,161,216,.1); }
+.search-line,.alias-query { display:flex; gap:8px; }
+input,textarea,select { box-sizing:border-box; width:100%; color:#eaf3ff; background:rgba(1,17,39,.66); border:1px solid rgba(142,190,228,.2); border-radius:7px; padding:9px 11px; font-size:11px; outline:none; }
+input:focus,textarea:focus,select:focus { border-color:rgba(69,190,244,.72); box-shadow:0 0 0 2px rgba(69,190,244,.1); }
+input::placeholder,textarea::placeholder { color:rgba(211,229,248,.32); }
+.btn { border-radius:7px; min-height:34px; padding:0 13px; font-size:10px; font-weight:700; white-space:nowrap; cursor:pointer; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn.primary { color:#06243d; border:0; background:linear-gradient(135deg,#62d6ff,#32aaf0); }
+.btn.ghost { color:#cde8fc; background:rgba(255,255,255,.045); border:1px solid rgba(143,193,230,.18); }
+.table-wrap { margin-top:14px; overflow:auto; max-height:520px; border:1px solid rgba(142,190,228,.1); border-radius:8px; }
+table { border-collapse:collapse; width:100%; min-width:650px; font-size:10px; }
+th { text-align:left; padding:10px; color:rgba(225,239,255,.48); background:rgba(255,255,255,.035); font-weight:600; position:sticky; top:0; }
+td { padding:10px; border-top:1px solid rgba(142,190,228,.09); color:#dcecff; }
+tbody tr { cursor:pointer; } tbody tr:hover,tbody tr.chosen { background:rgba(43,151,207,.09); }
+td strong,td small { display:block; } td strong { font-size:11px; } td small { color:rgba(225,239,255,.38); margin-top:4px; font-size:9px; }
+td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap:anywhere; }
+.alias-inline { color:#8bd6f4; }.muted { color:rgba(225,239,255,.38); font-size:10px; }
+.text-action { color:#69cef6; background:none; border:0; font-size:10px; white-space:nowrap; }
+.empty-cell,.detail-empty { color:rgba(225,239,255,.38); text-align:center; padding:26px 12px; font-size:11px; }
+.pagination { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; color:rgba(225,239,255,.42); font-size:10px; }
+.pagination>div { display:flex; gap:6px; }
+.panel-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
+.panel-head h3 { color:#f1f7ff; margin:0; font-size:14px; }
+.detail-type,.ai-tag,.result-count { color:#80d8ff; border:1px solid rgba(76,185,239,.2); border-radius:20px; padding:5px 8px; font-size:9px; white-space:nowrap; }
+.detail-content { max-height:700px; overflow:auto; }
+.detail-name { color:#f2f8ff; font-size:17px; font-weight:750; }.detail-id { margin-top:5px; }
+.detail-block { margin-top:16px; padding-top:12px; border-top:1px solid rgba(142,190,228,.12); }
+.detail-block h4 { margin:0 0 9px; font-size:11px; color:#d8eaff; }.detail-block h4 small { color:rgba(225,239,255,.4); font-weight:400; margin-left:5px; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; }.chips span { color:#bce8ff; background:rgba(55,153,205,.09); border:1px solid rgba(86,188,236,.2); border-radius:18px; padding:6px 9px; font-size:9px; }.chips small { color:rgba(225,239,255,.4); margin-left:4px; }
+.pinyin-chips span { color:#a8e4ca; border-color:rgba(90,214,165,.18); background:rgba(57,178,128,.07); }
+.field-list { border:1px solid rgba(142,190,228,.1); border-radius:7px; overflow:hidden; }
+.field-row { display:grid; grid-template-columns:minmax(110px,.8fr) minmax(0,1.5fr); gap:8px; padding:7px 9px; border-top:1px solid rgba(142,190,228,.08); }
+.field-row:first-child { border-top:0; }.field-row>span { color:rgba(225,239,255,.5); font-size:9px; }.field-row code { text-align:right; }
+.prompt-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:stretch; }.prompt-row textarea { resize:vertical; min-height:60px; }.assistant-submit { min-width:120px; }
+.assistant-columns { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+.assistant-result { min-width:0; border:1px solid rgba(142,190,228,.12); border-radius:9px; padding:13px; background:rgba(1,17,39,.22); }
+.parsed-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }.parsed-grid>div { display:flex; flex-direction:column; gap:5px; min-width:0; }.parsed-grid small { color:rgba(225,239,255,.42); font-size:9px; }.parsed-grid strong,.parsed-grid code { color:#d9edff; font-size:10px; overflow-wrap:anywhere; }
+.filter-warning { margin-top:12px; padding:9px 10px; border:1px solid rgba(255,185,83,.24); border-radius:7px; background:rgba(255,185,83,.07); color:#ffd18b; font-size:10px; line-height:1.5; }
+.filter-resolution-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+.filter-resolution-list>div { display:grid; grid-template-columns:60px auto 1fr; gap:8px; align-items:center; font-size:9px; }
+.filter-resolution-list strong { color:rgba(225,239,255,.7); }.filter-resolution-list small { color:rgba(225,239,255,.42); }
+.resolve-FOUND { color:#71d9b2; }.resolve-AMBIGUOUS { color:#ffd18b; }.resolve-NOT_FOUND { color:#ffabab; }
+.raw-json { margin-top:13px; color:#8ed9fa; font-size:10px; }.raw-json pre { white-space:pre-wrap; overflow-wrap:anywhere; color:rgba(225,239,255,.55); font-size:9px; }
+.candidate-results { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow:auto; }.candidate-card { display:flex; justify-content:space-between; align-items:center; gap:12px; text-align:left; border:1px solid rgba(142,190,228,.12); border-radius:7px; padding:9px 10px; color:#e8f3ff; background:rgba(255,255,255,.025); cursor:pointer; }.candidate-card:hover { border-color:rgba(69,190,244,.5); }.candidate-card strong,.candidate-card small { display:block; }.candidate-card strong { font-size:10px; }.candidate-card small { color:rgba(225,239,255,.4); margin-top:4px; font-size:9px; }.candidate-score { color:#8ed9fa; font-size:10px; }
+.assistant-placeholder { margin-top:13px; border:1px dashed rgba(142,190,228,.18); border-radius:8px; padding:18px; color:rgba(225,239,255,.4); font-size:11px; text-align:center; }
+.inline-error { margin-top:10px; padding:9px 11px; border-radius:7px; color:#ffaaaa; border:1px solid rgba(220,70,70,.2); background:rgba(220,70,70,.07); font-size:10px; }
+.operations-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; }.sync-actions { display:flex; flex-wrap:wrap; gap:7px; }.sync-message { margin-top:11px; padding:9px 11px; border-radius:7px; color:#83e0bb; background:rgba(36,167,119,.1); font-size:10px; }.sync-message.error { color:#ffabab; background:rgba(220,70,70,.08); }
+.footnote { color:rgba(225,239,255,.36); font-size:9px; line-height:1.6; margin:12px 0 0; }.alias-form { display:grid; grid-template-columns:1fr 1fr; gap:10px; }.alias-form label { display:flex; flex-direction:column; gap:6px; color:rgba(225,239,255,.56); font-size:10px; }.action-line { margin-top:11px; }.alias-query { margin-top:12px; }.alias-query input { flex:1; min-width:0; }.chips { margin-top:8px; }
+@media(max-width:1250px) { .summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }.catalog-grid { grid-template-columns:1fr; }.catalog-grid.expanded { grid-template-columns:1fr; }.detail-content { max-height:none; } }
+@media(max-width:800px) { .page-header,.section-title { flex-direction:column; align-items:flex-start; }.summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.assistant-columns,.operations-grid { grid-template-columns:1fr; }.prompt-row { grid-template-columns:1fr; }.assistant-submit { min-height:38px; }.section-note { text-align:left; }.pagination { align-items:flex-start; flex-direction:column; } }
 </style>
