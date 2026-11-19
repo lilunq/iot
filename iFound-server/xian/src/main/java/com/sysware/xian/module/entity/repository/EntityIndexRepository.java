@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Repository;
@@ -18,6 +19,7 @@ import java.util.Map;
 /** Elasticsearch 访问边界。上层服务不直接拼装 HTTP 请求。 */
 @Repository
 @RequiredArgsConstructor
+@Slf4j
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = "enabled", havingValue = "true")
 public class EntityIndexRepository {
     private final RestClient entityElasticsearchRestClient;
@@ -36,6 +38,7 @@ public class EntityIndexRepository {
     public int bulkIndex(String indexAlias, Map<String, Map<String, Object>> documents) {
         if (documents == null || documents.isEmpty()) return 0;
         StringBuilder ndjson = new StringBuilder();
+        int diagnosticSample = 0;
         try {
             for (Map.Entry<String, Map<String, Object>> entry : documents.entrySet()) {
                 if (entry.getKey() == null || entry.getKey().isBlank()) {
@@ -44,7 +47,18 @@ public class EntityIndexRepository {
                 Map<String, Object> action = Map.of("index",
                         Map.of("_index", indexAlias, "_id", entry.getKey()));
                 ndjson.append(objectMapper.writeValueAsString(action)).append('\n');
-                ndjson.append(objectMapper.writeValueAsString(entry.getValue())).append('\n');
+                String documentJson = objectMapper.writeValueAsString(entry.getValue());
+                if ("station_devices".equals(indexAlias) && diagnosticSample < 5) {
+                    diagnosticSample++;
+                    String deviceName = entry.getValue().get("device_name") == null
+                            ? null : entry.getValue().get("device_name").toString();
+                    String serializedName = objectMapper.readTree(documentJson)
+                            .path("device_name").asText(null);
+                    log.info("[实体中心设备名称诊断] phase=Bulk JSON序列化后, sample={}, id={}, deviceName={}, codePoints={}, serializedDeviceName={}, serializedCodePoints={}",
+                            diagnosticSample, entry.getKey(), deviceName, unicodeCodePoints(deviceName),
+                            serializedName, unicodeCodePoints(serializedName));
+                }
+                ndjson.append(documentJson).append('\n');
             }
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("构造 ES Bulk 请求失败", ex);
@@ -70,6 +84,14 @@ public class EntityIndexRepository {
             throw new EntityBulkWriteException("ES Bulk 部分写入失败: " + String.join("; ", failures));
         }
         return documents.size();
+    }
+
+    private String unicodeCodePoints(String value) {
+        if (value == null) return "null";
+        if (value.isEmpty()) return "(empty)";
+        return value.codePoints()
+                .mapToObj(codePoint -> String.format("U+%04X", codePoint))
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     public List<Map<String, Object>> sources(JsonNode response) {
