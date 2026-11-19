@@ -149,6 +149,11 @@
                 <strong>{{ key === 'area' ? '区域' : key === 'system' ? '系统' : '设备分类' }}</strong>
                 <span :class="'resolve-' + item.status">{{ item.status }}</span>
                 <small>{{ item.message }}</small>
+                <div v-if="item.candidates?.length" class="filter-candidates">
+                  <span v-for="candidate in item.candidates" :key="candidate.entityId">
+                    {{ candidate.name }} · {{ candidate.entityId }}
+                  </span>
+                </div>
               </div>
             </div>
             <details class="raw-json"><summary>查看 LLM 原始结构化响应</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
@@ -445,6 +450,7 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .filter-resolution-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
 .filter-resolution-list>div { display:grid; grid-template-columns:60px auto 1fr; gap:8px; align-items:center; font-size:9px; }
 .filter-resolution-list strong { color:rgba(225,239,255,.7); }.filter-resolution-list small { color:rgba(225,239,255,.42); }
+.filter-candidates { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:5px; }.filter-candidates span { color:#ffd18b; background:rgba(255,185,83,.06); border:1px solid rgba(255,185,83,.16); border-radius:5px; padding:4px 6px; }
 .resolve-FOUND { color:#71d9b2; }.resolve-AMBIGUOUS { color:#ffd18b; }.resolve-NOT_FOUND { color:#ffabab; }
 .raw-json { margin-top:13px; color:#8ed9fa; font-size:10px; }.raw-json pre { white-space:pre-wrap; overflow-wrap:anywhere; color:rgba(225,239,255,.55); font-size:9px; }
 .candidate-results { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow:auto; }.candidate-card { display:flex; justify-content:space-between; align-items:center; gap:12px; text-align:left; border:1px solid rgba(142,190,228,.12); border-radius:7px; padding:9px 10px; color:#e8f3ff; background:rgba(255,255,255,.025); cursor:pointer; }.candidate-card:hover { border-color:rgba(69,190,244,.5); }.candidate-card strong,.candidate-card small { display:block; }.candidate-card strong { font-size:10px; }.candidate-card small { color:rgba(225,239,255,.4); margin-top:4px; font-size:9px; }.candidate-score { color:#8ed9fa; font-size:10px; }
