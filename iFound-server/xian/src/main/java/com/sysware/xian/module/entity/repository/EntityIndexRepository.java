@@ -64,10 +64,15 @@ public class EntityIndexRepository {
             throw new IllegalStateException("构造 ES Bulk 请求失败", ex);
         }
 
+        // StringHttpMessageConverter 在未声明 charset 时可能使用 ISO-8859-1，
+        // 导致中文在 HTTP 发送前被替换为问号。显式构造 UTF-8 字节，避免默认字符集介入。
+        byte[] requestBody = ndjson.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        log.info("[实体中心Bulk编码诊断] indexAlias={}, contentType=application/x-ndjson;charset=UTF-8, bodyBytes={}",
+                indexAlias, requestBody.length);
         JsonNode response = entityElasticsearchRestClient.post()
                 .uri("/_bulk")
-                .contentType(MediaType.parseMediaType("application/x-ndjson"))
-                .body(ndjson.toString())
+                .contentType(MediaType.parseMediaType("application/x-ndjson;charset=UTF-8"))
+                .body(requestBody)
                 .retrieve()
                 .body(JsonNode.class);
 
