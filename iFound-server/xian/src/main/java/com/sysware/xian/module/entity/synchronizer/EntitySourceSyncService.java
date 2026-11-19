@@ -148,6 +148,10 @@ public class EntitySourceSyncService {
             AjaxResultVO response = scadaClient.listPage(params);
             assertSuccess(response, "设备列表第 " + page + " 页");
             List<Map<String, Object>> rows = readRows(response.get("data"));
+            // 仅在第一页抽样输出，避免全量同步时产生大量日志。
+            if (page == 1) {
+                logDeviceNameDiagnostics("SCADA响应反序列化后", rows);
+            }
             if (actualPageSize < 0) actualPageSize = rows.size();
             Map<String, Map<String, Object>> documents = new LinkedHashMap<>();
             for (Map<String, Object> row : rows) {
@@ -179,6 +183,9 @@ public class EntitySourceSyncService {
                 doc.put("enabled", true);
                 documents.put(id, doc);
             }
+            if (page == 1) {
+                logDeviceDocumentDiagnostics("ES写入前字段映射完成", documents);
+            }
             written += writeWithAliases(EntityType.DEVICE, documents);
             if (!hasNextPage(response, rows.size(), page, actualPageSize)) return written;
             if (page == MAX_PAGES) {
@@ -186,6 +193,44 @@ public class EntitySourceSyncService {
             }
         }
         return written;
+    }
+
+    /**
+     * 设备名称链路诊断：只抽样第一页最多 5 条，打印字符码点以区分真实问号和终端显示问题。
+     */
+    private void logDeviceNameDiagnostics(String phase, List<Map<String, Object>> rows) {
+        int sampleSize = Math.min(rows.size(), 5);
+        for (int i = 0; i < sampleSize; i++) {
+            Map<String, Object> row = rows.get(i);
+            Object value = firstValue(row, "device_name", "deviceName");
+            String name = value == null ? null : value.toString();
+            log.info("[实体中心设备名称诊断] phase={}, sample={}, id={}, valueType={}, deviceName={}, codePoints={}",
+                    phase,
+                    i + 1,
+                    firstText(row, "id"),
+                    value == null ? "null" : value.getClass().getName(),
+                    name,
+                    unicodeCodePoints(name));
+        }
+    }
+
+    private void logDeviceDocumentDiagnostics(String phase, Map<String, Map<String, Object>> documents) {
+        int sample = 0;
+        for (Map.Entry<String, Map<String, Object>> entry : documents.entrySet()) {
+            if (sample++ >= 5) break;
+            Object value = entry.getValue().get("device_name");
+            String name = value == null ? null : value.toString();
+            log.info("[实体中心设备名称诊断] phase={}, sample={}, id={}, deviceName={}, codePoints={}",
+                    phase, sample, entry.getKey(), name, unicodeCodePoints(name));
+        }
+    }
+
+    private String unicodeCodePoints(String value) {
+        if (value == null) return "null";
+        if (value.isEmpty()) return "(empty)";
+        return value.codePoints()
+                .mapToObj(codePoint -> String.format("U+%04X", codePoint))
+                .collect(Collectors.joining(" "));
     }
 
     private Map<String, Map<String, Object>> loadDeviceTypesByCascadeId() {
