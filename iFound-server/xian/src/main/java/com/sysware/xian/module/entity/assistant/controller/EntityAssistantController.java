@@ -19,7 +19,7 @@ import java.util.Map;
 public class EntityAssistantController {
     private final EntityAssistantService assistantService;
 
-    @Operation(summary = "自然语言实体解析检索接口", description = "解析用户自然语言中的实体类型、关键词及设备过滤条件，并返回实体检索结果。")
+    @Operation(summary = "自然语言实体解析检索接口", description = "解析用户自然语言中的实体类型、关键词及设备过滤条件，并返回实体检索结果。请求可选 inputSource=VOICE_ASR 启用语音区域纠错与安全降级，asrAlternatives 用于传入可选备选转写。")
     @PostMapping("/search")
     public Map<String, Object> search(@RequestBody EntityAssistantRequest request) {
         return assistantService.search(request == null ? null : request.getPrompt(),
