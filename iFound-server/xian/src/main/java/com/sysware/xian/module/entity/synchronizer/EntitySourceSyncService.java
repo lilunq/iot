@@ -199,6 +199,14 @@ public class EntitySourceSyncService {
                 putRaw(doc, "install_date", row, "install_date", "installDate");
                 putRaw(doc, "location", row, "location");
                 addLocationSearchVariants(doc, "location_variants", firstText(row, "location"));
+                // 独立抽取设备名称/location 中的站台、楼层等位置短语，并为数字编号写入中文读法。
+                // 该字段有独立的 Pinyin multi-field，避免“武站台”只命中 IK 的公共词“站台”。
+                List<String> positionVariants = EntityAreaNameNormalizer.extractPositionVariants(
+                        firstText(row, "device_name", "deviceName"),
+                        firstText(row, "location"));
+                if (!positionVariants.isEmpty()) {
+                    doc.put("device_position_variants", positionVariants);
+                }
                 putRaw(doc, "subarea_cid", row, "subarea_cid", "subareaCid");
                 putRaw(doc, "subarea_id", row, "subarea_id", "subareaId");
                 putRaw(doc, "nfc", row, "nfc");
