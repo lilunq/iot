@@ -152,7 +152,7 @@ public class EntityAssistantService {
                 filterResolutions.put("area", vocabularyResolution(areaMatch, "从当前区域词典匹配"));
             } else if (hasText(areaMention) || areaMatch != null) {
                 String areaQuery = hasText(areaMention) ? areaMention : areaMatch.matchedText();
-                AreaResolution areaResolution = resolveAreaMention(areaQuery, areaMatch, areaVocabulary);
+                AreaResolution areaResolution = resolveAreaMention(areaQuery, areaMatch, areaVocabulary, voiceAsr);
                 if (areaResolution.matched()) {
                     areaName = areaResolution.name();
                     areaId = areaResolution.id();
@@ -727,6 +727,11 @@ public class EntityAssistantService {
         return new ArrayList<>(variants);
     }
 
+    private boolean isFuzzyFallbackResolution(EntityResolveResponse response) {
+        return response != null && response.getMessage() != null
+                && response.getMessage().toLowerCase(Locale.ROOT).contains("fuzzy");
+    }
+
     private String rawAreaMention(String prompt, VocabularyMatch match) {
         if (!hasText(prompt) || match == null || !hasText(match.matchedText())) return null;
         String term = match.matchedText().trim();
@@ -738,7 +743,7 @@ public class EntityAssistantService {
     }
 
     private AreaResolution resolveAreaMention(String query, VocabularyMatch vocabularyMatch,
-                                               List<Map<String, Object>> areaVocabulary) {
+                                               List<Map<String, Object>> areaVocabulary, boolean voiceAsr) {
         if (vocabularyMatch != null && !vocabularyMatch.ambiguous() && !vocabularyMatch.fuzzy()) {
             return new AreaResolution(vocabularyMatch.id(), vocabularyMatch.name(), true,
                     vocabularyResolution(vocabularyMatch, "从当前区域词典匹配"));
@@ -747,6 +752,8 @@ public class EntityAssistantService {
         EntityResolveResponse resolved = resolveFilter(EntityType.AREA, query);
         if (resolved != null && "FOUND".equalsIgnoreCase(resolved.getStatus())
                 && resolved.getResolved() != null
+                // 语音区域不能仅凭 Levenshtein 单字符 Fuzzy 就绑定硬过滤；优先要求精确/IK/拼音确认。
+                && (!voiceAsr || !isFuzzyFallbackResolution(resolved))
                 && (vocabularyMatch == null || !vocabularyMatch.fuzzy()
                     || vocabularyMatch.id().equals(resolved.getResolved().getEntityId()))) {
             return new AreaResolution(resolved.getResolved().getEntityId(), resolved.getResolved().getName(),
