@@ -67,14 +67,15 @@ public class EntityAssistantService {
                 只负责把用户自然语言转换成检索条件，不负责查数据，不得编造实体、实体ID、区域编码、系统编码或设备分类ID。
                 entityType 只能是 AREA、SYSTEM、DEVICE_TYPE、DEVICE、CAMERA。
                 对设备查询，提取目标设备关键词 keyword，以及用户明确表达的区域 areaName、所属系统 systemName。不要把每个房间、方位或位置描述自动识别成区域。
-                对“指挥中心的空调”“实验室的排风机”这类可能是设备完整名称/别名的位置表达，优先保留完整短语；只有出现“区域内/范围内/在某区域”等明确区域语义，或用户查询“某位置的全部设备”时，才填写 areaName。
+                位置描述不等于区域。对“武站台的设备”“指挥中心的空调”“实验室的排风机”等表达，位置词优先作为设备名称、别名或 location 的检索线索；不得仅凭“X的设备”“位于X”或地点词自动填写 areaName。
+                只有用户明确说“X区域内”“X区域范围内”“所属区域为X”等区域语义时，才填写 areaName。若不确定，areaName 留空，把位置词保留在 keyword 中。
                 对摄像头查询，keyword 应提取摄像头实际名称、编号、别名或用户描述的房间/地点词，不要只返回“摄像头”这类实体类型词。
                 下面提供的是当前系统中真实存在的完整系统名称/别名词典。
                 systemName 在用户表达与词典完全匹配时，必须从该词典中选择；若明显存在一个字的错别字且没有完全匹配项，可保留用户原文中的近似词，交由后端词典容错和 Elasticsearch Fuzzy 二次确认，不能自行改成稳定 ID。
                 用户原文出现词典中的系统名称/别名时，应识别为所属系统，即使用户没有说“系统”两个字。
                 区域名称仅在用户明确表达区域约束时由后端匹配完整区域词典及业务别名；普通名称中的位置词不应转成区域过滤条件。
-                用户原文可能来自语音识别，可能出现同音字、中文数字/阿拉伯数字差异或少量错别字；请尽量从上下文提取区域/系统名称，areaName、systemName 保留用户原文，不要自行改写成其他区域或编造稳定 ID。后端将通过词典、数字归一化、ES 拼音分析和 Fuzzy 进行验证。
-                “武站台区域内的排风机”或“位于5站台的排风机”可提取区域线索；“武站台的排风机”“5站台的设备”存在位置描述属于设备名称的可能，不能仅凭“X的”结构强制区域过滤，应保留位置词作为设备关键词。
+                用户原文可能来自语音识别，也可能是键盘输入的拼音误字；可能出现同音字、中文数字/阿拉伯数字差异或少量错别字。不要为凑出 areaName 而把位置线索改成区域；真正明确的区域才交由后端通过真实词典、数字归一化和 ES 拼音分析验证。
+                “5站台区域内的排风机”可提取区域线索；“武站台的设备”“5站台的排风机”“位于5站台的排风机”中的位置词不自动成为区域过滤条件，应保留为设备名称/位置检索线索。
                 例如用户说“候车大厅1号空调”，若词典中存在“候车大厅”区域和“空调”系统，应分别提取 areaName=候车大厅、systemName=空调。
                 不要因为“空调”同时出现在设备名称中，就漏掉它对应的已知系统；系统字段的最终确认由后端词典匹配完成。
                 区域、系统必须以用户原文或明确别名为依据，不得从上下文臆造。
@@ -117,6 +118,8 @@ public class EntityAssistantService {
         boolean explicitAreaConstraint = EntityMentionNormalizer.isExplicitAreaConstraint(prompt, areaName, keyword);
         String fullDevicePhrase = type == EntityType.DEVICE
                 ? EntityMentionNormalizer.fullDevicePhrase(prompt) : null;
+        String locationMention = type == EntityType.DEVICE
+                ? EntityMentionNormalizer.genericDeviceLocationMention(prompt) : null;
         Map<String, Object> filterResolutions = new LinkedHashMap<>();
         boolean filterNeedsClarification = false;
         boolean voiceAreaFallback = false;
@@ -127,10 +130,11 @@ public class EntityAssistantService {
                 ? (hasText(areaName) && prompt.contains(areaName)
                     ? areaName : rawAreaMention(prompt, areaMatch))
                 : null;
-        if (explicitAreaConstraint && !hasText(areaMention)) {
-            areaMention = EntityMentionNormalizer.genericDeviceAreaMention(prompt);
+        if (!explicitAreaConstraint) {
+            // LLM 即使把“武站台”误填进 areaName，也只能作为位置线索，绝不进入硬过滤。
+            areaId = null;
+            areaName = null;
         }
-        if (!explicitAreaConstraint) areaId = null;
 
         // ASR 多候选仅作为纠错证据；若不同备选命中不同真实区域，不按列表顺序猜测。
         boolean primaryAreaExact = areaMatch != null && !areaMatch.fuzzy() && !areaMatch.ambiguous();
@@ -262,6 +266,9 @@ public class EntityAssistantService {
             if (!hasText(areaId) && hasText(fullDevicePhrase)) {
                 keyword = fullDevicePhrase;
             }
+            if (!hasText(keyword) && hasText(locationMention)) {
+                keyword = locationMention;
+            }
             if (!hasText(keyword) && explicitAreaConstraint) {
                 filterNeedsClarification = true;
             }
@@ -278,6 +285,11 @@ public class EntityAssistantService {
         List<String> keywordVariants;
         if (type == EntityType.DEVICE) {
             keywordVariants = buildKeywordVariants(prompt, keyword, areaMatch, areaMention, systemName);
+            if (hasText(locationMention) && !locationMention.equals(keyword)) {
+                Set<String> variants = new LinkedHashSet<>(keywordVariants);
+                variants.add(locationMention);
+                keywordVariants = new ArrayList<>(variants);
+            }
         } else if (type == EntityType.CAMERA) {
             keywordVariants = buildCameraKeywordVariants(cameraSearchHint, keyword);
         } else {
@@ -293,6 +305,7 @@ public class EntityAssistantService {
         parsedView.put("keywordVariants", keywordVariants);
         parsedView.put("areaName", nullSafe(areaName));
         parsedView.put("areaMention", nullSafe(areaMention));
+        parsedView.put("locationMention", nullSafe(locationMention));
         parsedView.put("areaResolved", hasText(areaId));
         parsedView.put("areaConstraintExplicit", explicitAreaConstraint);
         parsedView.put("fullNameQuery", nullSafe(fullDevicePhrase));
@@ -321,8 +334,8 @@ public class EntityAssistantService {
                 "areaFuzzyMatched", hasText(areaId) && areaMatch != null && areaMatch.fuzzy(),
                 "systemFuzzyMatched", hasText(systemKey) && systemMatch != null && systemMatch.fuzzy()));
         result.put("searchPolicy", Map.of(
-                "areaAndSystem", "区域、系统优先依据 ES 真实词典和别名匹配；区域支持数字读法归一化、ES 拼音核验和 Fuzzy；确认后才做硬过滤",
-                "areaInterpretation", "明确区域约束才应用区域硬过滤；具体名称中的位置描述保留完整短语，与拆分关键词同时召回",
+                "areaAndSystem", "区域只接受明确区域语义；名称/别名精确匹配或唯一 ES 拼音匹配确认后才应用硬过滤，不使用低相关度 Fuzzy 区域候选",
+                "areaInterpretation", "普通位置描述不等于区域；“X的设备”优先检索设备名称、别名和 location，不因区域词典未命中而中止查询",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
                 "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排",
                 "cameraSearch", "摄像头不使用区域硬过滤；用户表达的房间/地点词作为摄像头名称、地址或别名关键词",
@@ -605,7 +618,11 @@ public class EntityAssistantService {
                     false);
         }
 
-        // Fuzzy 词典匹配必须同时得到 LLM 提取线索和原句近似片段的支持，避免任意短词误触发硬过滤。
+        // 区域候选只接受精确别名或上面的数字等价命中；编辑距离窗口会把无关区域误判为候选。
+        // 区域同音纠错由 ES Pinyin Analyzer 的唯一拼音候选专门负责。
+        if (areaVocabulary) return null;
+
+        // 非区域实体的词典仍允许单字符拼写容错；后续还必须由 ES Fuzzy 二次确认。
         Map<String, Map<String, Object>> fuzzyById = new LinkedHashMap<>();
         String fuzzyTerm = null;
         String fuzzyInput = null;
@@ -839,12 +856,12 @@ public class EntityAssistantService {
     private AreaResolution resolveAreaMention(String query, VocabularyMatch vocabularyMatch,
                                                List<Map<String, Object>> areaVocabulary, boolean inputIsVoice) {
         if (vocabularyMatch != null && !vocabularyMatch.ambiguous() && !vocabularyMatch.fuzzy()) {
-            return new AreaResolution(vocabularyMatch.id(), vocabularyMatch.name(), true,
-                    vocabularyResolution(vocabularyMatch, "从当前区域词典匹配"));
+            return new AreaResolution(vocabularyMatch.id(), vocabularyMatch.name(),
+                    true, vocabularyResolution(vocabularyMatch, "从当前区域词典精确匹配"));
         }
 
-        // 拼音纠错与输入来源无关：键盘拼音误字和语音 ASR 同音字都使用 ES Pinyin Analyzer 核验。
-        // 唯一拼音候选优先于单字符编辑距离，避免“武站台”被错误地按字形近似处理。
+        // 区域同音纠错只接受 Elasticsearch Pinyin Analyzer 的唯一拼音候选。
+        // 不使用宽泛 IK/Fuzzy 分数，也不把编辑距离相近但语义无关的区域展示给用户。
         List<Map<String, Object>> pinyinCandidates =
                 catalogService.findPinyinAreaCandidates(query, areaVocabulary);
         if (pinyinCandidates.size() == 1) {
@@ -854,7 +871,7 @@ public class EntityAssistantService {
             if (hasText(candidateId)) {
                 Map<String, Object> details = new LinkedHashMap<>();
                 details.put("status", "FOUND");
-                details.put("message", "通过 Elasticsearch Pinyin Analyzer 确认读音一致，并唯一匹配真实区域");
+                details.put("message", "通过 Elasticsearch Pinyin Analyzer 唯一匹配真实区域");
                 details.put("candidates", List.of(Map.of("entityId", candidateId, "name", candidateName)));
                 details.put("matchedText", query);
                 details.put("matchMethod", "PINYIN");
@@ -871,32 +888,13 @@ public class EntityAssistantService {
         }
 
         if (vocabularyMatch != null && vocabularyMatch.ambiguous()) {
-            Map<String, Object> details = ambiguousResolution(vocabularyMatch);
-            return new AreaResolution(null, query, false, details);
+            return new AreaResolution(null, query, false, ambiguousResolution(vocabularyMatch));
         }
 
-        // 拼音没有唯一证据时，才由统一实体解析器执行 IK/Fuzzy 辅助验证。
-        EntityResolveResponse resolved = resolveFilter(EntityType.AREA, query);
-        if (resolved != null && "FOUND".equalsIgnoreCase(resolved.getStatus())
-                && resolved.getResolved() != null
-                && (vocabularyMatch == null || !vocabularyMatch.fuzzy()
-                    || vocabularyMatch.id().equals(resolved.getResolved().getEntityId()))) {
-            return new AreaResolution(resolved.getResolved().getEntityId(), resolved.getResolved().getName(),
-                    true, filterResolution(resolved));
-        }
-
-        Map<String, Object> details = resolved == null
-                ? new LinkedHashMap<>() : filterResolution(resolved);
-        if (vocabularyMatch != null && vocabularyMatch.fuzzy()) {
-            details.put("dictionaryCandidate", Map.of(
-                    "entityId", vocabularyMatch.id(), "name", vocabularyMatch.name()));
-        }
-        if (details.isEmpty()) {
-            details.put("status", "NOT_FOUND");
-            details.put("message", "未能从真实区域词典确认该区域");
-        } else if (!"AMBIGUOUS".equalsIgnoreCase(String.valueOf(details.get("status")))) {
-            details.put("matchMethod", "UNCONFIRMED");
-        }
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("status", "NOT_FOUND");
+        details.put("message", "未找到足够可靠的区域名称或唯一拼音匹配；已拒绝使用低相关度候选");
+        details.put("candidates", List.of());
         return new AreaResolution(null, query, false, details);
     }
 

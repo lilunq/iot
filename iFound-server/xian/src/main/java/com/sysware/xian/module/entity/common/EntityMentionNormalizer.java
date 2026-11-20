@@ -8,9 +8,7 @@ import java.util.regex.Pattern;
  */
 public final class EntityMentionNormalizer {
     private static final Pattern EXPLICIT_AREA_MARKER = Pattern.compile(
-            ".*(区域内|区域范围内|区域的|范围内|范围的|站台内|站台区域|站厅内|候车层内|楼层内|辖区内|所属区域).*");
-    private static final Pattern POSITION_PREFIX = Pattern.compile(
-            ".*(在|位于|处于|部署于|安装在).{1,16}(区域|站台|站厅|候车层|楼层|层|楼).*");
+            ".*(区域内|区域范围内|区域的|范围内|范围的|站台区域|站厅区域|候车层区域|楼层区域|辖区内|所属区域).*");
     private static final Pattern LOCATION_ONLY = Pattern.compile(
             "^(?:第)?[0-9零〇一二三四五六七八九十]{1,4}(?:候车层|站台|站厅|站|台|层|楼|区)$"
             + "|^.{2,12}(?:候车层|站台|站厅|楼层|区域)$");
@@ -20,23 +18,20 @@ public final class EntityMentionNormalizer {
     private EntityMentionNormalizer() { }
 
     /**
-     * 只有出现明确区域语义，或“X的设备”这类泛设备集合表达时，才把位置词升级为区域硬过滤。
-     * “指挥中心的空调”“实验室的排风机”等具体名称表达默认保留完整短语，不擅自解释成区域。
+     * 只有用户明确表达区域/范围语义时才生成区域硬过滤。
+     * “X的设备”“位于X的设备”中的 X 都先作为位置线索，不推断为区域。
      */
     public static boolean isExplicitAreaConstraint(String prompt, String areaName, String keyword) {
         if (!hasText(prompt)) return false;
         String source = EntityTextNormalizer.normalize(prompt);
-        // “X的设备/设施”是集合查询，可把 X 作为待验证的区域线索；
-        // “指挥中心的空调”等具体设备表达仍保留为完整名称，不自动拆成区域。
-        return EXPLICIT_AREA_MARKER.matcher(source).matches()
-                || POSITION_PREFIX.matcher(source).matches()
-                || GENERIC_DEVICE_COLLECTION.matcher(stripQueryFillers(source)).matches();
+        return EXPLICIT_AREA_MARKER.matcher(source).matches();
     }
 
     /**
-     * 提取“X的设备/设施”中的位置线索。返回值只是待验证文本，不能直接作为区域 ID。
+     * 提取“X的设备/设施”中的位置描述，用于搜索设备名称、别名和 location；
+     * 该值不是区域名称，也不能生成区域过滤条件。
      */
-    public static String genericDeviceAreaMention(String prompt) {
+    public static String genericDeviceLocationMention(String prompt) {
         if (!hasText(prompt)) return null;
         String source = stripQueryFillers(EntityTextNormalizer.normalize(prompt));
         if (!GENERIC_DEVICE_COLLECTION.matcher(source).matches()) return null;
