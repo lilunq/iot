@@ -138,9 +138,17 @@ public class EntityResolverService {
             } else if (type == EntityType.DEVICE_TYPE) {
                 exact(should, "id", query, 125);
                 exact(should, "cascade_id", query, 115);
+                exact(should, "device_type", query, 110);
+                exact(should, "device_alias", query, 108);
                 match(should, "name", query, 12);
+                match(should, "device_name", query, 12);
+                match(should, "device_alias", query, 11);
+                match(should, "location", query, 8);
                 match(should, "aliases", query, 10);
                 pinyin(should, "name", query, 6);
+                pinyin(should, "device_name", query, 6);
+                pinyin(should, "device_alias", query, 5);
+                pinyin(should, "location", query, 5);
                 pinyin(should, "aliases", query, 5);
             } else if (type == EntityType.DEVICE) {
                 exact(should, "id", query, 130);
@@ -148,8 +156,11 @@ public class EntityResolverService {
                 exact(should, "device_alias", query, 110);
                 match(should, "device_name", query, 12);
                 match(should, "device_alias", query, 11);
+                match(should, "location", query, 8);
                 match(should, "aliases", query, 10);
                 pinyin(should, "device_name", query, 6);
+                pinyin(should, "device_alias", query, 5);
+                pinyin(should, "location", query, 5);
                 pinyin(should, "aliases", query, 5);
             } else if (type == EntityType.CAMERA) {
                 exact(should, "id", query, 130);
@@ -158,6 +169,7 @@ public class EntityResolverService {
                 match(should, "address", query, 6);
                 match(should, "aliases", query, 10);
                 pinyin(should, "camera_name", query, 6);
+                pinyin(should, "address", query, 4);
                 pinyin(should, "aliases", query, 5);
             }
     
@@ -203,15 +215,22 @@ public class EntityResolverService {
         addFuzzyMatch(clauses, "aliases", value, 10);
         addFuzzyTerm(clauses, nameField + ".raw", value, 18);
         addFuzzyTerm(clauses, "aliases.raw", value, 14);
-        if (type == EntityType.DEVICE) {
-            addFuzzyMatch(clauses, "device_alias", value, 10);
-            addFuzzyTerm(clauses, "device_alias.raw", value, 14);
-            if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
+        if (type == EntityType.DEVICE || type == EntityType.DEVICE_TYPE) {
+            addFuzzyMatch(clauses, "device_name", value, 10);
+            addFuzzyMatch(clauses, "device_alias", value, 9);
+            addFuzzyMatch(clauses, "location", value, 7);
+            addFuzzyTerm(clauses, "device_name.raw", value, 12);
+            addFuzzyTerm(clauses, "device_alias.raw", value, 11);
+            addFuzzyTerm(clauses, "location.raw", value, 8);
+            if (type == EntityType.DEVICE && value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*")
+                    && value.length() <= 32) {
                 addFuzzyTerm(clauses, "device_code", value, 2);
             }
-        } else if (type == EntityType.CAMERA && value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*")
-                && value.length() <= 32) {
-            addFuzzyTerm(clauses, "camera_no", value, 2);
+        } else if (type == EntityType.CAMERA) {
+            addFuzzyMatch(clauses, "address", value, 7);
+            if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
+                addFuzzyTerm(clauses, "camera_no", value, 2);
+            }
         }
     }
 
