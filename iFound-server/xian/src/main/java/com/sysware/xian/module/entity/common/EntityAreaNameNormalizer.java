@@ -135,7 +135,7 @@ public final class EntityAreaNameNormalizer {
     public static boolean isHomophoneNumberedPositionPhrase(String value) {
         if (value == null || value.isBlank()) return false;
         String normalized = EntityTextNormalizer.normalize(value).replaceAll("[\\s，,。！？!?；;：:、]+", "");
-        return normalized.matches("^(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3}|[\\p{IsHan}])站台$");
+        return normalized.matches("^第?(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3}|[\\p{IsHan}])站台$");
     }
 
     /**
