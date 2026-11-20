@@ -22,6 +22,8 @@ public class EntityAssistantController {
     @Operation(summary = "自然语言实体解析检索接口", description = "解析用户自然语言中的实体类型、关键词及设备过滤条件，并返回实体检索结果。")
     @PostMapping("/search")
     public Map<String, Object> search(@RequestBody EntityAssistantRequest request) {
-        return assistantService.search(request == null ? null : request.getPrompt());
+        return assistantService.search(request == null ? null : request.getPrompt(),
+                request == null ? "TEXT" : request.getInputSource(),
+                request == null ? java.util.List.of() : request.getAsrAlternatives());
     }
 }
