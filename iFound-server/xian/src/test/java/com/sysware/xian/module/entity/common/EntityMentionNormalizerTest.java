@@ -36,6 +36,14 @@ class EntityMentionNormalizerTest {
     }
 
     @Test
+    void extractsHomophonePositionPrefixFromSpecificDeviceQueries() {
+        assertEquals("武站台", EntityMentionNormalizer.genericDeviceLocationMention("查询武站台的排风机"));
+        assertEquals("吾站台", EntityMentionNormalizer.genericDeviceLocationMention("查询吾站台的空调"));
+        assertEquals("武站台", EntityMentionNormalizer.genericDeviceLocationMention("查询武站台的设备"));
+        assertNull(EntityMentionNormalizer.genericDeviceLocationMention("查询指挥中心的空调"));
+    }
+
+    @Test
     void concreteNameLocationPhraseIsNotAutomaticallyAnAreaFilter() {
         assertFalse(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询指挥中心的空调", "指挥中心", "空调"));
