@@ -57,7 +57,8 @@ class EntityMentionNormalizerTest {
                 EntityMentionNormalizer.fullDevicePhrase("帮我查询指挥中心的空调设备"));
         assertEquals("智慧中心的空调",
                 EntityMentionNormalizer.fullDevicePhrase("查询智慧中心的空调"));
-        assertEquals("",
-                EntityMentionNormalizer.fullDevicePhrase("查询5站台的设备"));
+        assertEquals("", EntityMentionNormalizer.fullDevicePhrase("查询5站台的设备"));
+        assertEquals("", EntityMentionNormalizer.fullDevicePhrase("查询武站台的设备"));
+        assertEquals("", EntityMentionNormalizer.fullDevicePhrase("查询吾站台的设备"));
     }
 }
