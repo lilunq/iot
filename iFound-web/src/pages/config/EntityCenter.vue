@@ -191,9 +191,10 @@
             <div class="panel2-head"><div><span class="section-kicker">LLM STRUCTURED OUTPUT</span><h3>自然语言结构化结果</h3></div><span class="ai-tag">LLM</span></div>
             <div class="parsed-grid">
               <div><small>实体类型</small><strong>{{ assistantResult.parsed.entityLabel }} · {{ assistantResult.parsed.entityType }}</strong></div>
-              <div><small>检索关键词</small><strong>{{ assistantResult.parsed.keyword }}</strong></div>
-              <div><small>识别区域</small><strong>{{ assistantResult.parsed.areaName || '未指定' }}</strong></div>
-              <div><small>识别系统</small><strong>{{ assistantResult.parsed.systemName || '未指定' }}</strong></div>
+              <div><small>检索关键词（后端校正后）</small><strong>{{ assistantResult.parsed.keyword }}</strong></div>
+              <div><small>辅助检索词</small><strong>{{ (assistantResult.parsed.keywordVariants || []).join('、') || '无' }}</strong></div>
+              <div><small>区域（真实词典匹配）</small><strong>{{ assistantResult.parsed.areaName || '未指定' }}</strong></div>
+              <div><small>系统（真实词典匹配）</small><strong>{{ assistantResult.parsed.systemName || '未指定' }}</strong></div>
               <div><small>识别分类偏好（不硬过滤）</small><strong>{{ assistantResult.parsed.deviceTypeName || '未指定' }}</strong></div>
               <div><small>区域稳定 ID</small><code>{{ assistantResult.parsed.areaId || '未指定' }}</code></div>
               <div><small>系统稳定 Key</small><code>{{ assistantResult.parsed.systemKey || '未指定' }}</code></div>
@@ -218,14 +219,19 @@
                 </div>
               </div>
             </div>
-            <details class="raw-json"><summary>查看 LLM 原始结构化响应</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
+            <div v-if="assistantResult.vocabulary" class="search-strategy-note">
+              本次使用区域词典 {{ assistantResult.vocabulary.areaCount }} 项、系统词典 {{ assistantResult.vocabulary.systemCount }} 项；
+              后端区域匹配：{{ assistantResult.vocabulary.areaMatchedByBackend ? '已命中' : '未命中' }}，
+              系统匹配：{{ assistantResult.vocabulary.systemMatchedByBackend ? '已命中' : '未命中' }}。
+            </div>
+            <details class="raw-json"><summary>查看 LLM 原始响应（以下结构化结果已由后端真实词典校正）</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
           </div>
           <div class="assistant-result">
             <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条</span></div>
             <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
               <button v-for="row in assistantResult.searchResult.records" :key="row.entityId"
                 class="candidate-card" @click="selectType(row.entityType); loadDetail(row.entityId)">
-                <span><strong>{{ row.name || '未命名实体' }}</strong><small>{{ row.entityId }}</small></span>
+                <span><strong>{{ row.name || '未命名实体' }}</strong><small>{{ [row.subarea_name, row.system_name, row.device_type_name].filter(Boolean).join(' · ') || '未维护区域/系统/分类信息' }} · {{ row.entityId }}</small></span>
                 <span class="candidate-score">{{ Number(row.score || 0).toFixed(2) }}</span>
               </button>
             </div>
