@@ -58,9 +58,19 @@ public final class EntityMentionNormalizer {
     public static String genericDeviceLocationMention(String prompt) {
         if (!hasText(prompt)) return null;
         String source = stripQueryFillers(EntityTextNormalizer.normalize(prompt));
-        if (!GENERIC_DEVICE_COLLECTION.matcher(source).matches()) return null;
-        String mention = source.replaceFirst("的(?:所有|全部)?(?:设备|设施)(?:列表|清单|信息)?$", "").trim();
-        return mention.length() >= 2 ? mention : null;
+        if (GENERIC_DEVICE_COLLECTION.matcher(source).matches()) {
+            String mention = source.replaceFirst("的(?:所有|全部)?(?:设备|设施)(?:列表|清单|信息)?$", "").trim();
+            return mention.length() >= 2 ? mention : null;
+        }
+
+        // 对“武站台的排风机”“吾站台的空调”提取“的”前面的独立位置短语。
+        // “指挥中心的空调”等完整名称不符合站台/楼层位置形态，仍保留完整短语处理。
+        int separator = source.indexOf("的");
+        if (separator > 1 && separator <= 16) {
+            String mention = source.substring(0, separator).trim();
+            if (EntityAreaNameNormalizer.isLocationOnlyDescription(mention)) return mention;
+        }
+        return null;
     }
 
     private static String stripQueryFillers(String value) {
