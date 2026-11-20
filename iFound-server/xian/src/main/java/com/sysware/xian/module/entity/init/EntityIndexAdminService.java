@@ -98,7 +98,8 @@ public class EntityIndexAdminService {
                         "fire_key", "device_fac_id", "parent_id", "cascade_id",
                         "is_folder", "is_expand", "ext_code");
                 integer(fields, "sort_no");
-                text(fields, "name", "device_name", "device_alias", "location", "remark", "aliases");
+                text(fields, "name", "device_name", "device_name_variants",
+                        "device_alias", "location", "location_variants", "remark", "aliases");
                 bool(fields, "enabled");
             }
             case DEVICE -> {
@@ -106,8 +107,8 @@ public class EntityIndexAdminService {
                         "system_key", "device_type_id", "device_type_cascade_id", "parent_device_id",
                         "factory", "production_date", "install_date", "nfc", "fire_key", "device_fac_id");
                 integer(fields, "sort_no");
-                text(fields, "device_name", "device_alias", "aliases",
-                        "subarea_name", "system_name", "device_type_name", "location");
+                text(fields, "device_name", "device_name_variants", "device_alias", "aliases",
+                        "subarea_name", "system_name", "device_type_name", "location", "location_variants");
                 bool(fields, "enabled");
             }
             case CAMERA -> {
