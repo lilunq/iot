@@ -324,8 +324,37 @@ public class EntityCatalogService {
                 }
             }
             // 关键词必须至少命中一项；分类偏好位于外层可选 should 中，不能独立扩大召回集合。
-            bool.put("must", List.of(Map.of("bool", Map.of(
-                    "should", should, "minimum_should_match", 1))));
+            List<Map<String, Object>> mustClauses = new ArrayList<>();
+            mustClauses.add(Map.of("bool", Map.of(
+                    "should", should, "minimum_should_match", 1)));
+
+            // 对“武站台/吾站台/五站台的设备”这类单独的位置条件，
+            // 要求候选设备的独立位置字段通过 Pinyin Analyzer 命中。
+            // 这样不会把只包含公共词“站台”的无关设备返回给用户。
+            if (type == EntityType.DEVICE) {
+                Set<String> positionQueries = new LinkedHashSet<>();
+                if (EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(q)) {
+                    positionQueries.addAll(EntityAreaNameNormalizer.positionPhraseVariants(q));
+                }
+                if (additionalKeywords != null) {
+                    for (String alternative : additionalKeywords) {
+                        if (EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(alternative)) {
+                            positionQueries.addAll(EntityAreaNameNormalizer.positionPhraseVariants(alternative));
+                        }
+                    }
+                }
+                if (!positionQueries.isEmpty()) {
+                    List<Map<String, Object>> positionShould = new ArrayList<>();
+                    for (String positionQuery : positionQueries) {
+                        positionShould.add(Map.of("match_phrase", Map.of(
+                                "device_position_variants.pinyin", Map.of(
+                                        "query", positionQuery, "boost", 60))));
+                    }
+                    mustClauses.add(Map.of("bool", Map.of(
+                            "should", positionShould, "minimum_should_match", 1)));
+                }
+            }
+            bool.put("must", mustClauses);
             if (!preferenceClauses.isEmpty()) {
                 bool.put("should", preferenceClauses);
             }
@@ -424,7 +453,7 @@ public class EntityCatalogService {
                 addPinyinMatch(clauses, "location.pinyin", value, Math.max(2, boost - 1));
                 addPinyinMatch(clauses, "device_name_variants.pinyin", value, boost);
                 addPinyinMatch(clauses, "location_variants.pinyin", value, Math.max(2, boost - 1));
-                if (type == EntityType.DEVICE && EntityAreaNameNormalizer.isLocationOnlyDescription(value)) {
+                if (type == EntityType.DEVICE && EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(value)) {
                     // 位置短语单独匹配标准化位置字段，强于“站台”等公共词的 IK 命中。
                     // “武站台/吾站台”由 ES Pinyin Analyzer 与索引中的“五站台”读音验证。
                     for (String positionVariant : EntityAreaNameNormalizer.positionPhraseVariants(value)) {
@@ -450,7 +479,7 @@ public class EntityCatalogService {
             addPinyinMatch(clauses, "location.pinyin", keyword, 10);
             addPinyinMatch(clauses, "device_name_variants.pinyin", keyword, 12);
             addPinyinMatch(clauses, "location_variants.pinyin", keyword, 10);
-            if (type == EntityType.DEVICE && EntityAreaNameNormalizer.isLocationOnlyDescription(keyword)) {
+            if (type == EntityType.DEVICE && EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(keyword)) {
                 for (String positionVariant : EntityAreaNameNormalizer.positionPhraseVariants(keyword)) {
                     addPinyinMatch(clauses, "device_position_variants.pinyin", positionVariant, 55);
                 }
