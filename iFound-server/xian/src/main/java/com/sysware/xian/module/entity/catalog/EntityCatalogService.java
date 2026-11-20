@@ -198,10 +198,10 @@ public class EntityCatalogService {
                     should.add(Map.of("match", Map.of(nameField, Map.of(
                             "query", alternative.trim(), "boost", alternativeBoost))));
                     should.add(Map.of("match", Map.of("aliases", Map.of(
-                            "query", alternative.trim(), "boost", Math.max(4, alternativeBoost - 2))));
+                            "query", alternative.trim(), "boost", Math.max(4, alternativeBoost - 2)))));
                     if (type == EntityType.DEVICE) {
                         should.add(Map.of("match", Map.of("device_alias", Map.of(
-                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4))));
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4)))));
                     }
                 }
             }
