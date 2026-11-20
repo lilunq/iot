@@ -40,7 +40,7 @@
       </div>
       <div class="catalog-grid" :class="{ expanded: catalogExpanded }">
         <button v-if="catalogExpanded" class="btn ghost expand-close" @click="catalogExpanded = false">收起工作区 ×</button>
-        <div class="panel catalog-panel">
+        <div class="panel2 catalog-panel2">
           <div class="catalog-toolbar">
             <div class="type-tabs">
               <button v-for="item in summaryItems" :key="item.entityType"
@@ -79,8 +79,8 @@
           </div>
         </div>
 
-        <aside class="panel detail-panel">
-          <div class="panel-head"><div><span class="section-kicker">ENTITY MODEL</span><h3>实体模型详情</h3></div>
+        <aside class="panel2 detail-panel2">
+          <div class="panel2-head"><div><span class="section-kicker">ENTITY MODEL</span><h3>实体模型详情</h3></div>
             <span v-if="selectedDetail" class="detail-type">{{ activeTypeLabel }}</span></div>
           <div v-if="detailLoading" class="detail-empty">正在读取实体模型…</div>
           <div v-else-if="selectedDetail" class="detail-content">
@@ -163,7 +163,7 @@
         <div><span class="section-kicker">02 / AI RESOLUTION</span><h3>自然语言实体解析</h3></div>
         <span class="section-note">LLM 负责理解与结构化 · Elasticsearch 负责真实数据召回</span>
       </div>
-      <div class="panel assistant-panel">
+      <div class="panel2 assistant-panel2">
         <div class="assistant-composer">
           <div class="composer-heading">
             <div>
@@ -188,7 +188,7 @@
         <div v-if="assistantError" class="inline-error">{{ assistantError }}</div>
         <div v-if="assistantResult" class="assistant-columns">
           <div class="assistant-result">
-            <div class="panel-head"><div><span class="section-kicker">LLM STRUCTURED OUTPUT</span><h3>自然语言结构化结果</h3></div><span class="ai-tag">LLM</span></div>
+            <div class="panel2-head"><div><span class="section-kicker">LLM STRUCTURED OUTPUT</span><h3>自然语言结构化结果</h3></div><span class="ai-tag">LLM</span></div>
             <div class="parsed-grid">
               <div><small>实体类型</small><strong>{{ assistantResult.parsed.entityLabel }} · {{ assistantResult.parsed.entityType }}</strong></div>
               <div><small>检索关键词</small><strong>{{ assistantResult.parsed.keyword }}</strong></div>
@@ -218,7 +218,7 @@
             <details class="raw-json"><summary>查看 LLM 原始结构化响应</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
           </div>
           <div class="assistant-result">
-            <div class="panel-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条</span></div>
+            <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条</span></div>
             <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
               <button v-for="row in assistantResult.searchResult.records" :key="row.entityId"
                 class="candidate-card" @click="selectType(row.entityType); loadDetail(row.entityId)">
@@ -241,8 +241,8 @@
         <span class="section-note">保留现有管理能力 · 手动触发 · 幂等写入</span>
       </div>
       <div class="operations-grid">
-        <div class="panel">
-          <div class="panel-head"><div><h3>数据同步</h3><p>同步源系统数据至五类 ES 索引。</p></div></div>
+        <div class="panel2">
+          <div class="panel2-head"><div><h3>数据同步</h3><p>同步源系统数据至五类 ES 索引。</p></div></div>
           <div class="sync-actions">
             <button class="btn ghost" :disabled="indexInitializing" @click="initializeIndexes">{{ indexInitializing ? '初始化中…' : '初始化 ES 索引' }}</button>
             <button v-for="item in syncItems" :key="item.key" class="btn ghost"
@@ -251,8 +251,8 @@
           <div v-if="syncMessage" class="sync-message" :class="{ error: syncError }">{{ syncMessage }}</div>
           <p class="footnote">区域稳定 ID 为 cascade_cid，系统为 element_key，分类/设备/摄像头为 id。设备分类按 cascade_id 映射；摄像头不做区域过滤。普通同步不自动删除源系统已不存在的记录。</p>
         </div>
-        <div class="panel">
-          <div class="panel-head"><div><h3>业务别名维护</h3><p>为实体添加常用简称，别名精确回查实体稳定 ID。</p></div></div>
+        <div class="panel2">
+          <div class="panel2-head"><div><h3>业务别名维护</h3><p>为实体添加常用简称，别名精确回查实体稳定 ID。</p></div></div>
           <div class="alias-form">
             <label>实体类型<select v-model="aliasForm.entityType"><option v-for="item in summaryItems" :key="item.entityType" :value="item.entityType">{{ item.label }}</option></select></label>
             <label>稳定业务标识<input v-model.trim="aliasForm.dataId" placeholder="输入 cascade_cid / element_key / id" /></label>
@@ -470,10 +470,10 @@ onMounted(async () => {
 
 <style scoped>
 .entity-center { color:#eaf3ff; display:flex; flex-direction:column; gap:22px; min-width:0; }
-.page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px;height: 110px; }
 .eyebrow,.section-kicker { color:#51c5f3; font-size:10px; letter-spacing:1.8px; font-weight:800; }
 .page-header h2 { margin:7px 0 0; color:#f4f8ff; font-size:24px; letter-spacing:.2px; }
-.page-header p,.panel-head p { margin:7px 0 0; color:rgba(225,239,255,.56); font-size:12px; line-height:1.6; }
+.page-header p,.panel2-head p { margin:7px 0 0; color:rgba(225,239,255,.56); font-size:12px; line-height:1.6; }
 .header-actions { display:flex; align-items:center; gap:10px; }
 .status-pill { color:#8ce0be; font-size:10px; border:1px solid rgba(90,214,165,.22); background:rgba(57,178,128,.08); border-radius:20px; padding:7px 10px; white-space:nowrap; }
 .status-pill i { display:inline-block; width:6px; height:6px; border-radius:50%; background:#5ad5a0; margin-right:6px; }
@@ -494,8 +494,8 @@ onMounted(async () => {
 .catalog-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr); gap:13px; align-items:stretch; }
 .catalog-grid.expanded { position:fixed; inset:16px; z-index:1000; padding:54px 18px 18px; overflow:auto; background:#06182e; border:1px solid rgba(105,190,235,.24); border-radius:14px; box-shadow:0 24px 90px rgba(0,0,0,.55); grid-template-columns:minmax(0,1.55fr) minmax(360px,1fr); }
 .expand-close { position:absolute; top:12px; right:18px; z-index:3; }
-.catalog-grid.expanded .catalog-panel,.catalog-grid.expanded .detail-panel { max-height:calc(100vh - 54px); overflow:auto; }
-.panel { min-width:0; border:1px solid rgba(132,190,232,.14); border-radius:13px; padding:17px; background:rgba(5,30,62,.76); box-shadow:0 12px 34px rgba(0,0,0,.1); }
+.catalog-grid.expanded .catalog-panel2,.catalog-grid.expanded .detail-panel2 { max-height:calc(100vh - 54px); overflow:auto; }
+.panel2 { min-width:0; border:1px solid rgba(132,190,232,.14); border-radius:13px; padding:17px; background:rgba(5,30,62,.76); box-shadow:0 12px 34px rgba(0,0,0,.1); }
 .catalog-toolbar { display:flex; flex-direction:column; gap:12px; }
 .type-tabs { display:flex; flex-wrap:wrap; gap:6px; }
 .type-tabs button { color:rgba(224,239,255,.62); background:rgba(255,255,255,.035); border:1px solid rgba(140,190,228,.13); border-radius:6px; padding:7px 11px; font-size:10px; }
@@ -520,8 +520,8 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .empty-cell,.detail-empty { color:rgba(225,239,255,.38); text-align:center; padding:26px 12px; font-size:11px; }
 .pagination { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; color:rgba(225,239,255,.42); font-size:10px; }
 .pagination>div { display:flex; gap:6px; }
-.panel-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
-.panel-head h3 { color:#f1f7ff; margin:0; font-size:14px; }
+.panel2-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
+.panel2-head h3 { color:#f1f7ff; margin:0; font-size:14px; }
 .detail-type,.ai-tag,.result-count { color:#80d8ff; border:1px solid rgba(76,185,239,.2); border-radius:20px; padding:5px 8px; font-size:9px; white-space:nowrap; }
 .detail-content { max-height:700px; overflow:auto; }
 .detail-name { color:#f2f8ff; font-size:17px; font-weight:750; }.detail-id { margin-top:5px; }
