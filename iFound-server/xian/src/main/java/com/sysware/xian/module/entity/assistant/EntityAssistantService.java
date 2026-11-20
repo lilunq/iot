@@ -504,15 +504,20 @@ public class EntityAssistantService {
         int[] sourceChars = normalizedSource.codePoints().toArray();
         int[] termChars = EntityTextNormalizer.normalize(term).codePoints().toArray();
         int bestDistance = 2;
+        int bestLengthDifference = Integer.MAX_VALUE;
         String bestText = null;
         for (int start = 0; start < sourceChars.length; start++) {
-            int minLength = Math.max(2, termChars.length - 1);
-            int maxLength = Math.min(sourceChars.length - start, termChars.length + 1);
-            for (int length = minLength; length <= maxLength; length++) {
+            // 先尝试与标准名称等长的片段，避免“候车大斤”被误截成更短的“候车大”。
+            int[] candidateLengths = {termChars.length, termChars.length - 1, termChars.length + 1};
+            for (int length : candidateLengths) {
+                if (length < 2 || start + length > sourceChars.length) continue;
                 String window = new String(sourceChars, start, length);
                 int distance = editDistanceAtMostOne(term, window);
-                if (distance < bestDistance) {
+                int lengthDifference = Math.abs(length - termChars.length);
+                if (distance < bestDistance
+                        || (distance == bestDistance && lengthDifference < bestLengthDifference)) {
                     bestDistance = distance;
+                    bestLengthDifference = lengthDifference;
                     bestText = window;
                     if (distance == 0) return new ApproximateWindow(window, 0);
                 }
