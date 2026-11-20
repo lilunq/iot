@@ -766,6 +766,8 @@ public class EntityAssistantService {
         if (!hasText(prompt) || match == null || !hasText(match.matchedText())) return null;
         String term = match.matchedText().trim();
         if (prompt.contains(term)) return term;
+        String arabicVariant = EntityAreaNameNormalizer.toArabicNumeralVariant(term);
+        if (hasText(arabicVariant) && prompt.contains(arabicVariant)) return arabicVariant;
         String spokenVariant = EntityAreaNameNormalizer.toChineseNumeralVariant(term);
         if (hasText(spokenVariant) && prompt.contains("第" + spokenVariant)) return "第" + spokenVariant;
         if (hasText(spokenVariant) && prompt.contains(spokenVariant)) return spokenVariant;
