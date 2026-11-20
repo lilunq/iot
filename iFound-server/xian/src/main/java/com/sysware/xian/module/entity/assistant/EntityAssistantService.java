@@ -38,7 +38,11 @@ public class EntityAssistantService {
                         摄像头没有区域归属，摄像头查询不得提取或使用区域、系统、设备分类过滤。
                         仅当用户原文明确给出稳定编码时才填写 areaId、systemKey、deviceTypeId；不得根据中文名称编造编码。
                         entityType 只能是 AREA、SYSTEM、DEVICE_TYPE、DEVICE、CAMERA。
-                        keyword 只提取目标实体名称、编号或别名，不要把区域/系统/分类限定词混入设备名称。
+                        keyword 应完整保留目标设备名称中的核心描述和编号，例如“岛式空调1”应作为完整 keyword 保留，不要擅自删除编号。
+                        只有当用户明确表达独立的设备分类约束（例如“设备分类为X”“类型是X”）时才填写 deviceTypeName。
+                        不要把目标设备名称中的词语拆出来冒充分类；例如“岛式空调1”本身是目标名称时，deviceTypeName 应为空。
+                        deviceTypeName 只是检索排序偏好，不是必选条件；实体即使未配置设备分类，也必须有机会通过设备名称命中。
+                        areaName 和 systemName 仅提取用户明确表达的区域、系统约束，不要仅因设备名称包含某个词就强行推断过滤条件。
                         只输出一个 JSON 对象，不要 Markdown，不要解释性前后缀。
                         JSON字段：entityType、keyword、areaName、systemName、deviceTypeName、areaId、systemKey、deviceTypeId、intent。
                         """)
@@ -86,12 +90,8 @@ public class EntityAssistantService {
                 if ("FOUND".equals(resolved.getStatus())) systemKey = resolved.getResolved().getEntityId();
                 else filterNeedsClarification = true;
             }
-            if (deviceTypeId == null && deviceTypeName != null) {
-                EntityResolveResponse resolved = resolveFilter(EntityType.DEVICE_TYPE, deviceTypeName);
-                filterResolutions.put("deviceType", filterResolution(resolved));
-                if ("FOUND".equals(resolved.getStatus())) deviceTypeId = resolved.getResolved().getEntityId();
-                else filterNeedsClarification = true;
-            }
+            // deviceTypeName 是软偏好，不解析为 device_type_id 硬过滤。
+            // 设备分类可能未维护，仍应允许依靠设备名称召回设备。
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("prompt", prompt);
@@ -109,10 +109,15 @@ public class EntityAssistantService {
         parsedView.put("intent", parsed.path("intent").asText("实体检索"));
         result.put("parsed", parsedView);
         result.put("filterResolutions", filterResolutions);
+        result.put("searchPolicy", Map.of(
+                "areaAndSystem", "仅对已确认的区域、系统条件执行硬过滤",
+                "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
+                "deviceName", "同时匹配原始关键词和去除尾部编号后的名称主体，保留原始编号信息"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
         result.put("searchResult", filterNeedsClarification
                 ? Map.of("entityType", type.name(), "page", 1, "size", 20, "total", 0, "pages", 0, "records", java.util.List.of())
-                : catalogService.list(type, keyword, areaId, systemKey, deviceTypeId, 1, 20));
+                : catalogService.listForAssistant(type, keyword, areaId, systemKey, deviceTypeId,
+                        type == EntityType.DEVICE ? deviceTypeName : null, 1, 20));
         return result;
     }
 
