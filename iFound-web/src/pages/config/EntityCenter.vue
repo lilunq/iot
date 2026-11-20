@@ -130,9 +130,14 @@
               {{ assistantLoading ? 'AI 正在解析…' : 'AI 解析并检索' }}
             </button>
           </div>
+          <div class="quick-prompts">
+            <span>常用检索</span>
+            <button v-for="item in quickPrompts" :key="item" type="button"
+              :disabled="assistantLoading" @click="runQuickSearch(item)">{{ item }}</button>
+          </div>
         </div>
         <div v-if="assistantError" class="inline-error">{{ assistantError }}</div>
-        <div v-if="assistantResult" class="assistant-columns">
+        <div v-if="assistantResult" class="assistant-result-layout">
           <div class="assistant-result">
             <div class="panel2-head"><div><span class="section-kicker">LLM STRUCTURED OUTPUT</span><h3>自然语言结构化结果</h3></div><span class="ai-tag">LLM</span></div>
             <div class="parsed-grid">
@@ -172,19 +177,38 @@
             </div>
             <details class="raw-json"><summary>查看 LLM 原始响应（以下结构化结果已由后端真实词典校正）</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
           </div>
-          <div class="assistant-result">
-            <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条 · {{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? '语义重排' : assistantResult.searchResult.rankingStatus === 'ES_FALLBACK' ? 'ES原排序' : 'ES召回' }}</span></div>
+          <div class="assistant-candidate-detail-grid">
+            <div class="assistant-result assistant-candidate-panel">
+              <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条 · {{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? '语义重排' : assistantResult.searchResult.rankingStatus === 'ES_FALLBACK' ? 'ES原排序' : 'ES召回' }}</span></div>
             <div v-if="assistantResult.searchResult.rankingMessage" class="search-strategy-note">{{ assistantResult.searchResult.rankingMessage }}</div>
             <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
               <button v-for="(row, index) in assistantResult.searchResult.records" :key="row.entityId"
-                class="candidate-card" @click="selectType(row.entityType); loadDetail(row.entityId)">
+                class="candidate-card" :class="{ selected: selectedAssistantDetail?.entityId === row.entityId }"
+                @click="loadAssistantDetail(row)">
                 <span><strong>{{ row.name || '未命名实体' }}</strong><small>{{ [row.subarea_name, row.system_name || row.system_key, row.device_type_name].filter(Boolean).join(' · ') || '未维护区域/系统/分类信息' }} · {{ row.entityId }}</small></span>
-                <span class="candidate-score">{{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? 'TOP ' + String(index + 1).padStart(2, '0') : Number(row.score || 0).toFixed(2) }}</span>
+                <span class="candidate-metrics">
+                  <strong v-if="assistantResult.searchResult.rankingStatus === 'LLM_RERANKED'" class="candidate-rank">TOP {{ String(index + 1).padStart(2, '0') }}</strong>
+                  <small class="candidate-score" title="Elasticsearch 自动计算的 _score 相关性分值，不是百分比">ES 匹配度 {{ Number(row.score || 0).toFixed(2) }}</small>
+                </span>
               </button>
             </div>
-            <div v-else class="detail-empty">
-              {{ assistantResult.status === 'NEEDS_CLARIFICATION' ? '区域或系统过滤条件需要确认，已暂停检索。' : 'ES 没有召回匹配实体。' }}
+              <div v-else class="detail-empty">
+                {{ assistantResult.status === 'NEEDS_CLARIFICATION' ? '区域或系统过滤条件需要确认，已暂停检索。' : 'ES 没有召回匹配实体。' }}
+              </div>
             </div>
+            <EntityModelDetail
+              class="assistant-entity-detail"
+              :detail="selectedAssistantDetail"
+              :loading="assistantDetailLoading"
+              :type-label="selectedAssistantDetail?.entityType || assistantResult.searchResult.entityType || assistantResult.parsed.entityType"
+              :alias-name="detailAliasName"
+              :saving-alias="savingDetailAlias"
+              :alias-message="detailAliasMessage"
+              :alias-error="detailAliasError"
+              empty-text="点击左侧 ES 候选，右侧展示该实体的完整模型详情。"
+              @update:alias-name="detailAliasName = $event"
+              @add-alias="addAssistantDetailAlias"
+            />
           </div>
         </div>
         <div v-else class="assistant-placeholder">输入自然语言检索需求，系统将先由 LLM 提取实体类型、关键词和明确过滤条件，再由 ES 返回真实候选，不会让模型生成实体 ID。</div>
