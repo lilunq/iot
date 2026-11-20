@@ -172,8 +172,8 @@
             </div>
             <div v-if="assistantResult.vocabulary" class="search-strategy-note">
               本次使用区域词典 {{ assistantResult.vocabulary.areaCount }} 项、系统词典 {{ assistantResult.vocabulary.systemCount }} 项；
-              后端区域匹配：{{ assistantResult.vocabulary.areaMatchedByBackend ? '已命中' : '未命中' }}，
-              系统匹配：{{ assistantResult.vocabulary.systemMatchedByBackend ? '已命中' : '未命中' }}。
+              后端区域匹配：{{ assistantResult.vocabulary.areaFuzzyMatched ? '拼写容错命中' : assistantResult.vocabulary.areaMatchedByBackend ? '标准命中' : '未命中' }}，
+              系统匹配：{{ assistantResult.vocabulary.systemFuzzyMatched ? '拼写容错命中' : assistantResult.vocabulary.systemMatchedByBackend ? '标准命中' : '未命中' }}。
             </div>
             <details class="raw-json"><summary>查看 LLM 原始响应（以下结构化结果已由后端真实词典校正）</summary><pre>{{ assistantResult.llmRaw }}</pre></details>
           </div>
