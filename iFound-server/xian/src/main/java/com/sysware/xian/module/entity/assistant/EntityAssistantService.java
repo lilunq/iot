@@ -449,7 +449,7 @@ public class EntityAssistantService {
             for (String term : vocabularyTerms(item)) {
                 String candidate = EntityTextNormalizer.normalize(term);
                 int candidateLength = candidate.codePointCount(0, candidate.length());
-                if (candidateLength < 4 || Math.abs(candidateLength - hint.codePointCount(0, hint.length())) > 1) {
+                if (candidateLength < 2 || Math.abs(candidateLength - hint.codePointCount(0, hint.length())) > 1) {
                     continue;
                 }
                 int hintDistance = hasUsableHint ? editDistanceAtMostOne(candidate, hint) : 0;
@@ -511,7 +511,7 @@ public class EntityAssistantService {
         int bestDistance = 2;
         String bestText = null;
         for (int start = 0; start < sourceChars.length; start++) {
-            int minLength = Math.max(4, termChars.length - 1);
+            int minLength = Math.max(2, termChars.length - 1);
             int maxLength = Math.min(sourceChars.length - start, termChars.length + 1);
             for (int length = minLength; length <= maxLength; length++) {
                 String window = new String(sourceChars, start, length);
