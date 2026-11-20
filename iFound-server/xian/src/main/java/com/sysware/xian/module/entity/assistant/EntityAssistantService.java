@@ -119,15 +119,39 @@ public class EntityAssistantService {
                 ? areaName : rawAreaMention(prompt, areaMatch);
         if (!hasText(areaMention) && hasText(areaName)) areaMention = areaName;
 
-        // ASR 多候选仅作为纠错证据：只有某个备选文本能匹配真实区域词典时才接受。
+        // ASR 多候选仅作为纠错证据；若不同备选命中不同真实区域，不按列表顺序猜测。
         if (voiceAsr) {
+            Map<String, Map<String, Object>> asrAreaCandidates = new LinkedHashMap<>();
+            if (areaMatch != null && !areaMatch.fuzzy()) {
+                for (Map<String, Object> candidate : areaMatch.candidates()) {
+                    asrAreaCandidates.put(String.valueOf(candidate.get("entityId")),
+                            Map.of("id", candidate.get("entityId"), "name", candidate.get("name")));
+                }
+            }
+            String alternativeMatchText = null;
             for (String alternative : safeAsrAlternatives) {
                 if (!hasText(alternative)) continue;
                 VocabularyMatch alternativeMatch = findVocabularyMatch(alternative, areaVocabulary);
-                if (alternativeMatch != null && !alternativeMatch.ambiguous() && !alternativeMatch.fuzzy()) {
-                    areaMatch = alternativeMatch;
-                    break;
+                if (alternativeMatch == null || alternativeMatch.fuzzy()) continue;
+                if (alternativeMatchText == null) alternativeMatchText = alternativeMatch.matchedText();
+                for (Map<String, Object> candidate : alternativeMatch.candidates()) {
+                    asrAreaCandidates.put(String.valueOf(candidate.get("entityId")),
+                            Map.of("id", candidate.get("entityId"), "name", candidate.get("name")));
                 }
+            }
+            if (asrAreaCandidates.size() == 1) {
+                Map<String, Object> candidate = asrAreaCandidates.values().iterator().next();
+                String id = String.valueOf(candidate.get("id"));
+                String name = String.valueOf(candidate.get("name"));
+                areaMatch = new VocabularyMatch(id, name,
+                        hasText(areaMention) ? areaMention : alternativeMatchText,
+                        false, List.of(Map.of("entityId", id, "name", name)), false);
+            } else if (asrAreaCandidates.size() > 1) {
+                List<Map<String, Object>> candidates = asrAreaCandidates.values().stream()
+                        .map(candidate -> Map.of("entityId", candidate.get("id"), "name", candidate.get("name")))
+                        .toList();
+                areaMatch = new VocabularyMatch("", String.valueOf(candidates.get(0).get("name")),
+                        nullSafe(areaMention), true, candidates, false);
             }
         }
         VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary);
