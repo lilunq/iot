@@ -8,13 +8,9 @@ import java.util.regex.Pattern;
  */
 public final class EntityMentionNormalizer {
     private static final Pattern EXPLICIT_AREA_MARKER = Pattern.compile(
-            ".*(区域内|区域范围内|范围内|站台内|站厅内|候车层内|楼层内|辖区内|所属区域).*");
+            ".*(区域内|区域范围内|区域的|范围内|范围的|站台内|站台区域|站厅内|候车层内|楼层内|辖区内|所属区域).*");
     private static final Pattern POSITION_PREFIX = Pattern.compile(
             ".*(在|位于|处于|部署于|安装在).{1,16}(区域|站台|站厅|候车层|楼层|层|楼).*");
-    private static final Pattern GENERIC_DEVICE_TARGET = Pattern.compile(
-            "^(?:的)?(?:全部|所有)?(?:设备|设施|设备列表|设备清单|设备信息).*");
-    private static final Pattern GENERIC_AREA_QUERY = Pattern.compile(
-            ".*.{2,16}的(?:全部|所有)?(?:设备|设施|设备列表|设备清单|设备信息).*");
     private static final Pattern LOCATION_ONLY = Pattern.compile(
             "^(?:第)?[0-9零〇一二三四五六七八九十]{1,4}(?:候车层|站台|站厅|站|台|层|楼|区)$"
             + "|^.{2,12}(?:候车层|站台|站厅|楼层|区域)$");
@@ -28,25 +24,10 @@ public final class EntityMentionNormalizer {
     public static boolean isExplicitAreaConstraint(String prompt, String areaName, String keyword) {
         if (!hasText(prompt)) return false;
         String source = EntityTextNormalizer.normalize(prompt);
-        if (EXPLICIT_AREA_MARKER.matcher(source).matches()
-                || POSITION_PREFIX.matcher(source).matches()) {
-            return true;
-        }
-
-        String name = EntityTextNormalizer.normalize(areaName);
-        if (hasText(name)) {
-            int index = source.indexOf(name);
-            if (index >= 0) {
-                String after = source.substring(index + name.length())
-                        .replaceFirst("^[\\p{P}\\p{Z}\\s]+", "");
-                if (GENERIC_DEVICE_TARGET.matcher(after).matches()) return true;
-                String before = source.substring(0, index);
-                if (before.matches(".*(在|位于|处于|部署于|安装在)$")) return true;
-            }
-        }
-
-        // 即使 LLM 未提取 areaName，也允许从“5站台的设备”这类明确的集合查询中识别区域线索。
-        return GENERIC_AREA_QUERY.matcher(source).matches();
+        // 只有明确出现区域/范围语义或“在/位于某区域”结构，才允许产生区域硬过滤。
+        // 单纯“5站台的设备”仍然可能是在描述设备名称或位置，必须保留给设备索引匹配。
+        return EXPLICIT_AREA_MARKER.matcher(source).matches()
+                || POSITION_PREFIX.matcher(source).matches();
     }
 
     /**
