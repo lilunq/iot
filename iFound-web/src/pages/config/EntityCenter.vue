@@ -200,7 +200,7 @@
               class="assistant-entity-detail"
               :detail="selectedAssistantDetail"
               :loading="assistantDetailLoading"
-              :type-label="selectedAssistantDetail?.entityType || assistantResult.searchResult.entityType || assistantResult.parsed.entityType"
+              :type-label="assistantResult.parsed.entityLabel || assistantResult.searchResult.entityType"
               :alias-name="detailAliasName"
               :saving-alias="savingDetailAlias"
               :alias-message="detailAliasMessage"
