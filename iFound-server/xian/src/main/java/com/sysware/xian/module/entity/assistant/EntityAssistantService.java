@@ -116,7 +116,7 @@ public class EntityAssistantService {
         result.put("parsed", parsedView);
         result.put("filterResolutions", filterResolutions);
         result.put("searchPolicy", Map.of(
-                "areaAndSystem", "仅对已确认的区域、系统条件执行硬过滤",
+                "areaAndSystem", "仅对用户明确指定且已确认的区域、系统条件执行硬过滤",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
                 "deviceName", "同时匹配原始关键词和去除尾部编号后的名称主体，保留原始编号信息"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
