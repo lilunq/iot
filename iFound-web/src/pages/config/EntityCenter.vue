@@ -28,7 +28,16 @@
       </div>
     </section>
 
-    <section class="workspace">
+    <nav class="workspace-tabs" aria-label="实体解析中心工作区">
+      <button v-for="tab in workspaceTabs" :key="tab.key"
+        :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">
+        <span class="tab-index">{{ tab.index }}</span>
+        <span>{{ tab.label }}</span>
+        <small>{{ tab.description }}</small>
+      </button>
+    </nav>
+
+    <section v-if="activeTab === 'catalog'" class="workspace">
       <div class="section-title">
         <div><span class="section-kicker">01 / CATALOG</span><h3>实体目录</h3></div>
         <div class="section-tools">
@@ -79,86 +88,23 @@
           </div>
         </div>
 
-        <aside class="panel2 detail-panel2">
-          <div class="panel2-head"><div><span class="section-kicker">ENTITY MODEL</span><h3>实体模型详情</h3></div>
-            <span v-if="selectedDetail" class="detail-type">{{ activeTypeLabel }}</span></div>
-          <div v-if="detailLoading" class="detail-empty">正在读取实体模型…</div>
-          <div v-else-if="selectedDetail" class="detail-content">
-            <div class="detail-name">{{ selectedDetail.name || '未命名实体' }}</div>
-            <div class="detail-id">{{ selectedDetail.entityType }} · {{ selectedDetail.entityId }}</div>
-            <div v-if="selectedDetail.relations?.length" class="detail-block">
-              <h4>关联实体 <small>{{ selectedDetail.relations.length }} 项</small></h4>
-              <div class="relation-list">
-                <div v-for="relation in selectedDetail.relations" :key="relation.entityType" class="relation-card">
-                  <div class="relation-heading">
-                    <strong>{{ relation.label }}</strong>
-                    <span :class="relation.found ? 'relation-found' : 'relation-missing'">
-                      {{ relation.found ? '已关联' : '索引中未找到' }}
-                    </span>
-                  </div>
-                  <div class="relation-name">{{ relation.name || '未找到关联名称' }}</div>
-                  <code class="relation-id">{{ relation.entityId }}</code>
-                  <div class="relation-aliases">
-                    <small>业务别名</small>
-                    <div v-if="relation.aliases?.length" class="chips">
-                      <span v-for="alias in relation.aliases" :key="alias.id">{{ alias.aliasName }} <small>{{ alias.source }}</small></span>
-                    </div>
-                    <span v-else class="muted">尚未配置业务别名</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-if="selectedDetail.entityType === 'DEVICE' && selectedDetail.source?.device_alias" class="detail-block">
-              <h4>源系统原始别名</h4>
-              <div class="chips">
-                <span>{{ selectedDetail.source.device_alias }}</span>
-              </div>
-              <p class="muted">来自 SCADA 的 device_alias 字段，直接参与 ES 检索，不重复写入业务别名表。</p>
-            </div>
-            <div class="detail-block">
-              <div class="detail-alias-heading">
-                <h4>业务别名 <small>{{ selectedDetail.aliases?.length || 0 }}</small></h4>
-                <span class="muted">直接为当前实体添加</span>
-              </div>
-              <div v-if="selectedDetail.aliases?.length" class="chips">
-                <span v-for="alias in selectedDetail.aliases" :key="alias.id">{{ alias.aliasName }} <small>{{ alias.source }}</small></span>
-              </div>
-              <p v-else class="muted">尚未配置业务别名</p>
-              <div class="detail-alias-form">
-                <input
-                  v-model.trim="detailAliasName"
-                  aria-label="新增业务别名"
-                  placeholder="输入当前实体的业务别名，例如：冷机2号"
-                  @keydown.enter.prevent="addDetailAlias"
-                />
-                <button class="btn primary" :disabled="savingDetailAlias || !detailAliasName" @click="addDetailAlias">
-                  {{ savingDetailAlias ? '添加中…' : '＋ 添加别名' }}
-                </button>
-              </div>
-              <p v-if="detailAliasMessage" class="detail-alias-message" :class="{ error: detailAliasError }">{{ detailAliasMessage }}</p>
-            </div>
-            <div class="detail-block">
-              <h4>全拼检索分析</h4>
-              <div v-if="selectedDetail.pinyinAvailable && selectedDetail.pinyinTokens?.length" class="chips pinyin-chips">
-                <span v-for="(token, index) in selectedDetail.pinyinTokens" :key="index">{{ token }}</span>
-              </div>
-              <p v-else class="muted">拼音由 Elasticsearch Pinyin Analyzer 在检索时处理，当前未返回分析 token。</p>
-            </div>
-            <div class="detail-block">
-              <h4>完整模型字段 <small>{{ Object.keys(selectedDetail.source || {}).length }} 项</small></h4>
-              <div class="field-list">
-                <div v-for="(value, key) in selectedDetail.source" :key="key" class="field-row">
-                  <span>{{ key }}</span><code>{{ displayValue(value) }}</code>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="detail-empty">从左侧列表选择实体，查看完整模型详情。</div>
-        </aside>
+        <EntityModelDetail
+          class="detail-panel2"
+          :detail="selectedDetail"
+          :loading="detailLoading"
+          :type-label="activeTypeLabel"
+          :alias-name="detailAliasName"
+          :saving-alias="savingDetailAlias"
+          :alias-message="detailAliasMessage"
+          :alias-error="detailAliasError"
+          empty-text="从左侧列表选择实体，查看完整模型详情。"
+          @update:alias-name="detailAliasName = $event"
+          @add-alias="addDetailAlias()"
+        />
       </div>
     </section>
 
-    <section class="workspace">
+    <section v-if="activeTab === 'assistant'" class="workspace">
       <div class="section-title">
         <div><span class="section-kicker">02 / AI RESOLUTION</span><h3>自然语言实体解析</h3></div>
         <span class="section-note">LLM 负责理解与结构化 · Elasticsearch 负责真实数据召回</span>
@@ -245,7 +191,7 @@
       </div>
     </section>
 
-    <section class="workspace">
+    <section v-if="activeTab === 'operations'" class="workspace">
       <div class="section-title">
         <div><span class="section-kicker">03 / OPERATIONS</span><h3>数据同步与别名维护</h3></div>
         <span class="section-note">保留现有管理能力 · 手动触发 · 幂等写入</span>
@@ -283,7 +229,21 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { aiRequest } from '@/utils/request'
+import EntityModelDetail from './EntityModelDetail.vue'
 
+const workspaceTabs = [
+  { key: 'catalog', index: '01', label: '实体目录', description: '目录检索与模型详情' },
+  { key: 'assistant', index: '02', label: '自然语言实体解析', description: 'AI 理解、ES 召回与语义重排' },
+  { key: 'operations', index: '03', label: '数据同步与别名维护', description: '索引初始化、同步和业务别名' }
+]
+const quickPrompts = [
+  '候车大厅1号空调',
+  '候车大厅的岛式空调1',
+  '候车大厅摄像头',
+  '地下层冷冻机房排风机',
+  '候车层照明设备'
+]
+const activeTab = ref('catalog')
 const typeIcon = { AREA: '⌖', SYSTEM: '▦', DEVICE_TYPE: '▤', DEVICE: '▣', CAMERA: '◉' }
 const summaryItems = ref([])
 const summaryTotal = ref(0)
@@ -309,6 +269,8 @@ const assistantPrompt = ref('')
 const assistantLoading = ref(false)
 const assistantError = ref('')
 const assistantResult = ref(null)
+const selectedAssistantDetail = ref(null)
+const assistantDetailLoading = ref(false)
 
 const syncItems = [
   { key: 'available', label: '同步全部五类实体' },
@@ -346,6 +308,7 @@ async function loadSummary() {
   } finally { loadingSummary.value = false }
 }
 async function selectType(type) {
+  activeTab.value = 'catalog'
   if (activeType.value !== type) {
     activeType.value = type
     selectedDetail.value = null
@@ -367,16 +330,46 @@ async function loadCatalog(page = 1) {
     catalogError.value = error?.response?.data?.message || error.message || '实体目录加载失败'
   } finally { loadingCatalog.value = false }
 }
-async function loadDetail(id) {
+async function loadDetail(id, entityType = activeType.value) {
+  const normalizedType = String(entityType || '').trim().toUpperCase()
+  const allowedTypes = ['AREA', 'SYSTEM', 'DEVICE_TYPE', 'DEVICE', 'CAMERA']
+  if (!allowedTypes.includes(normalizedType) || !id) {
+    catalogError.value = '实体详情请求缺少有效的实体类型或实体标识。'
+    return
+  }
   detailLoading.value = true
   try {
-    selectedDetail.value = await aiRequest.get('/entity-center/catalog/' + activeType.value + '/' + encodeURIComponent(id))
+    selectedDetail.value = await aiRequest.get('/entity-center/catalog/' + normalizedType + '/' + encodeURIComponent(id))
   } catch (error) {
     catalogError.value = error?.response?.data?.message || error.message || '实体详情加载失败'
   } finally { detailLoading.value = false }
 }
-async function addDetailAlias() {
-  const current = selectedDetail.value
+async function loadAssistantDetail(row) {
+  const entityType = String(
+    row?.entityType ||
+    assistantResult.value?.searchResult?.entityType ||
+    assistantResult.value?.parsed?.entityType ||
+    ''
+  ).trim().toUpperCase()
+  const entityId = String(row?.entityId || '').trim()
+  const allowedTypes = ['AREA', 'SYSTEM', 'DEVICE_TYPE', 'DEVICE', 'CAMERA']
+  if (!allowedTypes.includes(entityType) || !entityId) {
+    assistantError.value = 'ES 候选缺少有效的实体类型或实体标识，已阻止发送无效详情请求。'
+    return
+  }
+  assistantDetailLoading.value = true
+  selectedAssistantDetail.value = null
+  detailAliasMessage.value = ''
+  detailAliasName.value = ''
+  try {
+    selectedAssistantDetail.value = await aiRequest.get(
+      '/entity-center/catalog/' + entityType + '/' + encodeURIComponent(entityId)
+    )
+  } catch (error) {
+    assistantError.value = error?.response?.data?.message || error.message || '候选实体详情加载失败'
+  } finally { assistantDetailLoading.value = false }
+}
+async function addDetailAlias(current = selectedDetail.value, context = 'catalog') {
   const aliasName = detailAliasName.value.trim()
   if (!current || !aliasName || savingDetailAlias.value) return
   savingDetailAlias.value = true
@@ -393,8 +386,12 @@ async function addDetailAlias() {
     })
     detailAliasName.value = ''
     detailAliasMessage.value = '别名添加成功'
-    await loadDetail(current.entityId)
-    await loadCatalog(catalogPage.value)
+    if (context === 'assistant') {
+      await loadAssistantDetail({ entityType: current.entityType, entityId: current.entityId })
+    } else {
+      await loadDetail(current.entityId, current.entityType)
+      await loadCatalog(catalogPage.value)
+    }
   } catch (error) {
     detailAliasError.value = true
     detailAliasMessage.value = error?.response?.data?.message || error.message || '别名添加失败'
@@ -402,12 +399,24 @@ async function addDetailAlias() {
     savingDetailAlias.value = false
   }
 }
-async function runAssistant() {
+async function addAssistantDetailAlias() {
+  await addDetailAlias(selectedAssistantDetail.value, 'assistant')
+}
+async function runQuickSearch(query) {
+  assistantPrompt.value = query
+  await runAssistant(query)
+}
+async function runAssistant(promptOverride) {
+  if (typeof promptOverride === 'string') assistantPrompt.value = promptOverride
+  const prompt = assistantPrompt.value.trim()
+  if (!prompt || assistantLoading.value) return
+  activeTab.value = 'assistant'
   assistantLoading.value = true
   assistantError.value = ''
   assistantResult.value = null
+  selectedAssistantDetail.value = null
   try {
-    assistantResult.value = await aiRequest.post('/entity-center/assistant/search', { prompt: assistantPrompt.value })
+    assistantResult.value = await aiRequest.post('/entity-center/assistant/search', { prompt })
   } catch (error) {
     assistantError.value = error?.response?.data?.message || error.message || '自然语言解析失败'
   } finally { assistantLoading.value = false }
@@ -450,7 +459,7 @@ async function saveAlias() {
     aliasForm.aliasName = ''
     if (lookupDataId.value === aliasForm.dataId) await loadAliases()
     await loadCatalog(catalogPage.value)
-    if (selectedDetail.value?.entityId === aliasForm.dataId) await loadDetail(aliasForm.dataId)
+    if (selectedDetail.value?.entityId === aliasForm.dataId) await loadDetail(aliasForm.dataId, selectedDetail.value.entityType)
   } catch (error) {
     syncMessage.value = error?.response?.data?.message || error.message || '别名保存失败'
     syncError.value = true
