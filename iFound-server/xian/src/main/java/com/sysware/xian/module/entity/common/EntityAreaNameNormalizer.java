@@ -52,6 +52,22 @@ public final class EntityAreaNameNormalizer {
         return result.toString();
     }
 
+    /**
+     * 将“五站台”“第五站台”转换为“5站台”，用于从语音原句中准确剥离区域词。
+     */
+    public static String toArabicNumeralVariant(String value) {
+        if (value == null || value.isBlank()) return value;
+        Matcher matcher = CHINESE_NUMBER_WITH_UNIT.matcher(value);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            Integer number = parseChineseNumber(matcher.group(1));
+            if (number == null) continue;
+            matcher.appendReplacement(result, Matcher.quoteReplacement(String.valueOf(number)));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
     private static Integer parseChineseNumber(String value) {
         if (value == null || value.isBlank()) return null;
         String text = value.startsWith("第") ? value.substring(1) : value;
