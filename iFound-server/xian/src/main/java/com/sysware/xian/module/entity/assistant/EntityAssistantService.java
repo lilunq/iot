@@ -201,15 +201,30 @@ public class EntityAssistantService {
 
             // 精确文本未直接命中时，不丢弃已经确认的区域/系统范围；
             // 回退到该范围内的真实设备集合，再由 LLM 仅对 ES 返回的候选做语义排序。
-            if (type == EntityType.DEVICE && recordsOf(searchResult).isEmpty()
-                    && (hasText(areaId) || hasText(systemKey))) {
-                searchResult = catalogService.listForAssistant(type, null, areaId, systemKey, deviceTypeId,
-                        null, List.of(), 1, 100);
+            if (type == EntityType.DEVICE) {
+                if (recordsOf(searchResult).isEmpty() && (hasText(areaId) || hasText(systemKey))) {
+                    searchResult = catalogService.listForAssistant(type, null, areaId, systemKey, deviceTypeId,
+                            null, List.of(), 1, 100);
+                }
+                searchResult = rerankCandidates(builder, prompt, parsedView, searchResult);
+            } else {
+                searchResult = limitSearchResult(searchResult, 20);
             }
-            searchResult = rerankCandidates(builder, prompt, parsedView, searchResult);
         }
         result.put("searchResult", searchResult);
         return result;
+    }
+
+    private Map<String, Object> limitSearchResult(Map<String, Object> searchResult, int limit) {
+        Map<String, Object> response = new LinkedHashMap<>(searchResult);
+        List<Map<String, Object>> records = recordsOf(searchResult);
+        response.put("records", records.size() > limit ? records.subList(0, limit) : records);
+        response.put("size", Math.min(limit, records.size()));
+        response.put("rankingStatus", "ES_ONLY");
+        response.put("rankingMessage", "非设备实体保留 Elasticsearch 相关性排序");
+        long total = numberValue(searchResult.get("total"));
+        response.put("pages", total == 0 ? 0 : (total + limit - 1) / limit);
+        return response;
     }
 
     private Map<String, Object> rerankCandidates(ChatClient.Builder builder, String prompt,
