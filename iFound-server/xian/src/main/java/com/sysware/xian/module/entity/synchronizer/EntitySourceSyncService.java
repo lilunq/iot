@@ -125,7 +125,22 @@ public class EntitySourceSyncService {
             if (isBlank(id)) continue;
             Map<String, Object> doc = new LinkedHashMap<>();
             doc.put("id", id);
-            put(doc, "name", firstText(row, "name"));
+            // 兼容统一实体目录的 name 字段，同时保留 SCADA 原始 device_name 字段。
+            put(doc, "name", firstText(row, "name", "device_name", "deviceName"));
+            put(doc, "org_id", firstText(row, "org_id", "orgId"));
+            put(doc, "system_type", firstText(row, "system_type", "systemType"));
+            put(doc, "device_name", firstText(row, "device_name", "deviceName", "name"));
+            put(doc, "device_type", firstText(row, "device_type", "deviceType"));
+            put(doc, "factory", firstText(row, "factory"));
+            put(doc, "production_date", firstText(row, "production_date", "productionDate"));
+            put(doc, "install_date", firstText(row, "install_date", "installDate"));
+            put(doc, "location", firstText(row, "location"));
+            put(doc, "subarea_cid", firstText(row, "subarea_cid", "subareaCid"));
+            put(doc, "subarea_id", firstText(row, "subarea_id", "subareaId"));
+            put(doc, "nfc", firstText(row, "nfc"));
+            put(doc, "fire_key", firstText(row, "fire_key", "fireKey"));
+            put(doc, "device_fac_id", firstText(row, "device_fac_id", "deviceFacId"));
+            put(doc, "device_alias", firstText(row, "device_alias", "deviceAlias"));
             put(doc, "parent_id", firstText(row, "parent_id", "parentId"));
             put(doc, "cascade_id", firstText(row, "cascade_id", "cascadeId"));
             put(doc, "is_folder", firstText(row, "is_folder", "isFolder"));
