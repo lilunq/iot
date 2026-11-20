@@ -132,15 +132,20 @@ public class EntityCatalogService {
         String querySignature = pinyinSignature(query);
         if (!hasText(querySignature)) return List.of();
 
+        String areaUnit = trailingAreaUnit(query);
+        Map<String, String> analyzedVariants = new LinkedHashMap<>();
         Map<String, Map<String, Object>> matchedById = new LinkedHashMap<>();
         for (Map<String, Object> item : vocabulary) {
             String id = String.valueOf(item.getOrDefault("id", ""));
             if (!hasText(id)) continue;
             for (String term : areaVocabularyTerms(item)) {
                 if (!term.matches("(?s).*\\d+.*")) continue;
+                // 先按区域单位缩小范围，避免对整本词典中无关的数字名称逐条调用 _analyze。
+                if (hasText(areaUnit) && !term.endsWith(areaUnit)) continue;
                 String chineseVariant = EntityAreaNameNormalizer.toChineseNumeralVariant(term);
                 if (!hasText(chineseVariant) || chineseVariant.equals(term)) continue;
-                if (querySignature.equals(pinyinSignature(chineseVariant))) {
+                String signature = analyzedVariants.computeIfAbsent(chineseVariant, this::pinyinSignature);
+                if (querySignature.equals(signature)) {
                     matchedById.putIfAbsent(id, item);
                     break;
                 }
@@ -162,6 +167,14 @@ public class EntityCatalogService {
         return terms;
     }
 
+    private String trailingAreaUnit(String value) {
+        if (!hasText(value)) return "";
+        for (String unit : List.of("候车层", "站台", "站厅", "站", "台", "层", "楼", "区")) {
+            if (value.endsWith(unit)) return unit;
+        }
+        return "";
+    }
+
     /** 拼音 token 由 Elasticsearch Pinyin Analyzer 生成；忽略保留的原始中文 token。 */
     private String pinyinSignature(String value) {
         try {
@@ -172,7 +185,6 @@ public class EntityCatalogService {
                     .map(token -> token.path("token").asText("").toLowerCase(java.util.Locale.ROOT))
                     .filter(token -> token.matches("[a-z]+"))
                     .distinct()
-                    .sorted()
                     .collect(Collectors.joining(" "));
         } catch (RuntimeException ignored) {
             // 拼音核验属于增强能力；ES 分析接口不可用时不影响普通区域解析。
