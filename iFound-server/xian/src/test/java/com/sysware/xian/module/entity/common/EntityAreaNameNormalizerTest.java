@@ -37,7 +37,7 @@ class EntityAreaNameNormalizerTest {
     void extractsPositionPhrasesFromDeviceNameAndLocation() {
         assertEquals(java.util.List.of("5站台", "五站台", "第五站台"),
                 EntityAreaNameNormalizer.extractPositionVariants("5站台排风机1", ""));
-        assertEquals(java.util.List.of("5站台", "五站台", "第五站台"),
+        assertEquals(java.util.List.of("第五站台", "5站台", "五站台"),
                 EntityAreaNameNormalizer.extractPositionVariants("排风机1", "设备安装在第五站台"));
     }
 
