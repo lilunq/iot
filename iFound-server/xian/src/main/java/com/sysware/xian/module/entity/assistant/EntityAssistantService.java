@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sysware.xian.module.entity.catalog.EntityCatalogService;
 import com.sysware.xian.module.entity.common.EntityType;
+import com.sysware.xian.module.entity.common.EntityTextNormalizer;
 import com.sysware.xian.module.entity.common.EntityResolveRequest;
 import com.sysware.xian.module.entity.common.EntityResolveResponse;
 import com.sysware.xian.module.entity.resolver.EntityResolverService;
