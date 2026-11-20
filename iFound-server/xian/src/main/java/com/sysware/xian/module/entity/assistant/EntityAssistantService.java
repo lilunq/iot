@@ -280,6 +280,14 @@ public class EntityAssistantService {
             if (!hasText(keyword) && hasText(locationMention)) {
                 keyword = locationMention;
             }
+            // 若 LLM 只提取出“站台”等公共词，以原句中的完整位置短语覆盖，避免退化成泛搜索。
+            if (hasText(locationMention)
+                    && EntityAreaNameNormalizer.isLocationOnlyDescription(locationMention)
+                    && (!hasText(keyword) || isGenericDeviceKeyword(keyword)
+                    || EntityAreaNameNormalizer.isLocationOnlyDescription(keyword))) {
+                keyword = locationMention;
+                extractedDeviceKeyword = locationMention;
+            }
             if (!hasText(keyword) && explicitAreaConstraint) {
                 filterNeedsClarification = true;
             }
@@ -296,9 +304,19 @@ public class EntityAssistantService {
         List<String> keywordVariants;
         if (type == EntityType.DEVICE) {
             keywordVariants = buildKeywordVariants(prompt, keyword, areaMatch, areaMention, systemName);
-            if (hasText(locationMention) && !locationMention.equals(keyword)) {
+            if (hasText(locationMention)) {
                 Set<String> variants = new LinkedHashSet<>(keywordVariants);
                 variants.add(locationMention);
+                // 同时检索 5站台、五站台、第五站台等数字表达；
+                // 对“武站台/吾站台”保留原文，由 ES 的 Pinyin multi-field 与“五站台”读音对齐。
+                if (EntityAreaNameNormalizer.isLocationOnlyDescription(locationMention)) {
+                    variants.addAll(EntityAreaNameNormalizer.positionPhraseVariants(locationMention));
+                }
+                keywordVariants = new ArrayList<>(variants);
+            }
+            if (EntityAreaNameNormalizer.isLocationOnlyDescription(keyword)) {
+                Set<String> variants = new LinkedHashSet<>(keywordVariants);
+                variants.addAll(EntityAreaNameNormalizer.positionPhraseVariants(keyword));
                 keywordVariants = new ArrayList<>(variants);
             }
         } else if (type == EntityType.CAMERA) {
@@ -317,6 +335,9 @@ public class EntityAssistantService {
         parsedView.put("areaName", nullSafe(areaName));
         parsedView.put("areaMention", nullSafe(areaMention));
         parsedView.put("locationMention", nullSafe(locationMention));
+        parsedView.put("locationMentionVariants", locationMention != null
+                && EntityAreaNameNormalizer.isLocationOnlyDescription(locationMention)
+                ? EntityAreaNameNormalizer.positionPhraseVariants(locationMention) : List.of());
         parsedView.put("areaResolved", hasText(areaId));
         parsedView.put("areaConstraintExplicit", explicitAreaConstraint);
         parsedView.put("fullNameQuery", nullSafe(fullDevicePhrase));
