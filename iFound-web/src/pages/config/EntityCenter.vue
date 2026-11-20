@@ -381,10 +381,14 @@ async function loadAssistantDetail(row) {
     assistantError.value = 'ES 候选缺少有效的实体类型或实体标识，已阻止发送无效详情请求。'
     return
   }
+  const sameSelection = selectedAssistantDetail.value?.entityType === entityType
+    && selectedAssistantDetail.value?.entityId === entityId
   assistantDetailLoading.value = true
   selectedAssistantDetail.value = null
-  detailAliasMessage.value = ''
-  detailAliasName.value = ''
+  if (!sameSelection) {
+    detailAliasMessage.value = ''
+    detailAliasName.value = ''
+  }
   try {
     selectedAssistantDetail.value = await aiRequest.get(
       '/entity-center/catalog/' + entityType + '/' + encodeURIComponent(entityId)
