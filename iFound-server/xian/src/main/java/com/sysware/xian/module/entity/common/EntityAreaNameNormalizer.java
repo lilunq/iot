@@ -33,7 +33,7 @@ public final class EntityAreaNameNormalizer {
 
     /**
      * 为 ES Pinyin Analyzer 生成数字区域的中文读法候选。
-     * 例如“5站台”生成“五站台”，“15站台”生成“十五站台”。
+     * 例如“5站台”生成“五站台”，“15站台”生成“十五站台”；也可用于设备名称、location 中的数字位置描述。
      */
     public static String toChineseNumeralVariant(String value) {
         if (value == null || value.isBlank()) return value;
