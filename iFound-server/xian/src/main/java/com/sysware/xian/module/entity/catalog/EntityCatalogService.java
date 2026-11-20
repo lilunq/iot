@@ -142,9 +142,44 @@ public class EntityCatalogService {
                 // 详情不因拼音分析接口暂不可用而失败；保留 ES 原始模型与别名。
             }
         }
-        return Map.of("entityType", type.name(), "entityId", id, "name", name,
-                "source", source, "aliases", aliases, "pinyinTokens", pinyinTokens,
-                "pinyinAvailable", pinyinAvailable);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("entityType", type.name());
+        result.put("entityId", id);
+        result.put("name", name);
+        result.put("source", source);
+        result.put("aliases", aliases);
+        result.put("pinyinTokens", pinyinTokens);
+        result.put("pinyinAvailable", pinyinAvailable);
+        // 设备详情同时展开系统、区域和分类关联，避免只向用户暴露外键 ID。
+        if (type == EntityType.DEVICE) {
+            List<Map<String, Object>> relations = new ArrayList<>();
+            addRelatedEntity(relations, EntityType.SYSTEM, textValue(sourceNode, "system_key"), "element_value");
+            addRelatedEntity(relations, EntityType.AREA, textValue(sourceNode, "subarea_cid"), "area_name");
+            addRelatedEntity(relations, EntityType.DEVICE_TYPE, textValue(sourceNode, "device_type_id"), "name");
+            result.put("relations", relations);
+        }
+        return result;
+    }
+
+    private void addRelatedEntity(List<Map<String, Object>> relations, EntityType type,
+                                  String relatedId, String relatedNameField) {
+        if (!hasText(relatedId)) return;
+        Map<String, Object> relation = new LinkedHashMap<>();
+        relation.put("entityType", type.name());
+        relation.put("label", label(type));
+        relation.put("entityId", relatedId);
+        JsonNode response = repository.getDocument(type.getIndexAlias(), relatedId);
+        boolean found = response != null && response.path("found").asBoolean(false);
+        relation.put("found", found);
+        String relatedName = found ? response.path("_source").path(relatedNameField).asText("") : "";
+        relation.put("name", relatedName);
+        relation.put("aliases", aliasService.listEnabled(type, List.of(relatedId)));
+        relations.add(relation);
+    }
+
+    private String textValue(JsonNode source, String field) {
+        String value = source.path(field).asText("");
+        return value == null ? "" : value.trim();
     }
 
     public String label(EntityType type) {
