@@ -119,7 +119,7 @@ public class EntityAssistantService {
                     areaId = null;
                 } else if (areaMatch.fuzzy()) {
                     // 词典近似命中只负责定位输入片段；稳定 ID 必须再由 ES Fuzzy 独立确认。
-                    EntityResolveResponse resolved = resolveFilter(EntityType.AREA, areaMatch.matchedText());
+                    EntityResolveResponse resolved = resolveFilterWithFuzzy(EntityType.AREA, areaMatch.matchedText());
                     if (matchesFuzzyVocabularyCandidate(areaMatch, resolved)) {
                         areaName = resolved.getResolved().getName();
                         areaId = resolved.getResolved().getEntityId();
@@ -149,7 +149,7 @@ public class EntityAssistantService {
                     systemName = systemMatch.name();
                     systemKey = null;
                 } else if (systemMatch.fuzzy()) {
-                    EntityResolveResponse resolved = resolveFilter(EntityType.SYSTEM, systemMatch.matchedText());
+                    EntityResolveResponse resolved = resolveFilterWithFuzzy(EntityType.SYSTEM, systemMatch.matchedText());
                     if (matchesFuzzyVocabularyCandidate(systemMatch, resolved)) {
                         systemName = resolved.getResolved().getName();
                         systemKey = resolved.getResolved().getEntityId();
@@ -601,6 +601,14 @@ public class EntityAssistantService {
         if (hasText(systemName)) variants.add(systemName.trim());
         if (hasText(keyword)) variants.remove(keyword.trim());
         return new ArrayList<>(variants);
+    }
+
+    private EntityResolveResponse resolveFilterWithFuzzy(EntityType type, String name) {
+        EntityResolveRequest request = new EntityResolveRequest();
+        request.setEntityType(type.name());
+        request.setQuery(name);
+        request.setLimit(5);
+        return resolverService.resolveWithFuzzy(request);
     }
 
     private EntityResolveResponse resolveFilter(EntityType type, String name) {
