@@ -327,6 +327,9 @@ public class EntityCatalogService {
                 ? List.of(Map.of("_score", Map.of("order", "desc")))
                 : List.of(Map.of(nameField + ".raw", Map.of("order", "asc", "unmapped_type", "keyword"))));
 
+        // 位置描述可能与设备名称的一部分同时出现；把补充关键词的全拼作为低权重并行召回，
+        // 避免“空调”等普通词已经命中时，主关键词的拼音纠错通道被提前跳过。
+        addPinyinSupplementClauses(keywordShould, type, additionalKeywords);
         JsonNode response = repository.search(type.getIndexAlias(), query);
         boolean pinyinFallbackUsed = false;
         boolean fuzzyFallbackUsed = false;
@@ -381,6 +384,30 @@ public class EntityCatalogService {
             result.put("retrievalMessage", "常规中文名称/别名检索未命中，已通过 Elasticsearch Pinyin Analyzer 全拼召回候选");
         }
         return result;
+    }
+
+    /**
+     * 对完整短语拆分出的辅助关键词并行执行低权重全拼召回。
+     * 不能等主检索完全无结果才做，否则“空调”等泛词先命中会掩盖位置词的同音纠错。
+     */
+    private void addPinyinSupplementClauses(List<Map<String, Object>> clauses, EntityType type,
+                                            List<String> additionalKeywords) {
+        if (additionalKeywords == null || additionalKeywords.isEmpty()) return;
+        String nameField = nameField(type);
+        for (String alternative : additionalKeywords) {
+            if (!hasText(alternative)) continue;
+            String value = alternative.trim();
+            if (value.length() < 2) continue;
+            addPinyinMatch(clauses, nameField + ".pinyin", value, 4);
+            addPinyinMatch(clauses, "aliases.pinyin", value, 3);
+            if (type == EntityType.DEVICE || type == EntityType.DEVICE_TYPE) {
+                addPinyinMatch(clauses, "device_name.pinyin", value, 4);
+                addPinyinMatch(clauses, "device_alias.pinyin", value, 3);
+                addPinyinMatch(clauses, "location.pinyin", value, 3);
+            } else if (type == EntityType.CAMERA) {
+                addPinyinMatch(clauses, "address.pinyin", value, 2);
+            }
+        }
     }
 
     private void addPinyinFallbackClauses(List<Map<String, Object>> clauses, EntityType type,
