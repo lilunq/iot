@@ -115,7 +115,9 @@ public class EntityAssistantService {
         boolean filterNeedsClarification = false;
         boolean voiceAreaFallback = false;
         VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary);
-        String areaMention = hasText(areaName) ? areaName : rawAreaMention(prompt, areaMatch);
+        String areaMention = hasText(areaName) && prompt.contains(areaName)
+                ? areaName : rawAreaMention(prompt, areaMatch);
+        if (!hasText(areaMention) && hasText(areaName)) areaMention = areaName;
 
         // ASR 多候选仅作为纠错证据：只有某个备选文本能匹配真实区域词典时才接受。
         if (voiceAsr) {
