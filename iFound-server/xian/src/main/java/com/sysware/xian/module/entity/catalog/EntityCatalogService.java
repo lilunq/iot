@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sysware.xian.module.entity.common.EntityType;
 import com.sysware.xian.module.entity.common.EntityTextNormalizer;
+import com.sysware.xian.module.entity.common.EntityAreaNameNormalizer;
 import com.sysware.xian.module.entity.init.alias.BizEntityAlias;
 import com.sysware.xian.module.entity.init.alias.BizEntityAliasService;
 import com.sysware.xian.module.entity.repository.EntityIndexRepository;
@@ -120,6 +121,65 @@ public class EntityCatalogService {
                 preferredDeviceTypeName, additionalKeywords, page, size);
     }
 
+    /**
+     * 对区域台账中带阿拉伯数字的名称/别名，使用 ES Pinyin Analyzer 比较中文读法。
+     * 例如输入“武站台”，与“5站台”生成的中文读法候选“五站台”拼音一致时，返回真实区域候选。
+     * Java 仅做数字转汉字，不生成拼音；拼音 token 完全来自 ES。
+     */
+    public List<Map<String, Object>> findNumericPinyinAreaCandidates(
+            String query, List<Map<String, Object>> vocabulary) {
+        if (!hasText(query) || vocabulary == null || vocabulary.isEmpty()) return List.of();
+        String querySignature = pinyinSignature(query);
+        if (!hasText(querySignature)) return List.of();
+
+        Map<String, Map<String, Object>> matchedById = new LinkedHashMap<>();
+        for (Map<String, Object> item : vocabulary) {
+            String id = String.valueOf(item.getOrDefault("id", ""));
+            if (!hasText(id)) continue;
+            for (String term : areaVocabularyTerms(item)) {
+                if (!term.matches("(?s).*\\d+.*")) continue;
+                String chineseVariant = EntityAreaNameNormalizer.toChineseNumeralVariant(term);
+                if (!hasText(chineseVariant) || chineseVariant.equals(term)) continue;
+                if (querySignature.equals(pinyinSignature(chineseVariant))) {
+                    matchedById.putIfAbsent(id, item);
+                    break;
+                }
+            }
+        }
+        return new ArrayList<>(matchedById.values());
+    }
+
+    private List<String> areaVocabularyTerms(Map<String, Object> item) {
+        List<String> terms = new ArrayList<>();
+        String name = String.valueOf(item.getOrDefault("name", "")).trim();
+        if (hasText(name)) terms.add(name);
+        Object aliases = item.get("aliases");
+        if (aliases instanceof List<?> values) {
+            for (Object value : values) {
+                if (value != null && hasText(value.toString())) terms.add(value.toString().trim());
+            }
+        }
+        return terms;
+    }
+
+    /** 拼音 token 由 Elasticsearch Pinyin Analyzer 生成；忽略保留的原始中文 token。 */
+    private String pinyinSignature(String value) {
+        try {
+            JsonNode analyzed = repository.analyze(EntityType.AREA.getIndexAlias(), "area_name.pinyin", value);
+            JsonNode tokens = analyzed == null ? null : analyzed.path("tokens");
+            if (tokens == null || !tokens.isArray()) return "";
+            return java.util.stream.StreamSupport.stream(tokens.spliterator(), false)
+                    .map(token -> token.path("token").asText("").toLowerCase(java.util.Locale.ROOT))
+                    .filter(token -> token.matches("[a-z]+"))
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.joining(" "));
+        } catch (RuntimeException ignored) {
+            // 拼音核验属于增强能力；ES 分析接口不可用时不影响普通区域解析。
+            return "";
+        }
+    }
+
     private Map<String, Object> listInternal(EntityType type, String keyword, String areaId,
                                              String systemKey, String deviceTypeId,
                                              String preferredDeviceTypeName,
@@ -175,8 +235,7 @@ public class EntityCatalogService {
                 }
             }
 
-            List<String> searchFields = new ArrayList<>(List.of(
-                    nameField + "^5", "aliases^4", nameField + ".pinyin^3", "aliases.pinyin^2"));
+            List<String> searchFields = new ArrayList<>(List.of(nameField + "^5", "aliases^4"));
             if (type == EntityType.DEVICE) {
                 searchFields.add("device_alias^5");
                 searchFields.add("device_code^7");
@@ -184,8 +243,9 @@ public class EntityCatalogService {
                 searchFields.add("camera_no^7");
                 searchFields.add("address^2");
             }
+            // 常规阶段只做精确/IK 召回；拼音和 Fuzzy 分别在后续阶段执行，便于控制优先级与解释命中通道。
             should.add(Map.of("multi_match", Map.of("query", q, "fields", searchFields,
-                    "type", "best_fields", "fuzziness", "AUTO", "boost", type == EntityType.DEVICE ? 1 : 2)));
+                    "type", "best_fields", "boost", type == EntityType.DEVICE ? 1 : 2)));
 
             // 辅助关键词用于补偿口语表达与设备台账命名差异，权重低于主关键词。
             if (additionalKeywords != null) {
@@ -224,8 +284,17 @@ public class EntityCatalogService {
                 : List.of(Map.of(nameField + ".raw", Map.of("order", "asc", "unmapped_type", "keyword"))));
 
         JsonNode response = repository.search(type.getIndexAlias(), query);
+        boolean pinyinFallbackUsed = false;
         boolean fuzzyFallbackUsed = false;
-        // 先保留标准精确/IK/拼音检索优先级；只有常规查询没有任何候选时才启用单字符 Fuzzy 回退。
+
+        // 常规名称/别名/IK 未命中后，单独执行拼音全拼查询；不在 Java 中生成拼音。
+        if (!hasHits(response) && hasText(keyword)) {
+            addPinyinFallbackClauses(keywordShould, type, keyword.trim(), additionalKeywords);
+            response = repository.search(type.getIndexAlias(), query);
+            pinyinFallbackUsed = hasHits(response);
+        }
+
+        // 拼音全拼仍未命中时，才以较低权重启用 Fuzzy 单字符容错。
         if (!hasHits(response) && hasText(keyword) && shouldUseFuzzy(keyword)) {
             addFuzzyFallbackClauses(keywordShould, type, keyword.trim());
             response = repository.search(type.getIndexAlias(), query);
@@ -262,9 +331,38 @@ public class EntityCatalogService {
         result.put("records", records);
         if (fuzzyFallbackUsed) {
             result.put("retrievalMode", "FUZZY_FALLBACK");
-            result.put("retrievalMessage", "常规检索无结果，已通过 Elasticsearch Fuzzy 单字符容错召回");
+            result.put("retrievalMessage", "常规名称/别名及拼音全拼检索未命中，已通过 Elasticsearch Fuzzy 单字符容错召回");
+        } else if (pinyinFallbackUsed) {
+            result.put("retrievalMode", "PINYIN_FALLBACK");
+            result.put("retrievalMessage", "常规中文名称/别名检索未命中，已通过 Elasticsearch Pinyin Analyzer 全拼召回候选");
         }
         return result;
+    }
+
+    private void addPinyinFallbackClauses(List<Map<String, Object>> clauses, EntityType type,
+                                          String keyword, List<String> additionalKeywords) {
+        if (type != EntityType.DEVICE && type != EntityType.CAMERA) return;
+        String nameField = nameField(type);
+        addPinyinMatch(clauses, nameField + ".pinyin", keyword, 15);
+        addPinyinMatch(clauses, "aliases.pinyin", keyword, 12);
+        if (type == EntityType.DEVICE) {
+            addPinyinMatch(clauses, "device_alias.pinyin", keyword, 12);
+        }
+        if (additionalKeywords == null) return;
+        for (String alternative : additionalKeywords) {
+            if (!hasText(alternative) || alternative.trim().equalsIgnoreCase(keyword)) continue;
+            String value = alternative.trim();
+            addPinyinMatch(clauses, nameField + ".pinyin", value, 9);
+            addPinyinMatch(clauses, "aliases.pinyin", value, 7);
+            if (type == EntityType.DEVICE) {
+                addPinyinMatch(clauses, "device_alias.pinyin", value, 7);
+            }
+        }
+    }
+
+    private void addPinyinMatch(List<Map<String, Object>> clauses, String field, String value, int boost) {
+        clauses.add(Map.of("match", Map.of(field, Map.of(
+                "query", value, "boost", boost))));
     }
 
     private boolean hasHits(JsonNode response) {
