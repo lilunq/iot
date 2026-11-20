@@ -2,6 +2,10 @@ package com.sysware.xian.module.entity.common;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * 区域名称中的中文/阿拉伯数字等价归一化。
@@ -14,6 +18,8 @@ public final class EntityAreaNameNormalizer {
             Pattern.compile("(?<![A-Za-z])([0-9]{1,2})(?=(?:站台|候车层|站厅|站|台|层|楼|区))");
 
     private static final String[] DIGITS = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九"};
+    private static final Pattern POSITION_MENTION = Pattern.compile(
+            "第?(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3})(?:候车层|站台|站厅|站|台|层|楼|区)");
 
     private EntityAreaNameNormalizer() { }
 
@@ -66,6 +72,60 @@ public final class EntityAreaNameNormalizer {
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    /**
+     * 为位置短语生成规范化表达。
+     * 例如“5站台” -> [5站台, 五站台, 第五站台]；
+     * “第五站台”也会归一到同一组候选。非数字同音词（如“武站台”）保留原文，
+     * 由 ES Pinyin Analyzer 与索引中的“五站台”位置词条验证，不在 Java 中猜读音。
+     */
+    public static List<String> positionPhraseVariants(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        Set<String> variants = new LinkedHashSet<>();
+        String source = value.trim();
+        variants.add(source);
+
+        String arabic = toArabicNumeralVariant(source);
+        if (arabic != null && !arabic.isBlank()) variants.add(arabic);
+
+        String numberSource = arabic == null || arabic.isBlank() ? source : arabic;
+        String chinese = toChineseNumeralVariant(numberSource);
+        if (chinese != null && !chinese.isBlank()) {
+            variants.add(chinese);
+            String withoutOrdinal = chinese.replaceFirst("^第", "");
+            if (!withoutOrdinal.isBlank()) {
+                variants.add(withoutOrdinal);
+                if (POSITION_MENTION.matcher(withoutOrdinal).matches()) {
+                    variants.add("第" + withoutOrdinal);
+                }
+            }
+        }
+
+        String normalized = normalizeNumberedAreaExpression(source);
+        if (normalized != null && !normalized.isBlank()) variants.add(normalized);
+        return new ArrayList<>(variants);
+    }
+
+    /**
+     * 从设备名称和 location 中提取独立的位置词条，写入 ES 的 device_position_variants。
+     * 位置词条单独建立拼音 token，避免查询“武站台”时只命中“站台”两个公共分词。
+     */
+    public static List<String> extractPositionVariants(String... sourceValues) {
+        Set<String> variants = new LinkedHashSet<>();
+        if (sourceValues == null) return List.of();
+        for (String source : sourceValues) {
+            if (source == null || source.isBlank()) continue;
+            Matcher matcher = POSITION_MENTION.matcher(source);
+            while (matcher.find()) {
+                variants.addAll(positionPhraseVariants(matcher.group()));
+            }
+        }
+        return new ArrayList<>(variants);
+    }
+
+    public static boolean isNumberedPositionPhrase(String value) {
+        return value != null && POSITION_MENTION.matcher(value.trim()).matches();
     }
 
     private static Integer parseChineseNumber(String value) {
