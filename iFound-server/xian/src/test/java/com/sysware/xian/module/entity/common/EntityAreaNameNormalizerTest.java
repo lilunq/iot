@@ -24,4 +24,11 @@ class EntityAreaNameNormalizerTest {
         assertEquals("十五站台", EntityAreaNameNormalizer.toChineseNumeralVariant("15站台"));
         assertEquals("第十二层", EntityAreaNameNormalizer.toChineseNumeralVariant("第12层"));
     }
+
+    @Test
+    void createsArabicAreaVariantForStrippingOriginalVoicePhrase() {
+        assertEquals("5站台", EntityAreaNameNormalizer.toArabicNumeralVariant("五站台"));
+        assertEquals("5站台", EntityAreaNameNormalizer.toArabicNumeralVariant("第五站台"));
+        assertEquals("21层", EntityAreaNameNormalizer.toArabicNumeralVariant("第二十一层"));
+    }
 }
