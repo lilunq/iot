@@ -268,6 +268,7 @@ public class EntityCatalogService {
                 searchFields.add("device_alias^5");
                 searchFields.add("device_code^7");
                 searchFields.add("location^3");
+                searchFields.add("device_position_variants^8");
                 searchFields.add("device_name_variants^4");
                 searchFields.add("location_variants^3");
             } else if (type == EntityType.DEVICE_TYPE) {
@@ -423,6 +424,14 @@ public class EntityCatalogService {
                 addPinyinMatch(clauses, "location.pinyin", value, Math.max(2, boost - 1));
                 addPinyinMatch(clauses, "device_name_variants.pinyin", value, boost);
                 addPinyinMatch(clauses, "location_variants.pinyin", value, Math.max(2, boost - 1));
+                if (type == EntityType.DEVICE && EntityAreaNameNormalizer.isLocationOnlyDescription(value)) {
+                    // 位置短语单独匹配标准化位置字段，强于“站台”等公共词的 IK 命中。
+                    // “武站台/吾站台”由 ES Pinyin Analyzer 与索引中的“五站台”读音验证。
+                    for (String positionVariant : EntityAreaNameNormalizer.positionPhraseVariants(value)) {
+                        addPinyinMatch(clauses, "device_position_variants.pinyin",
+                                positionVariant, 55);
+                    }
+                }
             } else if (type == EntityType.CAMERA) {
                 addPinyinMatch(clauses, "address.pinyin", value, 2);
             }
@@ -441,6 +450,11 @@ public class EntityCatalogService {
             addPinyinMatch(clauses, "location.pinyin", keyword, 10);
             addPinyinMatch(clauses, "device_name_variants.pinyin", keyword, 12);
             addPinyinMatch(clauses, "location_variants.pinyin", keyword, 10);
+            if (type == EntityType.DEVICE && EntityAreaNameNormalizer.isLocationOnlyDescription(keyword)) {
+                for (String positionVariant : EntityAreaNameNormalizer.positionPhraseVariants(keyword)) {
+                    addPinyinMatch(clauses, "device_position_variants.pinyin", positionVariant, 55);
+                }
+            }
         }
         if (type == EntityType.CAMERA) {
             addPinyinMatch(clauses, "address.pinyin", keyword, 8);
