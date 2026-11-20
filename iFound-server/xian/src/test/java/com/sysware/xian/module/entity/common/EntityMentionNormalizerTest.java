@@ -27,6 +27,15 @@ class EntityMentionNormalizerTest {
     }
 
     @Test
+    void explicitAreaMarkerExtractsOnlyAreaMentionForValidation() {
+        assertEquals("5站台",
+                EntityMentionNormalizer.explicitAreaNameMention("查询在5站台区域内的排风机"));
+        assertEquals("候车大厅",
+                EntityMentionNormalizer.explicitAreaNameMention("查询候车大厅区域内的空调"));
+        assertNull(EntityMentionNormalizer.explicitAreaNameMention("查询武站台的设备"));
+    }
+
+    @Test
     void concreteNameLocationPhraseIsNotAutomaticallyAnAreaFilter() {
         assertFalse(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询指挥中心的空调", "指挥中心", "空调"));

@@ -49,6 +49,8 @@ public class EntityResolverService {
             throw new IllegalArgumentException("query 不能为空");
         }
         EntityType type = EntityType.from(request.getEntityType());
+        // 区域实体不执行 Fuzzy，防止编辑距离相近但语义无关的区域被自动确认。
+        if (type == EntityType.AREA) forceFuzzy = false;
         String query = request.getQuery().trim();
         String normalized = EntityTextNormalizer.normalize(query);
 

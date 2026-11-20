@@ -1,5 +1,6 @@
 package com.sysware.xian.module.entity.common;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -14,6 +15,8 @@ public final class EntityMentionNormalizer {
             + "|^.{2,12}(?:候车层|站台|站厅|楼层|区域)$");
     private static final Pattern GENERIC_DEVICE_COLLECTION = Pattern.compile(
             "^.{2,16}的(?:所有|全部)?(?:设备|设施)(?:列表|清单|信息)?$");
+    private static final Pattern EXPLICIT_AREA_NAME = Pattern.compile(
+            "^(.{2,16}?)(?:区域范围内|区域内|区域的|范围内|范围的|站台区域|站厅区域|候车层区域|楼层区域|辖区内)");
 
     private EntityMentionNormalizer() { }
 
@@ -25,6 +28,27 @@ public final class EntityMentionNormalizer {
         if (!hasText(prompt)) return false;
         String source = EntityTextNormalizer.normalize(prompt);
         return EXPLICIT_AREA_MARKER.matcher(source).matches();
+    }
+
+    /**
+     * 从明确的“X区域内/范围内”表达中提取待核验的区域名称。
+     * 只提取文本，不产生区域 ID；ID 仍必须来自精确词典或唯一拼音匹配。
+     */
+    public static String explicitAreaNameMention(String prompt) {
+        if (!hasText(prompt)) return null;
+        String source = stripQueryFillers(EntityTextNormalizer.normalize(prompt));
+        source = source.replaceFirst("^(?:在|位于|处于|部署于|安装在)", "");
+        Matcher matcher = EXPLICIT_AREA_NAME.matcher(source);
+        if (matcher.find()) {
+            String mention = matcher.group(1).trim();
+            return mention.length() >= 2 ? mention : null;
+        }
+        Matcher owner = Pattern.compile("所属区域(?:为|是)?(.{2,16})").matcher(source);
+        if (owner.find()) {
+            String mention = owner.group(1).replaceFirst("(?:内的|中的|的)?(?:设备|设施).*$", "").trim();
+            return mention.length() >= 2 ? mention : null;
+        }
+        return null;
     }
 
     /**

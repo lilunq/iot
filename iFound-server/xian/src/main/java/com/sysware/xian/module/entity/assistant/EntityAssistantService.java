@@ -130,6 +130,9 @@ public class EntityAssistantService {
                 ? (hasText(areaName) && prompt.contains(areaName)
                     ? areaName : rawAreaMention(prompt, areaMatch))
                 : null;
+        if (explicitAreaConstraint && !hasText(areaMention)) {
+            areaMention = EntityMentionNormalizer.explicitAreaNameMention(prompt);
+        }
         if (!explicitAreaConstraint) {
             // LLM 即使把“武站台”误填进 areaName，也只能作为位置线索，绝不进入硬过滤。
             areaId = null;
@@ -186,6 +189,14 @@ public class EntityAssistantService {
             systemName = null;
             deviceTypeName = null;
         } else {
+            // 明确区域约束却无法提取区域名称时，不能退化为无区域查询。
+            if (explicitAreaConstraint && !hasText(areaId) && !hasText(areaMention)) {
+                filterNeedsClarification = true;
+                filterResolutions.put("area", Map.of(
+                        "status", "NOT_FOUND",
+                        "message", "已识别区域约束，但未能提取可靠的区域名称",
+                        "candidates", List.of()));
+            }
             // 区域名先经过真实词典确认；数字读法、同音和错字只用于找候选，最终稳定 ID 必须来自 ES。
             if (hasText(areaId) && !hasText(areaMention)) {
                 // 用户原文明确给出稳定区域编码。
