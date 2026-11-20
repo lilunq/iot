@@ -230,10 +230,10 @@
             <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条 · {{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? '语义重排' : assistantResult.searchResult.rankingStatus === 'ES_FALLBACK' ? 'ES原排序' : 'ES召回' }}</span></div>
             <div v-if="assistantResult.searchResult.rankingMessage" class="search-strategy-note">{{ assistantResult.searchResult.rankingMessage }}</div>
             <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
-              <button v-for="row in assistantResult.searchResult.records" :key="row.entityId"
+              <button v-for="(row, index) in assistantResult.searchResult.records" :key="row.entityId"
                 class="candidate-card" @click="selectType(row.entityType); loadDetail(row.entityId)">
                 <span><strong>{{ row.name || '未命名实体' }}</strong><small>{{ [row.subarea_name, row.system_name || row.system_key, row.device_type_name].filter(Boolean).join(' · ') || '未维护区域/系统/分类信息' }} · {{ row.entityId }}</small></span>
-                <span class="candidate-score">{{ Number(row.score || 0).toFixed(2) }}</span>
+                <span class="candidate-score">{{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? 'TOP ' + String(index + 1).padStart(2, '0') : Number(row.score || 0).toFixed(2) }}</span>
               </button>
             </div>
             <div v-else class="detail-empty">
