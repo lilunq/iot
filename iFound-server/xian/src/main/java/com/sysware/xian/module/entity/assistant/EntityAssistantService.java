@@ -66,6 +66,12 @@ public class EntityAssistantService {
         String areaName = extractedText(parsed, "areaName");
         String systemName = extractedText(parsed, "systemName");
         String deviceTypeName = extractedText(parsed, "deviceTypeName");
+        // 若系统名称只是设备关键词中的一部分（如“岛式空调1”中的“空调”），
+        // 且用户没有明确说“空调系统/空调专业”，则不把它误当成系统硬过滤条件。
+        if (type == EntityType.DEVICE && hasText(systemName) && hasText(keyword)
+                && keyword.contains(systemName) && !hasExplicitSystemQualifier(prompt, systemName)) {
+            systemName = null;
+        }
         if (type != EntityType.DEVICE) {
             // 摄像头等非设备实体不接受区域、系统或设备分类过滤。
             areaId = null;
@@ -154,6 +160,17 @@ public class EntityAssistantService {
             return value.matches("\\d{10,}") ? value : null;
         }
         return null;
+    }
+
+    private boolean hasExplicitSystemQualifier(String prompt, String systemName) {
+        if (!hasText(prompt) || !hasText(systemName)) return false;
+        return prompt.contains(systemName + "系统")
+                || prompt.contains("系统" + systemName)
+                || prompt.contains(systemName + "专业");
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String nullSafe(String value) {
