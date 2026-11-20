@@ -149,11 +149,26 @@
         <span class="section-note">LLM 负责理解与结构化 · Elasticsearch 负责真实数据召回</span>
       </div>
       <div class="panel assistant-panel">
-        <div class="prompt-row">
-          <textarea v-model="assistantPrompt" rows="2" placeholder="例如：帮我找一下地下层冷冻机房的排风机，优先看设备名称和别名…" @keydown.ctrl.enter="runAssistant"></textarea>
-          <button class="btn primary assistant-submit" :disabled="assistantLoading || !assistantPrompt.trim()" @click="runAssistant">
-            {{ assistantLoading ? 'AI 解析中…' : 'AI 解析并检索' }}
-          </button>
+        <div class="assistant-composer">
+          <div class="composer-heading">
+            <div>
+              <strong>输入自然语言检索需求</strong>
+              <p>直接描述设备名称、所在区域、所属系统或设备分类，无需填写业务 ID。</p>
+            </div>
+            <span class="composer-shortcut">Ctrl + Enter 提交</span>
+          </div>
+          <div class="prompt-row">
+            <textarea
+              v-model="assistantPrompt"
+              rows="3"
+              aria-label="自然语言实体检索输入框"
+              placeholder="例如：帮我查找地下层冷冻机房的排风机，优先匹配设备名称和别名…"
+              @keydown.ctrl.enter="runAssistant"
+            ></textarea>
+            <button class="btn primary assistant-submit" :disabled="assistantLoading || !assistantPrompt.trim()" @click="runAssistant">
+              {{ assistantLoading ? 'AI 正在解析…' : 'AI 解析并检索' }}
+            </button>
+          </div>
         </div>
         <div v-if="assistantError" class="inline-error">{{ assistantError }}</div>
         <div v-if="assistantResult" class="assistant-columns">
@@ -480,7 +495,14 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .field-list { border:1px solid rgba(142,190,228,.1); border-radius:7px; overflow:hidden; }
 .field-row { display:grid; grid-template-columns:minmax(110px,.8fr) minmax(0,1.5fr); gap:8px; padding:7px 9px; border-top:1px solid rgba(142,190,228,.08); }
 .field-row:first-child { border-top:0; }.field-row>span { color:rgba(225,239,255,.5); font-size:9px; }.field-row code { text-align:right; }
-.prompt-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:stretch; }.prompt-row textarea { resize:vertical; min-height:60px; }.assistant-submit { min-width:120px; }
+.assistant-composer { padding:14px; border:1px solid rgba(69,190,244,.24); border-radius:10px; background:linear-gradient(135deg,rgba(20,73,112,.28),rgba(5,24,49,.38)); }
+.composer-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.composer-heading strong { display:block; color:#e8f6ff; font-size:12px; }
+.composer-heading p { margin:5px 0 0; color:rgba(225,239,255,.48); font-size:10px; line-height:1.5; }
+.composer-shortcut { color:#8ed9fa; font-size:9px; white-space:nowrap; }
+.prompt-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:stretch; }
+.prompt-row textarea { resize:vertical; min-height:84px; padding:12px 13px; line-height:1.65; font-size:12px; }
+.assistant-submit { min-width:138px; align-self:stretch; }
 .assistant-columns { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
 .assistant-result { min-width:0; border:1px solid rgba(142,190,228,.12); border-radius:9px; padding:13px; background:rgba(1,17,39,.22); }
 .parsed-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }.parsed-grid>div { display:flex; flex-direction:column; gap:5px; min-width:0; }.parsed-grid small { color:rgba(225,239,255,.42); font-size:9px; }.parsed-grid strong,.parsed-grid code { color:#d9edff; font-size:10px; overflow-wrap:anywhere; }
