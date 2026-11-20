@@ -129,6 +129,16 @@ public final class EntityAreaNameNormalizer {
     }
 
     /**
+     * 单字同音误识别的编号站台表达，例如武站台、吾站台、五站台。
+     * 必须再由 ES Pinyin Analyzer 对照索引中的真实位置词条核验，不能仅凭字符形态纠错。
+     */
+    public static boolean isHomophoneNumberedPositionPhrase(String value) {
+        if (value == null || value.isBlank()) return false;
+        String normalized = EntityTextNormalizer.normalize(value).replaceAll("[\\s，,。！？!?；;：:、]+", "");
+        return normalized.matches("^(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3}|[\\p{IsHan}])站台$");
+    }
+
+    /**
      * 位置短语单独出现时，不应让 LLM 返回的“站台/设备”等泛词覆盖它。
      * 允许同音字开头，例如“武站台”“吾站台”。
      */
