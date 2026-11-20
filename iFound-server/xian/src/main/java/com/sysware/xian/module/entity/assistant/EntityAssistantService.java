@@ -42,7 +42,7 @@ public class EntityAssistantService {
 
         // 每次从当前 ES Alias 读取真实词典，不依赖写死的系统名称，也不要求 LLM 猜稳定 ID。
         List<Map<String, Object>> areaVocabulary = catalogService.vocabulary(EntityType.AREA, 5000);
-        List<Map<String, Object>> systemVocabulary = catalogService.vocabulary(EntityType.SYSTEM, 1000);
+        List<Map<String, Object>> systemVocabulary = catalogService.vocabulary(EntityType.SYSTEM, 5000);
         String vocabularyContext = vocabularyContext(systemVocabulary);
 
         ChatClient.Builder builder = chatClientBuilderProvider.getIfAvailable();
@@ -149,10 +149,18 @@ public class EntityAssistantService {
 
         // 将区域词从目标关键词剥离，并生成口语查询的辅助关键词。
         if (type == EntityType.DEVICE) {
-            keyword = stripAreaAndFillers(keyword, areaMatch);
+            String promptKeyword = stripAreaAndFillers(prompt, areaMatch);
+            String modelKeyword = stripAreaAndFillers(keyword, areaMatch);
+            // 当模型只返回系统词（如“空调”），而原句去掉区域和口语词后还包含更具体的目标描述（如“1号空调”），优先使用更具体的表达。
+            if (hasText(promptKeyword) && promptKeyword.length() > modelKeyword.length()
+                    && promptKeyword.contains(modelKeyword)) {
+                keyword = promptKeyword;
+            } else {
+                keyword = modelKeyword;
+            }
         }
         List<String> keywordVariants = type == EntityType.DEVICE
-                ? buildKeywordVariants(prompt, keyword, areaMatch, systemName)
+                ? buildKeywordVariants(prompt, keyword, areaMatch)
                 : List.of();
 
         Map<String, Object> parsedView = new LinkedHashMap<>();
@@ -284,21 +292,21 @@ public class EntityAssistantService {
         if (areaMatch != null && hasText(areaMatch.matchedText())) {
             value = value.replace(areaMatch.matchedText(), " ");
         }
-        value = value.replaceAll("(?i)(请帮我|帮我|请|查询|查找|搜索|查一下|找一下|看看|一下|里面的|当中的|中的|区域|位置上的|设备|设施)", " ");
+        value = value.replaceAll("(?i)(请帮我查|请帮我找|帮我查|帮我找|我想查|我想找|我需要|我想要|请问|帮我|请|查询|查找|搜索|查一下|找一下|看看|一下|有没有|是否|当前|现在|故障信息|报警信息|运行状态|里面的|当中的|中的|区域|位置上的|设备|设施|故障|报警|异常|的)", " ");
         value = value.replaceAll("\\s+", " ").trim();
         if (value.equals("的") || value.equals("") || value.length() < 1) return keyword == null ? "" : keyword.trim();
         return value;
     }
 
     private List<String> buildKeywordVariants(String prompt, String keyword,
-                                              VocabularyMatch areaMatch, String systemName) {
+                                              VocabularyMatch areaMatch) {
         Set<String> variants = new LinkedHashSet<>();
         if (hasText(prompt)) {
             String value = prompt.trim();
             if (areaMatch != null && hasText(areaMatch.matchedText())) {
                 value = value.replace(areaMatch.matchedText(), " ");
             }
-            value = value.replaceAll("(?i)(请帮我|帮我|请|查询|查找|搜索|查一下|找一下|看看|一下|里面的|当中的|中的|区域|位置上的|设备|设施|的)", " ");
+            value = value.replaceAll("(?i)(请帮我查|请帮我找|帮我查|帮我找|我想查|我想找|我需要|我想要|请问|帮我|请|查询|查找|搜索|查一下|找一下|看看|一下|有没有|是否|当前|现在|故障信息|报警信息|运行状态|里面的|当中的|中的|区域|位置上的|设备|设施|故障|报警|异常|的)", " ");
             value = value.replaceAll("\\s+", " ").trim();
             if (hasText(value)) variants.add(value);
         }
@@ -308,7 +316,6 @@ public class EntityAssistantService {
             String withoutNumber = value.replaceFirst("(?i)(?:[-_#\\s]*\\d{1,4}[a-z]?(?:号)?)$", "").trim();
             if (withoutNumber.length() >= 2 && !withoutNumber.equals(value)) variants.add(withoutNumber);
         }
-        if (hasText(systemName)) variants.add(systemName.trim());
         if (hasText(keyword)) variants.remove(keyword.trim());
         return new ArrayList<>(variants);
     }
