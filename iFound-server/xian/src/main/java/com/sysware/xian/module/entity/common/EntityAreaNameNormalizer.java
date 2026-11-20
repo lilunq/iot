@@ -19,7 +19,7 @@ public final class EntityAreaNameNormalizer {
 
     private static final String[] DIGITS = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九"};
     private static final Pattern POSITION_MENTION = Pattern.compile(
-            "第?(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3})(?:候车层|站台|站厅|站|台|层|楼|区)");
+            "第?(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3}|[\\\\p{IsHan}])(?:候车层|站台|站厅|站|台|层|楼|区)");
 
     private EntityAreaNameNormalizer() { }
 
