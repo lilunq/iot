@@ -74,6 +74,14 @@ public class EntityCatalogService {
 
         Map<String, Object> bool = new LinkedHashMap<>();
         bool.put("filter", filters);
+        List<Map<String, Object>> preferenceClauses = new ArrayList<>();
+        if (type == EntityType.DEVICE && hasText(preferredDeviceTypeName)) {
+            // 放在外层 should 中，仅对已由关键词命中的结果加分，不允许分类偏好单独召回设备。
+            preferenceClauses.add(Map.of("match_phrase", Map.of("device_type_name", Map.of(
+                    "query", preferredDeviceTypeName.trim(), "boost", 8))));
+            preferenceClauses.add(Map.of("match", Map.of("device_type_name", Map.of(
+                    "query", preferredDeviceTypeName.trim(), "boost", 3))));
+        }
         if (hasText(keyword)) {
             String q = keyword.trim();
             List<Map<String, Object>> should = new ArrayList<>();
@@ -98,11 +106,6 @@ public class EntityCatalogService {
                     should.add(Map.of("match", Map.of(nameField, Map.of(
                             "query", nameCore, "boost", 20))));
                 }
-                // LLM 提取的分类名称仅作加权偏好；无分类 ID/分类名称的设备不会被排除。
-                if (hasText(preferredDeviceTypeName)) {
-                    should.add(Map.of("match_phrase", Map.of("device_type_name", Map.of(
-                            "query", preferredDeviceTypeName.trim(), "boost", 8))));
-                }
             }
 
             List<String> searchFields = new ArrayList<>(List.of(
@@ -116,8 +119,12 @@ public class EntityCatalogService {
             }
             should.add(Map.of("multi_match", Map.of("query", q, "fields", searchFields,
                     "type", "best_fields", "fuzziness", "AUTO", "boost", type == EntityType.DEVICE ? 1 : 2)));
-            bool.put("should", should);
-            bool.put("minimum_should_match", 1);
+            // 关键词必须至少命中一项；分类偏好位于外层可选 should 中，不能独立扩大召回集合。
+            bool.put("must", List.of(Map.of("bool", Map.of(
+                    "should", should, "minimum_should_match", 1))));
+            if (!preferenceClauses.isEmpty()) {
+                bool.put("should", preferenceClauses);
+            }
         }
 
         Map<String, Object> query = new LinkedHashMap<>();
