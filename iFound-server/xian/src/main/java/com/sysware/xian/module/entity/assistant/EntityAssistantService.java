@@ -160,7 +160,7 @@ public class EntityAssistantService {
             }
         }
         List<String> keywordVariants = type == EntityType.DEVICE
-                ? buildKeywordVariants(prompt, keyword, areaMatch)
+                ? buildKeywordVariants(prompt, keyword, areaMatch, systemName)
                 : List.of();
 
         Map<String, Object> parsedView = new LinkedHashMap<>();
@@ -299,7 +299,7 @@ public class EntityAssistantService {
     }
 
     private List<String> buildKeywordVariants(String prompt, String keyword,
-                                              VocabularyMatch areaMatch) {
+                                              VocabularyMatch areaMatch, String systemName) {
         Set<String> variants = new LinkedHashSet<>();
         if (hasText(prompt)) {
             String value = prompt.trim();
@@ -316,6 +316,9 @@ public class EntityAssistantService {
             String withoutNumber = value.replaceFirst("(?i)(?:[-_#\\s]*\\d{1,4}[a-z]?(?:号)?)$", "").trim();
             if (withoutNumber.length() >= 2 && !withoutNumber.equals(value)) variants.add(withoutNumber);
         }
+        // 系统词作为低层级召回补偿；只有真实系统词典已确认 systemKey 后才会进入该分支。
+        // 这可以覆盖“1号空调”与台账名“候车层1A岛式空调”的表达差异。
+        if (hasText(systemName)) variants.add(systemName.trim());
         if (hasText(keyword)) variants.remove(keyword.trim());
         return new ArrayList<>(variants);
     }
