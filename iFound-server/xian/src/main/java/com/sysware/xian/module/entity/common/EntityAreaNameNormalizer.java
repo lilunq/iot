@@ -128,6 +128,16 @@ public final class EntityAreaNameNormalizer {
         return value != null && POSITION_MENTION.matcher(value.trim()).matches();
     }
 
+    /**
+     * 位置短语单独出现时，不应让 LLM 返回的“站台/设备”等泛词覆盖它。
+     * 允许同音字开头，例如“武站台”“吾站台”。
+     */
+    public static boolean isLocationOnlyDescription(String value) {
+        if (value == null || value.isBlank()) return false;
+        String normalized = EntityTextNormalizer.normalize(value).replaceAll("[\\s，,。！？!?；;：:、]+", "");
+        return normalized.matches("^.{1,10}(?:候车层|站台|站厅|楼层|站|台|层|楼|区)$");
+    }
+
     private static Integer parseChineseNumber(String value) {
         if (value == null || value.isBlank()) return null;
         String text = value.startsWith("第") ? value.substring(1) : value;
