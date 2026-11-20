@@ -144,11 +144,15 @@ public class EntityResolverService {
                 match(should, "device_name", query, 12);
                 match(should, "device_alias", query, 11);
                 match(should, "location", query, 8);
+                match(should, "device_name_variants", query, 8);
+                match(should, "location_variants", query, 7);
                 match(should, "aliases", query, 10);
                 pinyin(should, "name", query, 6);
                 pinyin(should, "device_name", query, 6);
                 pinyin(should, "device_alias", query, 5);
                 pinyin(should, "location", query, 5);
+                pinyin(should, "device_name_variants", query, 5);
+                pinyin(should, "location_variants", query, 5);
                 pinyin(should, "aliases", query, 5);
             } else if (type == EntityType.DEVICE) {
                 exact(should, "id", query, 130);
@@ -157,10 +161,14 @@ public class EntityResolverService {
                 match(should, "device_name", query, 12);
                 match(should, "device_alias", query, 11);
                 match(should, "location", query, 8);
+                match(should, "device_name_variants", query, 8);
+                match(should, "location_variants", query, 7);
                 match(should, "aliases", query, 10);
                 pinyin(should, "device_name", query, 6);
                 pinyin(should, "device_alias", query, 5);
                 pinyin(should, "location", query, 5);
+                pinyin(should, "device_name_variants", query, 5);
+                pinyin(should, "location_variants", query, 5);
                 pinyin(should, "aliases", query, 5);
             } else if (type == EntityType.CAMERA) {
                 exact(should, "id", query, 130);
@@ -222,6 +230,10 @@ public class EntityResolverService {
             addFuzzyTerm(clauses, "device_name.raw", value, 12);
             addFuzzyTerm(clauses, "device_alias.raw", value, 11);
             addFuzzyTerm(clauses, "location.raw", value, 8);
+            addFuzzyMatch(clauses, "device_name_variants", value, 10);
+            addFuzzyMatch(clauses, "location_variants", value, 8);
+            addFuzzyTerm(clauses, "device_name_variants.raw", value, 10);
+            addFuzzyTerm(clauses, "location_variants.raw", value, 8);
             if (type == EntityType.DEVICE && value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*")
                     && value.length() <= 32) {
                 addFuzzyTerm(clauses, "device_code", value, 2);
