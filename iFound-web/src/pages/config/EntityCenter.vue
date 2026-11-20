@@ -181,6 +181,9 @@
             <div class="assistant-result assistant-candidate-panel">
               <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条 · {{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? '语义重排' : assistantResult.searchResult.rankingStatus === 'ES_FALLBACK' ? 'ES原排序' : 'ES召回' }}</span></div>
             <div v-if="assistantResult.searchResult.rankingMessage" class="search-strategy-note">{{ assistantResult.searchResult.rankingMessage }}</div>
+            <div v-if="assistantResult.searchResult.retrievalMode === 'FUZZY_FALLBACK'" class="search-strategy-note fuzzy-retrieval-note">
+              {{ assistantResult.searchResult.retrievalMessage || '已启用错别字容错召回，候选仍来自 Elasticsearch 真实索引。' }}
+            </div>
             <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
               <button v-for="(row, index) in assistantResult.searchResult.records" :key="row.entityId"
                 class="candidate-card" :class="{ selected: selectedAssistantDetail?.entityId === row.entityId }"
@@ -630,6 +633,7 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .parsed-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }.parsed-grid>div { display:flex; flex-direction:column; gap:5px; min-width:0; }.parsed-grid small { color:rgba(225,239,255,.42); font-size:9px; }.parsed-grid strong,.parsed-grid code { color:#d9edff; font-size:10px; overflow-wrap:anywhere; }
 .filter-warning { margin-top:12px; padding:9px 10px; border:1px solid rgba(255,185,83,.24); border-radius:7px; background:rgba(255,185,83,.07); color:#ffd18b; font-size:10px; line-height:1.5; }
 .search-strategy-note { margin-top:8px; padding:7px 8px; border:1px solid rgba(69,190,244,.16); border-radius:7px; background:rgba(69,190,244,.045); color:rgba(207,231,250,.62); font-size:9px; line-height:1.6; }
+.fuzzy-retrieval-note { border-color:rgba(109,218,172,.24); background:rgba(63,185,133,.07); color:#9be5c2; }
 .filter-resolution-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
 .filter-resolution-list>div { display:grid; grid-template-columns:60px auto 1fr; gap:8px; align-items:center; font-size:9px; }
 .filter-resolution-list strong { color:rgba(225,239,255,.7); }.filter-resolution-list small { color:rgba(225,239,255,.42); }
