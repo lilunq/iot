@@ -33,6 +33,18 @@ public class EntityResolverService {
     private final BizEntityAliasService aliasService;
 
     public EntityResolveResponse resolve(EntityResolveRequest request) {
+        return resolveInternal(request, false);
+    }
+
+    /**
+     * 为已由实体词典识别出的错字候选执行显式 Fuzzy 确认。
+     * 该入口不改变任何业务过滤条件，仅确保即使常规分词有部分命中，也执行模糊校验。
+     */
+    public EntityResolveResponse resolveWithFuzzy(EntityResolveRequest request) {
+        return resolveInternal(request, true);
+    }
+
+    private EntityResolveResponse resolveInternal(EntityResolveRequest request, boolean forceFuzzy) {
         if (request == null || request.getQuery() == null || request.getQuery().isBlank()) {
             throw new IllegalArgumentException("query 不能为空");
         }
@@ -41,10 +53,10 @@ public class EntityResolverService {
         String normalized = EntityTextNormalizer.normalize(query);
 
         List<String> aliasDataIds = aliasService.findEnabledDataIds(type, normalized);
-        Map<String, Object> queryDsl = buildQuery(type, request, query, aliasDataIds, false);
+        Map<String, Object> queryDsl = buildQuery(type, request, query, aliasDataIds, forceFuzzy);
         JsonNode result = repository.search(type.getIndexAlias(), queryDsl);
-        boolean fuzzyFallbackUsed = false;
-        if (!hasHits(result) && shouldUseFuzzy(query)) {
+        boolean fuzzyFallbackUsed = forceFuzzy && hasHits(result);
+        if (!forceFuzzy && !hasHits(result) && shouldUseFuzzy(query)) {
             // 常规精确/分词/拼音/别名检索无结果后，再启用低优先级 Fuzzy 容错。
             queryDsl = buildQuery(type, request, query, aliasDataIds, true);
             result = repository.search(type.getIndexAlias(), queryDsl);
@@ -183,13 +195,13 @@ public class EntityResolverService {
             case DEVICE -> "device_name";
             case CAMERA -> "camera_name";
         };
-        addFuzzyMatch(clauses, nameField, value, 5);
-        addFuzzyMatch(clauses, "aliases", value, 4);
-        addFuzzyTerm(clauses, nameField + ".raw", value, 4);
-        addFuzzyTerm(clauses, "aliases.raw", value, 3);
+        addFuzzyMatch(clauses, nameField, value, 12);
+        addFuzzyMatch(clauses, "aliases", value, 10);
+        addFuzzyTerm(clauses, nameField + ".raw", value, 18);
+        addFuzzyTerm(clauses, "aliases.raw", value, 14);
         if (type == EntityType.DEVICE) {
-            addFuzzyMatch(clauses, "device_alias", value, 4);
-            addFuzzyTerm(clauses, "device_alias.raw", value, 3);
+            addFuzzyMatch(clauses, "device_alias", value, 10);
+            addFuzzyTerm(clauses, "device_alias.raw", value, 14);
             if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
                 addFuzzyTerm(clauses, "device_code", value, 2);
             }
