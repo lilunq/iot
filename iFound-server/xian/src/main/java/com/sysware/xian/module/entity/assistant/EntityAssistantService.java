@@ -116,6 +116,19 @@ public class EntityAssistantService {
                     filterNeedsClarification = true;
                     areaName = areaMatch.name();
                     areaId = null;
+                } else if (areaMatch.fuzzy()) {
+                    // 词典近似命中只负责定位输入片段；稳定 ID 必须再由 ES Fuzzy 独立确认。
+                    EntityResolveResponse resolved = resolveFilter(EntityType.AREA, areaMatch.matchedText());
+                    if (matchesFuzzyVocabularyCandidate(areaMatch, resolved)) {
+                        areaName = resolved.getResolved().getName();
+                        areaId = resolved.getResolved().getEntityId();
+                        filterResolutions.put("area", filterResolution(resolved));
+                    } else {
+                        areaName = areaMatch.name();
+                        areaId = null;
+                        filterResolutions.put("area", fuzzyVerificationResolution(areaMatch, resolved));
+                        filterNeedsClarification = true;
+                    }
                 } else {
                     areaName = areaMatch.name();
                     areaId = areaMatch.id();
@@ -134,6 +147,18 @@ public class EntityAssistantService {
                     filterNeedsClarification = true;
                     systemName = systemMatch.name();
                     systemKey = null;
+                } else if (systemMatch.fuzzy()) {
+                    EntityResolveResponse resolved = resolveFilter(EntityType.SYSTEM, systemMatch.matchedText());
+                    if (matchesFuzzyVocabularyCandidate(systemMatch, resolved)) {
+                        systemName = resolved.getResolved().getName();
+                        systemKey = resolved.getResolved().getEntityId();
+                        filterResolutions.put("system", filterResolution(resolved));
+                    } else {
+                        systemName = systemMatch.name();
+                        systemKey = null;
+                        filterResolutions.put("system", fuzzyVerificationResolution(systemMatch, resolved));
+                        filterNeedsClarification = true;
+                    }
                 } else {
                     systemName = systemMatch.name();
                     systemKey = systemMatch.id();
@@ -584,6 +609,26 @@ public class EntityAssistantService {
         request.setQuery(name);
         request.setLimit(5);
         return resolverService.resolve(request);
+    }
+
+    private boolean matchesFuzzyVocabularyCandidate(VocabularyMatch match, EntityResolveResponse response) {
+        return response != null
+                && "FOUND".equalsIgnoreCase(response.getStatus())
+                && response.getResolved() != null
+                && match.id().equals(response.getResolved().getEntityId());
+    }
+
+    private Map<String, Object> fuzzyVerificationResolution(VocabularyMatch match,
+                                                             EntityResolveResponse response) {
+        Map<String, Object> result = filterResolution(response);
+        if (response != null && "FOUND".equalsIgnoreCase(response.getStatus())) {
+            result.put("status", "AMBIGUOUS");
+            result.put("message", "词典近似候选与 Elasticsearch Fuzzy 确认结果不一致，已暂停硬过滤，请用户确认");
+        } else {
+            result.put("message", "错别字候选尚未得到 Elasticsearch Fuzzy 的唯一确认，已暂停硬过滤，请用户确认");
+        }
+        result.put("dictionaryCandidate", Map.of("entityId", match.id(), "name", match.name()));
+        return result;
     }
 
     private Map<String, Object> filterResolution(EntityResolveResponse response) {
