@@ -27,7 +27,9 @@ public class EntityIndexAdminService {
         for (EntityType type : EntityType.values()) {
             String alias = type.getIndexAlias();
             String physical = alias + "_v1";
-            ensureIndex(physical, mappingFor(type));
+            Map<String, Object> definition = mappingFor(type);
+            ensureIndex(physical, definition);
+            ensureMapping(physical, definition);
             ensureAlias(alias, physical);
             result.put(alias, physical);
         }
@@ -45,6 +47,18 @@ public class EntityIndexAdminService {
                     .body(definition)
                     .retrieve().toBodilessEntity();
         }
+    }
+
+    /** 对已存在的物理索引补齐新增字段映射；dynamic=false 时新增字段不会自动建立可检索映射。 */
+    private void ensureMapping(String index, Map<String, Object> definition) {
+        Object mappings = definition.get("mappings");
+        if (!(mappings instanceof Map<?, ?>)) {
+            throw new IllegalStateException("实体索引映射定义缺少 mappings: " + index);
+        }
+        entityElasticsearchRestClient.put().uri("/{index}/_mapping", index)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mappings)
+                .retrieve().toBodilessEntity();
     }
 
     private void ensureAlias(String alias, String physicalIndex) {
@@ -78,9 +92,13 @@ public class EntityIndexAdminService {
                 bool(fields, "enabled");
             }
             case DEVICE_TYPE -> {
-                keyword(fields, "id", "parent_id", "cascade_id", "is_folder", "is_expand", "ext_code");
+                // listDeviceTypes 当前返回的行包含设备名称、分类编码和设备属性，全部保留在 _source 并建立可检索字段。
+                keyword(fields, "id", "org_id", "system_type", "device_type", "factory",
+                        "production_date", "install_date", "subarea_cid", "subarea_id", "nfc",
+                        "fire_key", "device_fac_id", "parent_id", "cascade_id",
+                        "is_folder", "is_expand", "ext_code");
                 integer(fields, "sort_no");
-                text(fields, "name", "remark", "aliases");
+                text(fields, "name", "device_name", "device_alias", "location", "remark", "aliases");
                 bool(fields, "enabled");
             }
             case DEVICE -> {
