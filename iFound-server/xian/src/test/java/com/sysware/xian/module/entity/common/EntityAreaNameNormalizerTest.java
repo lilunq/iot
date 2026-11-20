@@ -26,6 +26,30 @@ class EntityAreaNameNormalizerTest {
     }
 
     @Test
+    void createsAllNumericPositionSpeechVariants() {
+        assertEquals(java.util.List.of("5站台", "五站台", "第五站台"),
+                EntityAreaNameNormalizer.positionPhraseVariants("5站台"));
+        assertEquals(java.util.List.of("第五站台", "5站台", "五站台"),
+                EntityAreaNameNormalizer.positionPhraseVariants("第五站台"));
+    }
+
+    @Test
+    void extractsPositionPhrasesFromDeviceNameAndLocation() {
+        assertEquals(java.util.List.of("5站台", "五站台", "第五站台"),
+                EntityAreaNameNormalizer.extractPositionVariants("5站台排风机1", ""));
+        assertEquals(java.util.List.of("5站台", "五站台", "第五站台"),
+                EntityAreaNameNormalizer.extractPositionVariants("排风机1", "设备安装在第五站台"));
+    }
+
+    @Test
+    void keepsHomophoneInputForElasticsearchPinyinVerification() {
+        assertEquals(java.util.List.of("武站台"),
+                EntityAreaNameNormalizer.positionPhraseVariants("武站台"));
+        assertEquals(java.util.List.of("吾站台"),
+                EntityAreaNameNormalizer.positionPhraseVariants("吾站台"));
+    }
+
+    @Test
     void createsArabicAreaVariantForStrippingOriginalVoicePhrase() {
         assertEquals("5站台", EntityAreaNameNormalizer.toArabicNumeralVariant("五站台"));
         assertEquals("5站台", EntityAreaNameNormalizer.toArabicNumeralVariant("第五站台"));
