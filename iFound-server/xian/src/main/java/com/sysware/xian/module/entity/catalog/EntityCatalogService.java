@@ -38,9 +38,55 @@ public class EntityCatalogService {
         return Map.of("total", total, "items", items);
     }
 
+    /**
+     * 返回当前启用的真实实体词典，供自然语言解析使用。
+     * 词典中的 ID 和名称直接来自 ES，不由 LLM 猜测。
+     */
+    public List<Map<String, Object>> vocabulary(EntityType type, int requestedLimit) {
+        if (type != EntityType.AREA && type != EntityType.SYSTEM && type != EntityType.DEVICE_TYPE) {
+            throw new IllegalArgumentException("不支持为该实体类型生成解析词典: " + type);
+        }
+        int limit = Math.min(5000, Math.max(1, requestedLimit));
+        String nameField = nameField(type);
+        Map<String, Object> query = new LinkedHashMap<>();
+        query.put("size", limit);
+        query.put("track_total_hits", false);
+        query.put("_source", List.of(type.getBusinessIdField(), nameField, "aliases"));
+        query.put("query", Map.of("term", Map.of("enabled", true)));
+        query.put("sort", List.of(Map.of(nameField + ".raw", Map.of(
+                "order", "asc", "unmapped_type", "keyword"))));
+
+        JsonNode response = repository.search(type.getIndexAlias(), query);
+        JsonNode hits = response == null ? null : response.path("hits").path("hits");
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (hits == null || !hits.isArray()) return result;
+        for (JsonNode hit : hits) {
+            JsonNode source = hit.path("_source");
+            String id = source.path(type.getBusinessIdField()).asText(hit.path("_id").asText(""));
+            String name = source.path(nameField).asText("").trim();
+            if (id.isBlank() || name.isBlank()) continue;
+            List<String> aliases = new ArrayList<>();
+            JsonNode aliasNode = source.path("aliases");
+            if (aliasNode.isArray()) {
+                aliasNode.forEach(alias -> {
+                    String value = alias.asText("").trim();
+                    if (!value.isBlank()) aliases.add(value);
+                });
+            } else if (aliasNode.isTextual() && !aliasNode.asText().isBlank()) {
+                aliases.add(aliasNode.asText().trim());
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", id);
+            item.put("name", name);
+            item.put("aliases", aliases);
+            result.add(item);
+        }
+        return result;
+    }
+
     public Map<String, Object> list(EntityType type, String keyword, String areaId,
                                     String systemKey, String deviceTypeId, Integer page, Integer size) {
-        return listInternal(type, keyword, areaId, systemKey, deviceTypeId, null, page, size);
+        return listInternal(type, keyword, areaId, systemKey, deviceTypeId, null, List.of(), page, size);
     }
 
     /**
@@ -50,14 +96,16 @@ public class EntityCatalogService {
     public Map<String, Object> listForAssistant(EntityType type, String keyword, String areaId,
                                                 String systemKey, String deviceTypeId,
                                                 String preferredDeviceTypeName,
+                                                List<String> additionalKeywords,
                                                 Integer page, Integer size) {
         return listInternal(type, keyword, areaId, systemKey, deviceTypeId,
-                preferredDeviceTypeName, page, size);
+                preferredDeviceTypeName, additionalKeywords, page, size);
     }
 
     private Map<String, Object> listInternal(EntityType type, String keyword, String areaId,
                                              String systemKey, String deviceTypeId,
                                              String preferredDeviceTypeName,
+                                             List<String> additionalKeywords,
                                              Integer page, Integer size) {
         int pageSize = size == null ? 20 : Math.min(100, Math.max(1, size));
         int maxPage = Math.max(1, 10_000 / pageSize);
@@ -119,6 +167,21 @@ public class EntityCatalogService {
             }
             should.add(Map.of("multi_match", Map.of("query", q, "fields", searchFields,
                     "type", "best_fields", "fuzziness", "AUTO", "boost", type == EntityType.DEVICE ? 1 : 2)));
+
+            // 辅助关键词用于补偿口语表达与设备台账命名差异，权重低于主关键词。
+            if (additionalKeywords != null) {
+                for (String alternative : additionalKeywords) {
+                    if (!hasText(alternative) || alternative.trim().equalsIgnoreCase(q)) continue;
+                    should.add(Map.of("match", Map.of(nameField, Map.of(
+                            "query", alternative.trim(), "boost", 6))));
+                    should.add(Map.of("match", Map.of("aliases", Map.of(
+                            "query", alternative.trim(), "boost", 4))));
+                    if (type == EntityType.DEVICE) {
+                        should.add(Map.of("match", Map.of("device_alias", Map.of(
+                                "query", alternative.trim(), "boost", 3))));
+                    }
+                }
+            }
             // 关键词必须至少命中一项；分类偏好位于外层可选 should 中，不能独立扩大召回集合。
             bool.put("must", List.of(Map.of("bool", Map.of(
                     "should", should, "minimum_should_match", 1))));
