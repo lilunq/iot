@@ -275,6 +275,8 @@ public class EntityAssistantService {
             keywordVariants = List.of();
         }
 
+        String searchScope = filterNeedsClarification
+                ? "NOT_EXECUTED" : (hasText(areaId) ? "AREA" : "ALL_AREAS");
         Map<String, Object> parsedView = new LinkedHashMap<>();
         parsedView.put("entityType", type.name());
         parsedView.put("entityLabel", catalogService.label(type));
@@ -283,7 +285,7 @@ public class EntityAssistantService {
         parsedView.put("areaName", nullSafe(areaName));
         parsedView.put("areaMention", nullSafe(areaMention));
         parsedView.put("areaResolved", hasText(areaId));
-        parsedView.put("searchScope", hasText(areaId) ? "AREA" : "ALL_AREAS");
+        parsedView.put("searchScope", searchScope);
         parsedView.put("inputSource", normalizedInputSource);
         parsedView.put("systemName", nullSafe(systemName));
         parsedView.put("deviceTypeName", nullSafe(deviceTypeName));
@@ -296,7 +298,7 @@ public class EntityAssistantService {
         result.put("prompt", prompt);
         result.put("inputSource", normalizedInputSource);
         result.put("voiceAreaFallback", voiceAreaFallback);
-        result.put("searchScope", hasText(areaId) ? "AREA" : "ALL_AREAS");
+        result.put("searchScope", searchScope);
         result.put("llmRaw", raw);
         result.put("parsed", parsedView);
         result.put("filterResolutions", filterResolutions);
