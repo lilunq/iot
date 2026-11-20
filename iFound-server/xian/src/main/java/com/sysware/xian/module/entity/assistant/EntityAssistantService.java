@@ -98,8 +98,8 @@ public class EntityAssistantService {
 
         Map<String, Object> filterResolutions = new LinkedHashMap<>();
         boolean filterNeedsClarification = false;
-        VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary, areaName);
-        VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary, systemName);
+        VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary);
+        VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary);
 
         if (type != EntityType.DEVICE) {
             // 摄像头等非设备实体不接受区域、系统或设备分类过滤。
@@ -395,8 +395,7 @@ public class EntityAssistantService {
      * 先做标准名称/别名精确包含匹配；未命中时，仅在 LLM 明确提取了区域/系统线索的前提下，
      * 对真实 ES 词典做单字符容错。容错候选多于一个时返回歧义，绝不猜测稳定 ID。
      */
-    private VocabularyMatch findVocabularyMatch(String prompt, List<Map<String, Object>> vocabulary,
-                                                String extractedHint) {
+    private VocabularyMatch findVocabularyMatch(String prompt, List<Map<String, Object>> vocabulary) {
         if (!hasText(prompt) || vocabulary == null || vocabulary.isEmpty()) return null;
         String source = EntityTextNormalizer.normalize(prompt);
         int longest = 0;
@@ -434,8 +433,6 @@ public class EntityAssistantService {
         }
 
         // Fuzzy 词典匹配必须同时得到 LLM 提取线索和原句近似片段的支持，避免任意短词误触发硬过滤。
-        String hint = hasText(extractedHint) ? EntityTextNormalizer.normalize(extractedHint) : "";
-        boolean hasUsableHint = hint.codePointCount(0, hint.length()) >= 4;
         Map<String, Map<String, Object>> fuzzyById = new LinkedHashMap<>();
         String fuzzyTerm = null;
         String fuzzyInput = null;
@@ -452,13 +449,11 @@ public class EntityAssistantService {
                 if (candidateLength < 2 || Math.abs(candidateLength - hint.codePointCount(0, hint.length())) > 1) {
                     continue;
                 }
-                int hintDistance = hasUsableHint ? editDistanceAtMostOne(candidate, hint) : 0;
-                if (hasUsableHint && hintDistance > 1) continue;
                 ApproximateWindow window = findApproximateWindow(prompt, candidate);
-                if (window == null || window.distance() > 1
-                        || (hasUsableHint && editDistanceAtMostOne(hint, window.text()) > 1)) continue;
+                if (window == null || window.distance() > 1) continue;
 
-                int distance = hintDistance + window.distance();
+                // 是否是真实实体不由本地相似度决定，后续必须通过 ES Fuzzy 再次确认稳定 ID。
+                int distance = window.distance();
                 if (distance < bestDistance || (distance == bestDistance && candidateLength > bestLength)) {
                     bestDistance = distance;
                     bestLength = candidateLength;
