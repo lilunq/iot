@@ -45,7 +45,7 @@ public final class EntityMentionNormalizer {
         }
         Matcher owner = Pattern.compile("所属区域(?:为|是)?(.{2,16})").matcher(source);
         if (owner.find()) {
-            String mention = owner.group(1).replaceFirst("(?:内的|中的|的)?(?:设备|设施).*$", "").trim();
+            String mention = owner.group(1).replaceFirst("的.*$", "").replaceFirst("(?:内的|中的|设备|设施).*$", "").trim();
             return mention.length() >= 2 ? mention : null;
         }
         return null;

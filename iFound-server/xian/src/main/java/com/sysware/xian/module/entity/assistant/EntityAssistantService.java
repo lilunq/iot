@@ -45,8 +45,8 @@ public class EntityAssistantService {
     }
 
     /**
-     * inputSource=VOICE_ASR 时，允许区域识别失败后在保留设备关键词的前提下进行全站降级检索。
-     * 旧调用不传来源时仍按 TEXT 处理，避免静默放宽原有明确区域约束。
+     * inputSource 仅记录输入来源；文本和语音统一启用拼音/错字检索。
+     * asrAlternatives 仅作为明确区域表达的补充证据，不能自行创建区域约束。
      */
     public Map<String, Object> search(String prompt, String inputSource, List<String> asrAlternatives) {
         if (prompt == null || prompt.isBlank()) throw new IllegalArgumentException("请输入自然语言检索需求");

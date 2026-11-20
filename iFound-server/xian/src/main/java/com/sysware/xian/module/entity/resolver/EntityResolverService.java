@@ -57,7 +57,6 @@ public class EntityResolverService {
         List<String> aliasDataIds = aliasService.findEnabledDataIds(type, normalized);
         Map<String, Object> queryDsl = buildQuery(type, request, query, aliasDataIds, forceFuzzy, forceFuzzy);
         JsonNode result = repository.search(type.getIndexAlias(), queryDsl);
-        if (type == EntityType.AREA) forceFuzzy = false;
         boolean fuzzyFallbackUsed = forceFuzzy && hasHits(result);
         if (!forceFuzzy && type != EntityType.AREA && !hasHits(result) && shouldUseFuzzy(query)) {
             // 常规精确/分词/拼音/别名检索无结果后，再启用低优先级 Fuzzy 容错。
