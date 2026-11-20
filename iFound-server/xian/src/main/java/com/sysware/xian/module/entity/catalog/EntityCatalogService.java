@@ -40,6 +40,25 @@ public class EntityCatalogService {
 
     public Map<String, Object> list(EntityType type, String keyword, String areaId,
                                     String systemKey, String deviceTypeId, Integer page, Integer size) {
+        return listInternal(type, keyword, areaId, systemKey, deviceTypeId, null, page, size);
+    }
+
+    /**
+     * 自然语言设备检索：分类名称仅作为相关性偏好，不作为硬过滤条件。
+     * 这样源设备尚未维护 device_type_id 时，仍可通过设备名称被召回。
+     */
+    public Map<String, Object> listForAssistant(EntityType type, String keyword, String areaId,
+                                                String systemKey, String deviceTypeId,
+                                                String preferredDeviceTypeName,
+                                                Integer page, Integer size) {
+        return listInternal(type, keyword, areaId, systemKey, deviceTypeId,
+                preferredDeviceTypeName, page, size);
+    }
+
+    private Map<String, Object> listInternal(EntityType type, String keyword, String areaId,
+                                             String systemKey, String deviceTypeId,
+                                             String preferredDeviceTypeName,
+                                             Integer page, Integer size) {
         int pageSize = size == null ? 20 : Math.min(100, Math.max(1, size));
         int maxPage = Math.max(1, 10_000 / pageSize);
         int currentPage = page == null || page < 1 ? 1 : Math.min(page, maxPage);
@@ -66,6 +85,26 @@ public class EntityCatalogService {
             for (String exactField : exactFields(type)) {
                 should.add(Map.of("term", Map.of(exactField, Map.of("value", q, "boost", 90))));
             }
+
+            // 设备名称优先于其他文本字段；对“岛式空调1”这类带序号的描述，
+            // 同时检索名称主体“岛式空调”，以召回“候车层1A岛式空调”等命名方式不同的设备。
+            if (type == EntityType.DEVICE) {
+                should.add(Map.of("match", Map.of(nameField, Map.of(
+                        "query", q, "boost", 18))));
+                String nameCore = removeTrailingDeviceNumber(q);
+                if (!nameCore.equals(q)) {
+                    should.add(Map.of("match_phrase", Map.of(nameField, Map.of(
+                            "query", nameCore, "boost", 30))));
+                    should.add(Map.of("match", Map.of(nameField, Map.of(
+                            "query", nameCore, "boost", 20))));
+                }
+                // LLM 提取的分类名称仅作加权偏好；无分类 ID/分类名称的设备不会被排除。
+                if (hasText(preferredDeviceTypeName)) {
+                    should.add(Map.of("match_phrase", Map.of("device_type_name", Map.of(
+                            "query", preferredDeviceTypeName.trim(), "boost", 8))));
+                }
+            }
+
             List<String> searchFields = new ArrayList<>(List.of(
                     nameField + "^5", "aliases^4", nameField + ".pinyin^3", "aliases.pinyin^2"));
             if (type == EntityType.DEVICE) {
@@ -76,7 +115,7 @@ public class EntityCatalogService {
                 searchFields.add("address^2");
             }
             should.add(Map.of("multi_match", Map.of("query", q, "fields", searchFields,
-                    "type", "best_fields", "fuzziness", "AUTO")));
+                    "type", "best_fields", "fuzziness", "AUTO", "boost", type == EntityType.DEVICE ? 1 : 2)));
             bool.put("should", should);
             bool.put("minimum_should_match", 1);
         }
@@ -214,6 +253,16 @@ public class EntityCatalogService {
 
     private String resolveName(EntityType type, JsonNode source) {
         return source.path(nameField(type)).asText("");
+    }
+
+    /**
+     * 仅为中文设备名称追加一个去尾部编号的检索变体。
+     * 原始关键词始终保留，避免丢失用户指定的编号信息。
+     */
+    private String removeTrailingDeviceNumber(String value) {
+        if (!hasText(value) || !value.matches("(?s).*\\p{IsHan}.*")) return value;
+        String core = value.replaceFirst("(?i)(?:[-_#\\s]*\\d{1,4}[a-z]?(?:号)?)$", "").trim();
+        return core.length() >= 2 ? core : value;
     }
 
     private boolean hasText(String value) {
