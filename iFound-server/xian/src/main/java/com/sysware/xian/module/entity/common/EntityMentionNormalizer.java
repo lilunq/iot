@@ -12,7 +12,7 @@ public final class EntityMentionNormalizer {
             ".*(区域内|区域范围内|区域的|范围内|范围的|站台区域|站厅区域|候车层区域|楼层区域|辖区内|所属区域).*");
     private static final Pattern LOCATION_ONLY = Pattern.compile(
             "^(?:第)?[0-9零〇一二三四五六七八九十]{1,4}(?:候车层|站台|站厅|站|台|层|楼|区)$"
-            + "|^.{2,12}(?:候车层|站台|站厅|楼层|区域)$");
+            + "|^.{1,12}(?:候车层|站台|站厅|楼层|区域)$");
     private static final Pattern GENERIC_DEVICE_COLLECTION = Pattern.compile(
             "^.{2,16}的(?:所有|全部)?(?:设备|设施)(?:列表|清单|信息)?$");
     private static final Pattern EXPLICIT_AREA_NAME = Pattern.compile(
