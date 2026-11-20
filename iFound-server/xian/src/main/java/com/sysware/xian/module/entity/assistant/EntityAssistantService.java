@@ -114,7 +114,7 @@ public class EntityAssistantService {
         Map<String, Object> filterResolutions = new LinkedHashMap<>();
         boolean filterNeedsClarification = false;
         boolean voiceAreaFallback = false;
-        VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary);
+        VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary, true);
         String areaMention = hasText(areaName) && prompt.contains(areaName)
                 ? areaName : rawAreaMention(prompt, areaMatch);
         if (!hasText(areaMention) && hasText(areaName)) areaMention = areaName;
@@ -132,7 +132,7 @@ public class EntityAssistantService {
             String alternativeMatchText = null;
             for (String alternative : safeAsrAlternatives) {
                 if (!hasText(alternative)) continue;
-                VocabularyMatch alternativeMatch = findVocabularyMatch(alternative, areaVocabulary);
+                VocabularyMatch alternativeMatch = findVocabularyMatch(alternative, areaVocabulary, true);
                 if (alternativeMatch == null || alternativeMatch.fuzzy()) continue;
                 if (alternativeMatchText == null) alternativeMatchText = alternativeMatch.matchedText();
                 for (Map<String, Object> candidate : alternativeMatch.candidates()) {
@@ -155,7 +155,7 @@ public class EntityAssistantService {
                         nullSafe(areaMention), true, candidates, false);
             }
         }
-        VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary);
+        VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary, false);
 
         if (type != EntityType.DEVICE) {
             // 摄像头没有区域关联字段；保留用户的房间/地点描述作为名称、地址或别名检索词，而不是区域过滤条件。
@@ -505,10 +505,12 @@ public class EntityAssistantService {
      * 先做标准名称/别名精确包含匹配；未命中时，仅在 LLM 明确提取了区域/系统线索的前提下，
      * 对真实 ES 词典做单字符容错。容错候选多于一个时返回歧义，绝不猜测稳定 ID。
      */
-    private VocabularyMatch findVocabularyMatch(String prompt, List<Map<String, Object>> vocabulary) {
+    private VocabularyMatch findVocabularyMatch(String prompt, List<Map<String, Object>> vocabulary,
+                                                  boolean areaVocabulary) {
         if (!hasText(prompt) || vocabulary == null || vocabulary.isEmpty()) return null;
         String source = EntityTextNormalizer.normalize(prompt);
-        String normalizedAreaSource = EntityAreaNameNormalizer.normalizeNumberedAreaExpression(source);
+        String normalizedAreaSource = areaVocabulary
+                ? EntityAreaNameNormalizer.normalizeNumberedAreaExpression(source) : source;
         int longest = 0;
         Map<String, Map<String, Object>> matchedById = new LinkedHashMap<>();
         String matchedTerm = null;
@@ -520,7 +522,8 @@ public class EntityAssistantService {
             if (id.isBlank() || name.isBlank()) continue;
             for (String term : vocabularyTerms(item)) {
                 String candidate = EntityTextNormalizer.normalize(term);
-                String normalizedCandidate = EntityAreaNameNormalizer.normalizeNumberedAreaExpression(candidate);
+                String normalizedCandidate = areaVocabulary
+                        ? EntityAreaNameNormalizer.normalizeNumberedAreaExpression(candidate) : candidate;
                 if (candidate.length() < 2
                         || (!source.contains(candidate) && !normalizedAreaSource.contains(normalizedCandidate))) continue;
                 if (candidate.length() > longest) {
