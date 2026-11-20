@@ -114,7 +114,7 @@
           <div class="composer-heading">
             <div>
               <strong>输入自然语言检索需求</strong>
-              <p>支持自然语言描述；可尝试名称近似写法，系统将按实际召回结果展示候选。</p>
+              <p>支持自然语言和轻微错别字；优先精确、分词与拼音检索，未命中时启用 Fuzzy 容错召回。</p>
             </div>
             <span class="composer-shortcut">Ctrl + Enter 提交</span>
           </div>
