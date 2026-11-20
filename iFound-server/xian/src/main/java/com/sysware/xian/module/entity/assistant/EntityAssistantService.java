@@ -211,10 +211,10 @@ public class EntityAssistantService {
         result.put("vocabulary", Map.of(
                 "areaCount", areaVocabulary.size(),
                 "systemCount", systemVocabulary.size(),
-                "areaMatchedByBackend", areaMatch != null,
-                "systemMatchedByBackend", systemMatch != null,
-                "areaFuzzyMatched", areaMatch != null && areaMatch.fuzzy(),
-                "systemFuzzyMatched", systemMatch != null && systemMatch.fuzzy()));
+                "areaMatchedByBackend", hasText(areaId),
+                "systemMatchedByBackend", hasText(systemKey),
+                "areaFuzzyMatched", hasText(areaId) && areaMatch != null && areaMatch.fuzzy(),
+                "systemFuzzyMatched", hasText(systemKey) && systemMatch != null && systemMatch.fuzzy()));
         result.put("searchPolicy", Map.of(
                 "areaAndSystem", "区域、系统优先依据 ES 真实词典和别名匹配；支持单字符拼写容错，命中后使用对应稳定 ID 做硬过滤",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
