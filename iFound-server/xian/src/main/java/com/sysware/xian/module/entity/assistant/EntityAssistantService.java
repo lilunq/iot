@@ -54,6 +54,7 @@ public class EntityAssistantService {
                 只负责把用户自然语言转换成检索条件，不负责查数据，不得编造实体、实体ID、区域编码、系统编码或设备分类ID。
                 entityType 只能是 AREA、SYSTEM、DEVICE_TYPE、DEVICE、CAMERA。
                 对设备查询，提取目标设备关键词 keyword，以及用户表达的区域 areaName、所属系统 systemName。
+                对摄像头查询，keyword 应提取摄像头实际名称、编号、别名或用户描述的房间/地点词，不要只返回“摄像头”这类实体类型词。
                 下面提供的是当前系统中真实存在的完整系统名称/别名词典。
                 systemName 在用户表达与词典完全匹配时，必须从该词典中选择；若明显存在一个字的错别字且没有完全匹配项，可保留用户原文中的近似词，交由后端词典容错和 Elasticsearch Fuzzy 二次确认，不能自行改成稳定 ID。
                 用户原文出现词典中的系统名称/别名时，应识别为所属系统，即使用户没有说“系统”两个字。
@@ -65,7 +66,7 @@ public class EntityAssistantService {
                 keyword 应提取目标设备的名称、编号或别名，不要把区域名称和“的、里面、中的、查询、查找、帮我找”等检索修饰词混入目标关键词。
                 例如“候车大厅1号空调”的 keyword 应优先提取“1号空调”；“候车大厅的岛式空调1”的 keyword 应提取“岛式空调1”。
                 设备分类 deviceTypeName 只有在用户明确表达独立分类条件时才填写；它只是可选排序偏好，不是必选过滤条件。
-                摄像头没有区域归属，若 entityType=CAMERA，不得提取或使用区域、系统、设备分类过滤。
+                摄像头没有区域关联字段，若 entityType=CAMERA，不得使用区域、系统、设备分类硬过滤；但用户说出的房间/地点词仍可能是 camera_name、address 或别名的一部分，必须作为关键词保留。例如“实验室的摄像头”应提取 keyword=实验室，而不是 keyword=摄像头；不要把实验室作为区域过滤条件。
                 仅当用户原文明确给出稳定编码时才填写 areaId、systemKey、deviceTypeId；不得根据中文名称编造编码。
                 只输出一个 JSON 对象，不要 Markdown，不要解释性前后缀。
                 JSON字段：entityType、keyword、areaName、systemName、deviceTypeName、areaId、systemKey、deviceTypeId、intent。
@@ -93,6 +94,7 @@ public class EntityAssistantService {
         String systemKey = explicitValue(parsed, "systemKey", prompt);
         String deviceTypeId = explicitValue(parsed, "deviceTypeId", prompt);
         String areaName = extractedText(parsed, "areaName");
+        String cameraSearchHint = null;
         String systemName = extractedText(parsed, "systemName");
         String deviceTypeName = extractedText(parsed, "deviceTypeName");
 
@@ -102,7 +104,10 @@ public class EntityAssistantService {
         VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary);
 
         if (type != EntityType.DEVICE) {
-            // 摄像头等非设备实体不接受区域、系统或设备分类过滤。
+            // 摄像头没有区域关联字段；保留用户的房间/地点描述作为名称、地址或别名检索词，而不是区域过滤条件。
+            if (type == EntityType.CAMERA) {
+                cameraSearchHint = extractCameraSearchHint(prompt, areaName);
+            }
             areaId = null;
             systemKey = null;
             deviceTypeId = null;
@@ -187,9 +192,23 @@ public class EntityAssistantService {
                 keyword = modelKeyword;
             }
         }
-        List<String> keywordVariants = type == EntityType.DEVICE
-                ? buildKeywordVariants(prompt, keyword, areaMatch, systemName)
-                : List.of();
+        if (type == EntityType.CAMERA) {
+            // “实验室的摄像头”中“摄像头”只是实体类型词，真正的检索对象线索是“实验室”。
+            String cameraTarget = stripCameraEntityWords(keyword);
+            if (hasText(cameraTarget)) {
+                keyword = cameraTarget;
+            } else if (hasText(cameraSearchHint)) {
+                keyword = cameraSearchHint;
+            }
+        }
+        List<String> keywordVariants;
+        if (type == EntityType.DEVICE) {
+            keywordVariants = buildKeywordVariants(prompt, keyword, areaMatch, systemName);
+        } else if (type == EntityType.CAMERA) {
+            keywordVariants = buildCameraKeywordVariants(cameraSearchHint, keyword);
+        } else {
+            keywordVariants = List.of();
+        }
 
         Map<String, Object> parsedView = new LinkedHashMap<>();
         parsedView.put("entityType", type.name());
@@ -220,6 +239,7 @@ public class EntityAssistantService {
                 "areaAndSystem", "区域、系统优先依据 ES 真实词典和别名匹配；支持单字符拼写容错，命中后使用对应稳定 ID 做硬过滤",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
                 "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排",
+                "cameraSearch", "摄像头不使用区域硬过滤；用户表达的房间/地点词作为摄像头名称、地址或别名关键词",
                 "typoTolerance", "精确/分词检索无结果时启用 Elasticsearch Fuzzy 单字符容错；精确匹配始终优先"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
         Map<String, Object> searchResult;
@@ -565,6 +585,39 @@ public class EntityAssistantService {
         result.put("candidates", match.candidates());
         result.put("matchedText", match.matchedText());
         return result;
+    }
+
+    /**
+     * 摄像头没有区域关联，但自然语言中的房间/地点描述可能就是摄像头名称或地址。
+     * 若 LLM 将该词放在 areaName 中，只把它作为文本线索保留；绝不转成摄像头区域过滤条件。
+     */
+    private String extractCameraSearchHint(String prompt, String parsedAreaName) {
+        if (hasText(parsedAreaName) && prompt.contains(parsedAreaName.trim())) {
+            return parsedAreaName.trim();
+        }
+        if (!hasText(prompt)) return null;
+        String value = prompt.trim();
+        value = value.replaceAll("(?i)(请帮我查找|请帮我查询|请帮我找|帮我查找|帮我查询|帮我找|我想查|我想找|查询|查找|搜索|查一下|找一下|看看|请问|帮我|请|一下|有没有|是否|当前|现在)", " ");
+        value = value.replaceAll("(监控摄像头|视频摄像头|网络摄像头|摄像头|摄像机|视频监控设备|视频监控|监控设备|监控)", " ");
+        value = value.replaceAll("(里面的|当中的|中的|里面|当中|的)", " ");
+        value = value.replaceAll("[，,。！？!?；;：:、\\s]+", " ").trim();
+        return value.length() >= 2 ? value : null;
+    }
+
+    /** 从模型关键词中剥离“摄像头/摄像机”等实体类型词，保留真正的名称或位置描述。 */
+    private String stripCameraEntityWords(String keyword) {
+        if (!hasText(keyword)) return "";
+        return keyword.trim()
+                .replaceAll("(监控摄像头|视频摄像头|网络摄像头|摄像头|摄像机|视频监控设备|视频监控|监控设备)", " ")
+                .replaceAll("[，,。！？!?；;：:、\\s]+", " ")
+                .trim();
+    }
+
+    private List<String> buildCameraKeywordVariants(String cameraSearchHint, String keyword) {
+        Set<String> variants = new LinkedHashSet<>();
+        if (hasText(cameraSearchHint)) variants.add(cameraSearchHint.trim());
+        if (hasText(keyword)) variants.remove(keyword.trim());
+        return new ArrayList<>(variants);
     }
 
     private String stripAreaAndFillers(String keyword, VocabularyMatch areaMatch) {
