@@ -120,7 +120,8 @@ public class EntityAssistantService {
         if (!hasText(areaMention) && hasText(areaName)) areaMention = areaName;
 
         // ASR 多候选仅作为纠错证据；若不同备选命中不同真实区域，不按列表顺序猜测。
-        if (voiceAsr) {
+        boolean primaryAreaExact = areaMatch != null && !areaMatch.fuzzy() && !areaMatch.ambiguous();
+        if (voiceAsr && !primaryAreaExact) {
             Map<String, Map<String, Object>> asrAreaCandidates = new LinkedHashMap<>();
             if (areaMatch != null && !areaMatch.fuzzy()) {
                 for (Map<String, Object> candidate : areaMatch.candidates()) {
