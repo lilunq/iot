@@ -189,7 +189,7 @@ public class EntityAssistantService {
         result.put("searchPolicy", Map.of(
                 "areaAndSystem", "区域、系统优先依据 ES 真实词典和别名匹配，命中后使用对应稳定 ID 做硬过滤",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
-                "deviceName", "保留主关键词，并对剥离区域/口语修饰后的关键词和系统名称生成辅助召回词"));
+                "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
         Map<String, Object> searchResult;
         if (filterNeedsClarification) {
