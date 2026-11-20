@@ -194,14 +194,17 @@
               <div><small>检索关键词</small><strong>{{ assistantResult.parsed.keyword }}</strong></div>
               <div><small>识别区域</small><strong>{{ assistantResult.parsed.areaName || '未指定' }}</strong></div>
               <div><small>识别系统</small><strong>{{ assistantResult.parsed.systemName || '未指定' }}</strong></div>
-              <div><small>识别分类</small><strong>{{ assistantResult.parsed.deviceTypeName || '未指定' }}</strong></div>
+              <div><small>识别分类偏好（不硬过滤）</small><strong>{{ assistantResult.parsed.deviceTypeName || '未指定' }}</strong></div>
               <div><small>区域稳定 ID</small><code>{{ assistantResult.parsed.areaId || '未指定' }}</code></div>
               <div><small>系统稳定 Key</small><code>{{ assistantResult.parsed.systemKey || '未指定' }}</code></div>
               <div><small>分类稳定 ID</small><code>{{ assistantResult.parsed.deviceTypeId || '未指定' }}</code></div>
               <div><small>意图说明</small><strong>{{ assistantResult.parsed.intent }}</strong></div>
             </div>
+            <div class="search-strategy-note">
+              区域、系统：确认后执行范围过滤；设备分类：仅用于相关性加权；设备名称：同时匹配原始关键词和名称主体。未配置分类的设备不会因此被排除。
+            </div>
             <div v-if="assistantResult.status === 'NEEDS_CLARIFICATION'" class="filter-warning">
-              识别到的区域、系统或分类条件存在歧义或未找到，已暂停 ES 设备检索，避免返回其他范围的设备。
+              区域或系统条件存在歧义或未找到，已暂停 ES 检索。设备分类不会作为必选过滤条件。
             </div>
             <div v-if="Object.keys(assistantResult.filterResolutions || {}).length" class="filter-resolution-list">
               <div v-for="(item, key) in assistantResult.filterResolutions" :key="key">
@@ -227,7 +230,7 @@
               </button>
             </div>
             <div v-else class="detail-empty">
-              {{ assistantResult.status === 'NEEDS_CLARIFICATION' ? '过滤条件需要确认，已暂停检索。' : 'ES 没有召回匹配实体。' }}
+              {{ assistantResult.status === 'NEEDS_CLARIFICATION' ? '区域或系统过滤条件需要确认，已暂停检索。' : 'ES 没有召回匹配实体。' }}
             </div>
           </div>
         </div>
@@ -560,6 +563,7 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .assistant-result { min-width:0; border:1px solid rgba(142,190,228,.12); border-radius:9px; padding:13px; background:rgba(1,17,39,.22); }
 .parsed-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }.parsed-grid>div { display:flex; flex-direction:column; gap:5px; min-width:0; }.parsed-grid small { color:rgba(225,239,255,.42); font-size:9px; }.parsed-grid strong,.parsed-grid code { color:#d9edff; font-size:10px; overflow-wrap:anywhere; }
 .filter-warning { margin-top:12px; padding:9px 10px; border:1px solid rgba(255,185,83,.24); border-radius:7px; background:rgba(255,185,83,.07); color:#ffd18b; font-size:10px; line-height:1.5; }
+.search-strategy-note { margin-top:11px; padding:9px 10px; border:1px solid rgba(69,190,244,.16); border-radius:7px; background:rgba(69,190,244,.045); color:rgba(207,231,250,.62); font-size:9px; line-height:1.6; }
 .filter-resolution-list { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
 .filter-resolution-list>div { display:grid; grid-template-columns:60px auto 1fr; gap:8px; align-items:center; font-size:9px; }
 .filter-resolution-list strong { color:rgba(225,239,255,.7); }.filter-resolution-list small { color:rgba(225,239,255,.42); }
