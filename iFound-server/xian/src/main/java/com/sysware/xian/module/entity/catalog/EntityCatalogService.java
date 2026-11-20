@@ -267,6 +267,13 @@ public class EntityCatalogService {
             if (type == EntityType.DEVICE) {
                 searchFields.add("device_alias^5");
                 searchFields.add("device_code^7");
+                searchFields.add("location^3");
+            } else if (type == EntityType.DEVICE_TYPE) {
+                searchFields.add("device_name^5");
+                searchFields.add("device_alias^4");
+                searchFields.add("location^3");
+                searchFields.add("system_type^2");
+                searchFields.add("device_type^2");
             } else if (type == EntityType.CAMERA) {
                 searchFields.add("camera_no^7");
                 searchFields.add("address^2");
@@ -291,6 +298,15 @@ public class EntityCatalogService {
                     if (type == EntityType.DEVICE) {
                         should.add(Map.of("match", Map.of("device_alias", Map.of(
                                 "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4)))));
+                        should.add(Map.of("match", Map.of("location", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 5)))));
+                    } else if (type == EntityType.DEVICE_TYPE) {
+                        should.add(Map.of("match", Map.of("device_name", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(4, alternativeBoost - 2)))));
+                        should.add(Map.of("match", Map.of("device_alias", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4)))));
+                        should.add(Map.of("match", Map.of("location", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 5)))));
                     }
                 }
             }
@@ -369,12 +385,17 @@ public class EntityCatalogService {
 
     private void addPinyinFallbackClauses(List<Map<String, Object>> clauses, EntityType type,
                                           String keyword, List<String> additionalKeywords) {
-        if (type != EntityType.DEVICE && type != EntityType.CAMERA) return;
+        if (type != EntityType.DEVICE && type != EntityType.CAMERA && type != EntityType.DEVICE_TYPE) return;
         String nameField = nameField(type);
         addPinyinMatch(clauses, nameField + ".pinyin", keyword, 15);
         addPinyinMatch(clauses, "aliases.pinyin", keyword, 12);
-        if (type == EntityType.DEVICE) {
+        if (type == EntityType.DEVICE || type == EntityType.DEVICE_TYPE) {
+            addPinyinMatch(clauses, "device_name.pinyin", keyword, 13);
             addPinyinMatch(clauses, "device_alias.pinyin", keyword, 12);
+            addPinyinMatch(clauses, "location.pinyin", keyword, 10);
+        }
+        if (type == EntityType.CAMERA) {
+            addPinyinMatch(clauses, "address.pinyin", keyword, 8);
         }
         if (additionalKeywords == null) return;
         for (String alternative : additionalKeywords) {
@@ -382,8 +403,13 @@ public class EntityCatalogService {
             String value = alternative.trim();
             addPinyinMatch(clauses, nameField + ".pinyin", value, 9);
             addPinyinMatch(clauses, "aliases.pinyin", value, 7);
-            if (type == EntityType.DEVICE) {
+            if (type == EntityType.DEVICE || type == EntityType.DEVICE_TYPE) {
+                addPinyinMatch(clauses, "device_name.pinyin", value, 8);
                 addPinyinMatch(clauses, "device_alias.pinyin", value, 7);
+                addPinyinMatch(clauses, "location.pinyin", value, 6);
+            }
+            if (type == EntityType.CAMERA) {
+                addPinyinMatch(clauses, "address.pinyin", value, 5);
             }
         }
     }
@@ -415,10 +441,15 @@ public class EntityCatalogService {
         addFuzzyTerm(clauses, name + ".raw", value, 3);
         addFuzzyTerm(clauses, "aliases.raw", value, 2);
 
-        if (type == EntityType.DEVICE) {
+        if (type == EntityType.DEVICE || type == EntityType.DEVICE_TYPE) {
+            addFuzzyMatch(clauses, "device_name", value, 5);
             addFuzzyMatch(clauses, "device_alias", value, 4);
+            addFuzzyMatch(clauses, "location", value, 3);
+            addFuzzyTerm(clauses, "device_name.raw", value, 4);
             addFuzzyTerm(clauses, "device_alias.raw", value, 3);
-            if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
+            addFuzzyTerm(clauses, "location.raw", value, 2);
+            if (type == EntityType.DEVICE && value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*")
+                    && value.length() <= 32) {
                 addFuzzyTerm(clauses, "device_code", value, 2);
             }
         } else if (type == EntityType.CAMERA) {
@@ -527,7 +558,7 @@ public class EntityCatalogService {
         return switch (type) {
             case AREA -> List.of("cascade_cid");
             case SYSTEM -> List.of("element_key");
-            case DEVICE_TYPE -> List.of("id", "cascade_id");
+            case DEVICE_TYPE -> List.of("id", "cascade_id", "device_type", "system_type", "device_alias.raw");
             case DEVICE -> List.of("id", "device_code", "device_alias.raw");
             case CAMERA -> List.of("id", "camera_no");
         };
