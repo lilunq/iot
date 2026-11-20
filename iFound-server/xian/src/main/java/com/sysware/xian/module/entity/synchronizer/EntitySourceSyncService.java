@@ -17,9 +17,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -199,14 +201,6 @@ public class EntitySourceSyncService {
                 putRaw(doc, "install_date", row, "install_date", "installDate");
                 putRaw(doc, "location", row, "location");
                 addLocationSearchVariants(doc, "location_variants", firstText(row, "location"));
-                // 独立抽取设备名称/location 中的站台、楼层等位置短语，并为数字编号写入中文读法。
-                // 该字段有独立的 Pinyin multi-field，避免“武站台”只命中 IK 的公共词“站台”。
-                List<String> positionVariants = EntityAreaNameNormalizer.extractPositionVariants(
-                        firstText(row, "device_name", "deviceName"),
-                        firstText(row, "location"));
-                if (!positionVariants.isEmpty()) {
-                    doc.put("device_position_variants", positionVariants);
-                }
                 putRaw(doc, "subarea_cid", row, "subarea_cid", "subareaCid");
                 putRaw(doc, "subarea_id", row, "subarea_id", "subareaId");
                 putRaw(doc, "nfc", row, "nfc");
@@ -231,7 +225,17 @@ public class EntitySourceSyncService {
                 put(doc, "system_name", systemNames.get(systemKey));
                 String subareaCid = firstText(row, "subarea_cid", "subareaCid");
                 Map<String, Object> area = areasByCascade.get(subareaCid);
-                put(doc, "subarea_name", area == null ? null : firstText(area, "name"));
+                String subareaName = area == null ? null : firstText(area, "name");
+                put(doc, "subarea_name", subareaName);
+                // 从设备名称、SCADA location、区域名称三个来源提取位置短语。
+                // 例如 5站台/五站台/第五站台分别写入独立拼音字段，供“武站台/吾站台”同音检索。
+                Set<String> positionVariants = new LinkedHashSet<>(
+                        EntityAreaNameNormalizer.extractPositionVariants(
+                                firstText(row, "device_name", "deviceName"),
+                                firstText(row, "location"), subareaName));
+                if (!positionVariants.isEmpty()) {
+                    doc.put("device_position_variants", new ArrayList<>(positionVariants));
+                }
                 doc.put("enabled", true);
                 documents.put(id, doc);
             }
