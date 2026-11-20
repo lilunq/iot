@@ -144,7 +144,8 @@
               <div><small>实体类型</small><strong>{{ assistantResult.parsed.entityLabel }} · {{ assistantResult.parsed.entityType }}</strong></div>
               <div><small>检索关键词（后端校正后）</small><strong>{{ assistantResult.parsed.keyword }}</strong></div>
               <div><small>辅助检索词</small><strong>{{ (assistantResult.parsed.keywordVariants || []).join('、') || '无' }}</strong></div>
-              <div><small>区域（真实词典匹配）</small><strong>{{ assistantResult.parsed.areaName || '未指定' }}</strong></div>
+              <div><small>区域（真实词典确认）</small><strong>{{ assistantResult.parsed.areaResolved ? assistantResult.parsed.areaName : assistantResult.parsed.areaMention ? assistantResult.parsed.areaMention + '（未确认）' : '未指定' }}</strong></div>
+              <div><small>检索范围</small><strong>{{ assistantResult.parsed.searchScope === 'AREA' ? '指定区域' : '全站' }}{{ assistantResult.voiceAreaFallback ? ' · 语音降级' : '' }}</strong></div>
               <div><small>系统（真实词典匹配）</small><strong>{{ assistantResult.parsed.systemName || '未指定' }}</strong></div>
               <div><small>识别分类偏好（不硬过滤）</small><strong>{{ assistantResult.parsed.deviceTypeName || '未指定' }}</strong></div>
               <div><small>区域稳定 ID</small><code>{{ assistantResult.parsed.areaId || '未指定' }}</code></div>
@@ -156,7 +157,10 @@
               明确指定的区域、系统：确认后执行范围过滤；设备分类：仅用于相关性加权；设备名称：同时匹配原始关键词和名称主体。未配置分类的设备不会因此被排除。
             </div>
             <div v-if="assistantResult.status === 'NEEDS_CLARIFICATION'" class="filter-warning">
-              区域或系统条件存在歧义或未找到，已暂停 ES 检索。设备分类不会作为必选过滤条件。
+              {{ assistantResult.clarificationMessage || '区域或系统条件存在歧义或未找到，已暂停 ES 检索。设备分类不会作为必选过滤条件。' }}
+            </div>
+            <div v-if="assistantResult.voiceAreaFallback" class="search-strategy-note fuzzy-retrieval-note">
+              语音区域“{{ assistantResult.parsed.areaMention }}”未能唯一确认；已取消区域过滤，当前按设备关键词在全站检索。候选所在区域仅作参考，请结合设备名称确认。
             </div>
             <div v-if="Object.keys(assistantResult.filterResolutions || {}).length" class="filter-resolution-list">
               <div v-for="(item, key) in assistantResult.filterResolutions" :key="key">
@@ -181,8 +185,8 @@
             <div class="assistant-result assistant-candidate-panel">
               <div class="panel2-head"><div><span class="section-kicker">ELASTICSEARCH TOP 20</span><h3>ES 检索候选</h3></div><span class="result-count">{{ assistantResult.searchResult.total }} 条 · {{ assistantResult.searchResult.rankingStatus === 'LLM_RERANKED' ? '语义重排' : assistantResult.searchResult.rankingStatus === 'ES_FALLBACK' ? 'ES原排序' : 'ES召回' }}</span></div>
             <div v-if="assistantResult.searchResult.rankingMessage" class="search-strategy-note">{{ assistantResult.searchResult.rankingMessage }}</div>
-            <div v-if="assistantResult.searchResult.retrievalMode === 'FUZZY_FALLBACK'" class="search-strategy-note fuzzy-retrieval-note">
-              {{ assistantResult.searchResult.retrievalMessage || '已启用错别字容错召回，候选仍来自 Elasticsearch 真实索引。' }}
+            <div v-if="['FUZZY_FALLBACK', 'PINYIN_FALLBACK'].includes(assistantResult.searchResult.retrievalMode)" class="search-strategy-note fuzzy-retrieval-note">
+              {{ assistantResult.searchResult.retrievalMessage || '已启用拼音或错别字容错召回，候选仍来自 Elasticsearch 真实索引。' }}
             </div>
             <div v-if="assistantResult.searchResult.records?.length" class="candidate-results">
               <button v-for="(row, index) in assistantResult.searchResult.records" :key="row.entityId"
