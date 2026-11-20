@@ -7,17 +7,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class EntityMentionNormalizerTest {
 
     @Test
-    void genericDeviceCollectionTreatsLocationAsAreaConstraint() {
-        assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
+    void bareLocationPhraseIsNotAutomaticallyAnAreaConstraint() {
+        assertFalse(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询5站台的设备", "5站台", "设备"));
-        assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
-                "武站台的设备", "武站台", "设备"));
+        assertFalse(EntityMentionNormalizer.isExplicitAreaConstraint(
+                "查询武站台的设备", "武站台", "设备"));
     }
 
     @Test
     void explicitAreaLanguageTreatsLocationAsHardConstraint() {
         assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询在5站台区域内的排风机", "5站台", "排风机"));
+        assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
+                "查询位于5站台的排风机", "5站台", "排风机"));
     }
 
     @Test
