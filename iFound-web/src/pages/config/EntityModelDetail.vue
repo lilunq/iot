@@ -96,7 +96,8 @@ function displayValue(value) {
 </script>
 
 <style scoped>
-.detail-panel2 { min-width:0; }
+.detail-panel2 { min-width:0; border:1px solid rgba(132,190,232,.14); border-radius:13px; padding:17px; background:rgba(5,30,62,.76); box-shadow:0 12px 34px rgba(0,0,0,.1); }
+.section-kicker { color:#51c5f3; font-size:10px; letter-spacing:1.8px; font-weight:800; }
 .panel2-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
 .panel2-head h3 { color:#f1f7ff; margin:0; font-size:14px; }
 .detail-type { color:#80d8ff; border:1px solid rgba(76,185,239,.2); border-radius:20px; padding:5px 8px; font-size:9px; white-space:nowrap; }
