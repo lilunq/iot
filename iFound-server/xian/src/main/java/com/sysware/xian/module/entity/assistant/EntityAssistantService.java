@@ -55,7 +55,8 @@ public class EntityAssistantService {
                 entityType 只能是 AREA、SYSTEM、DEVICE_TYPE、DEVICE、CAMERA。
                 对设备查询，提取目标设备关键词 keyword，以及用户表达的区域 areaName、所属系统 systemName。
                 下面提供的是当前系统中真实存在的完整系统名称/别名词典。
-                systemName 只能从该系统词典中选择；用户原文出现词典中的系统名称/别名时，应识别为所属系统，即使用户没有说“系统”两个字。
+                systemName 在用户表达与词典完全匹配时，必须从该词典中选择；若明显存在一个字的错别字且没有完全匹配项，可保留用户原文中的近似词，交由后端词典容错和 Elasticsearch Fuzzy 二次确认，不能自行改成稳定 ID。
+                用户原文出现词典中的系统名称/别名时，应识别为所属系统，即使用户没有说“系统”两个字。
                 区域名称由后端直接匹配完整区域词典及业务别名，模型无需生成区域ID，也不要臆造区域名称。
                 用户原文可能包含少量错别字；请尽量从上下文提取用户实际想表达的区域/系统名称，areaName、systemName 保留原文中的近似词，不要因为词典没有完全相同的字就置空。最终是否为真实实体由后端词典和 Fuzzy 检索确认，绝不可自行生成稳定 ID。
                 例如用户说“候车大厅1号空调”，若词典中存在“候车大厅”区域和“空调”系统，应分别提取 areaName=候车大厅、systemName=空调。
@@ -433,9 +434,8 @@ public class EntityAssistantService {
         }
 
         // Fuzzy 词典匹配必须同时得到 LLM 提取线索和原句近似片段的支持，避免任意短词误触发硬过滤。
-        if (!hasText(extractedHint)) return null;
-        String hint = EntityTextNormalizer.normalize(extractedHint);
-        if (hint.codePointCount(0, hint.length()) < 4) return null;
+        String hint = hasText(extractedHint) ? EntityTextNormalizer.normalize(extractedHint) : "";
+        boolean hasUsableHint = hint.codePointCount(0, hint.length()) >= 4;
         Map<String, Map<String, Object>> fuzzyById = new LinkedHashMap<>();
         String fuzzyTerm = null;
         String fuzzyInput = null;
@@ -452,11 +452,11 @@ public class EntityAssistantService {
                 if (candidateLength < 4 || Math.abs(candidateLength - hint.codePointCount(0, hint.length())) > 1) {
                     continue;
                 }
-                int hintDistance = editDistanceAtMostOne(candidate, hint);
-                if (hintDistance > 1) continue;
+                int hintDistance = hasUsableHint ? editDistanceAtMostOne(candidate, hint) : 0;
+                if (hasUsableHint && hintDistance > 1) continue;
                 ApproximateWindow window = findApproximateWindow(prompt, candidate);
                 if (window == null || window.distance() > 1
-                        || editDistanceAtMostOne(hint, window.text()) > 1) continue;
+                        || (hasUsableHint && editDistanceAtMostOne(hint, window.text()) > 1)) continue;
 
                 int distance = hintDistance + window.distance();
                 if (distance < bestDistance || (distance == bestDistance && candidateLength > bestLength)) {
