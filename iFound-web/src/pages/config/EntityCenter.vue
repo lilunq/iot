@@ -86,6 +86,28 @@
           <div v-else-if="selectedDetail" class="detail-content">
             <div class="detail-name">{{ selectedDetail.name || '未命名实体' }}</div>
             <div class="detail-id">{{ selectedDetail.entityType }} · {{ selectedDetail.entityId }}</div>
+            <div v-if="selectedDetail.relations?.length" class="detail-block">
+              <h4>关联实体 <small>{{ selectedDetail.relations.length }} 项</small></h4>
+              <div class="relation-list">
+                <div v-for="relation in selectedDetail.relations" :key="relation.entityType" class="relation-card">
+                  <div class="relation-heading">
+                    <strong>{{ relation.label }}</strong>
+                    <span :class="relation.found ? 'relation-found' : 'relation-missing'">
+                      {{ relation.found ? '已关联' : '索引中未找到' }}
+                    </span>
+                  </div>
+                  <div class="relation-name">{{ relation.name || '未找到关联名称' }}</div>
+                  <code class="relation-id">{{ relation.entityId }}</code>
+                  <div class="relation-aliases">
+                    <small>业务别名</small>
+                    <div v-if="relation.aliases?.length" class="chips">
+                      <span v-for="alias in relation.aliases" :key="alias.id">{{ alias.aliasName }} <small>{{ alias.source }}</small></span>
+                    </div>
+                    <span v-else class="muted">尚未配置业务别名</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="detail-block">
               <h4>业务别名 <small>{{ selectedDetail.aliases?.length || 0 }}</small></h4>
               <div v-if="selectedDetail.aliases?.length" class="chips">
@@ -435,6 +457,15 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .detail-type,.ai-tag,.result-count { color:#80d8ff; border:1px solid rgba(76,185,239,.2); border-radius:20px; padding:5px 8px; font-size:9px; white-space:nowrap; }
 .detail-content { max-height:700px; overflow:auto; }
 .detail-name { color:#f2f8ff; font-size:17px; font-weight:750; }.detail-id { margin-top:5px; }
+.relation-list { display:flex; flex-direction:column; gap:8px; }
+.relation-card { padding:10px; border:1px solid rgba(142,190,228,.12); border-radius:8px; background:rgba(1,17,39,.22); }
+.relation-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.relation-heading strong { color:#8ed9fa; font-size:10px; }
+.relation-heading span { font-size:9px; }
+.relation-found { color:#71d9b2; }.relation-missing { color:#ffabab; }
+.relation-name { margin-top:7px; color:#eaf3ff; font-size:11px; font-weight:650; }
+.relation-id { display:block; margin-top:4px; color:#9bc8e9; font-size:9px; overflow-wrap:anywhere; }
+.relation-aliases { margin-top:8px; }.relation-aliases>small { color:rgba(225,239,255,.42); font-size:9px; }
 .detail-block { margin-top:16px; padding-top:12px; border-top:1px solid rgba(142,190,228,.12); }
 .detail-block h4 { margin:0 0 9px; font-size:11px; color:#d8eaff; }.detail-block h4 small { color:rgba(225,239,255,.4); font-weight:400; margin-left:5px; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }.chips span { color:#bce8ff; background:rgba(55,153,205,.09); border:1px solid rgba(86,188,236,.2); border-radius:18px; padding:6px 9px; font-size:9px; }.chips small { color:rgba(225,239,255,.4); margin-left:4px; }
