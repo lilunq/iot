@@ -446,7 +446,7 @@ public class EntityAssistantService {
             for (String term : vocabularyTerms(item)) {
                 String candidate = EntityTextNormalizer.normalize(term);
                 int candidateLength = candidate.codePointCount(0, candidate.length());
-                if (candidateLength < 2 || Math.abs(candidateLength - hint.codePointCount(0, hint.length())) > 1) {
+                if (candidateLength < 2) {
                     continue;
                 }
                 ApproximateWindow window = findApproximateWindow(prompt, candidate);
