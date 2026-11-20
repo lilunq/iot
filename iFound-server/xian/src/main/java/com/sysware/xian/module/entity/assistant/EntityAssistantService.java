@@ -314,8 +314,11 @@ public class EntityAssistantService {
             searchResult = new LinkedHashMap<>(searchResult);
             searchResult.put("voiceAreaFallback", true);
             searchResult.put("areaMention", nullSafe(areaMention));
-            searchResult.put("searchScope", "ALL_AREAS");
-            if (!hasText(String.valueOf(searchResult.getOrDefault("retrievalMessage", "")))) {
+            searchResult.put("searchScope", filterNeedsClarification ? "NOT_EXECUTED" : "ALL_AREAS");
+            if (filterNeedsClarification && !hasText(keyword)) {
+                searchResult.put("retrievalMessage", "语音区域线索“" + nullSafe(areaMention)
+                        + "”未确认，且没有识别到具体设备关键词；为避免全站泛查询，本次未执行设备检索");
+            } else if (!hasText(String.valueOf(searchResult.getOrDefault("retrievalMessage", "")))) {
                 searchResult.put("retrievalMessage", "语音区域线索“" + nullSafe(areaMention)
                         + "”未确认，已取消区域过滤；本次仅按设备关键词及其他已确认条件检索全站");
             }
