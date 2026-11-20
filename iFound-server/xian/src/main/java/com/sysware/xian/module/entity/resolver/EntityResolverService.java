@@ -96,48 +96,42 @@ public class EntityResolverService {
         if (aliasDataIds != null && !aliasDataIds.isEmpty()) {
             should.add(Map.of("terms", Map.of(type.getBusinessIdField(), aliasDataIds, "boost", 150)));
         }
-        switch (type) {
-            case AREA -> {
-                exact(should, "cascade_cid", query, 120);
-                match(should, "area_name", query, 12);
-                match(should, "aliases", query, 10);
-                pinyin(should, "area_name", query, 6);
-                pinyin(should, "aliases", query, 5);
-            }
-            case SYSTEM -> {
-                exact(should, "element_key", query, 120);
-                match(should, "element_value", query, 12);
-                match(should, "aliases", query, 10);
-                pinyin(should, "element_value", query, 6);
-                pinyin(should, "aliases", query, 5);
-            }
-            case DEVICE_TYPE -> {
-                exact(should, "id", query, 125);
-                exact(should, "cascade_id", query, 115);
-                match(should, "name", query, 12);
-                match(should, "aliases", query, 10);
-                pinyin(should, "name", query, 6);
-                pinyin(should, "aliases", query, 5);
-            }
-            case DEVICE -> {
-                exact(should, "id", query, 130);
-                exact(should, "device_code", query, 120);
-                exact(should, "device_alias", query, 110);
-                match(should, "device_name", query, 12);
-                match(should, "device_alias", query, 11);
-                match(should, "aliases", query, 10);
-                pinyin(should, "device_name", query, 6);
-                pinyin(should, "aliases", query, 5);
-            }
-            case CAMERA -> {
-                exact(should, "id", query, 130);
-                exact(should, "camera_no", query, 120);
-                match(should, "camera_name", query, 12);
-                match(should, "address", query, 6);
-                match(should, "aliases", query, 10);
-                pinyin(should, "camera_name", query, 6);
-                pinyin(should, "aliases", query, 5);
-            }
+        if (type == EntityType.AREA) {
+            exact(should, "cascade_cid", query, 120);
+            match(should, "area_name", query, 12);
+            match(should, "aliases", query, 10);
+            pinyin(should, "area_name", query, 6);
+            pinyin(should, "aliases", query, 5);
+        } else if (type == EntityType.SYSTEM) {
+            exact(should, "element_key", query, 120);
+            match(should, "element_value", query, 12);
+            match(should, "aliases", query, 10);
+            pinyin(should, "element_value", query, 6);
+            pinyin(should, "aliases", query, 5);
+        } else if (type == EntityType.DEVICE_TYPE) {
+            exact(should, "id", query, 125);
+            exact(should, "cascade_id", query, 115);
+            match(should, "name", query, 12);
+            match(should, "aliases", query, 10);
+            pinyin(should, "name", query, 6);
+            pinyin(should, "aliases", query, 5);
+        } else if (type == EntityType.DEVICE) {
+            exact(should, "id", query, 130);
+            exact(should, "device_code", query, 120);
+            exact(should, "device_alias", query, 110);
+            match(should, "device_name", query, 12);
+            match(should, "device_alias", query, 11);
+            match(should, "aliases", query, 10);
+            pinyin(should, "device_name", query, 6);
+            pinyin(should, "aliases", query, 5);
+        } else if (type == EntityType.CAMERA) {
+            exact(should, "id", query, 130);
+            exact(should, "camera_no", query, 120);
+            match(should, "camera_name", query, 12);
+            match(should, "address", query, 6);
+            match(should, "aliases", query, 10);
+            pinyin(should, "camera_name", query, 6);
+            pinyin(should, "aliases", query, 5);
         }
 
         Map<String, Object> bool = new LinkedHashMap<>();
@@ -208,12 +202,11 @@ public class EntityResolverService {
     }
 
     private String resolveName(EntityType type, JsonNode source) {
-        return switch (type) {
-            case AREA -> source.path("area_name").asText("");
-            case SYSTEM -> source.path("element_value").asText("");
-            case DEVICE_TYPE -> source.path("name").asText("");
-            case DEVICE -> source.path("device_name").asText("");
-            case CAMERA -> source.path("camera_name").asText("");
-        };
+        if (type == EntityType.AREA) return source.path("area_name").asText("");
+        if (type == EntityType.SYSTEM) return source.path("element_value").asText("");
+        if (type == EntityType.DEVICE_TYPE) return source.path("name").asText("");
+        if (type == EntityType.DEVICE) return source.path("device_name").asText("");
+        if (type == EntityType.CAMERA) return source.path("camera_name").asText("");
+        return "";
     }
 }
