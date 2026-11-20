@@ -268,10 +268,14 @@ public class EntityCatalogService {
                 searchFields.add("device_alias^5");
                 searchFields.add("device_code^7");
                 searchFields.add("location^3");
+                searchFields.add("device_name_variants^4");
+                searchFields.add("location_variants^3");
             } else if (type == EntityType.DEVICE_TYPE) {
                 searchFields.add("device_name^5");
+                searchFields.add("device_name_variants^4");
                 searchFields.add("device_alias^4");
                 searchFields.add("location^3");
+                searchFields.add("location_variants^3");
                 searchFields.add("system_type^2");
                 searchFields.add("device_type^2");
             } else if (type == EntityType.CAMERA) {
@@ -300,6 +304,10 @@ public class EntityCatalogService {
                                 "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4)))));
                         should.add(Map.of("match", Map.of("location", Map.of(
                                 "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 5)))));
+                        should.add(Map.of("match", Map.of("device_name_variants", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 5)))));
+                        should.add(Map.of("match", Map.of("location_variants", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 6)))));
                     } else if (type == EntityType.DEVICE_TYPE) {
                         should.add(Map.of("match", Map.of("device_name", Map.of(
                                 "query", alternative.trim(), "boost", Math.max(4, alternativeBoost - 2)))));
@@ -307,6 +315,10 @@ public class EntityCatalogService {
                                 "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4)))));
                         should.add(Map.of("match", Map.of("location", Map.of(
                                 "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 5)))));
+                        should.add(Map.of("match", Map.of("device_name_variants", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 5)))));
+                        should.add(Map.of("match", Map.of("location_variants", Map.of(
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 6)))));
                     }
                 }
             }
@@ -404,6 +416,8 @@ public class EntityCatalogService {
                 addPinyinMatch(clauses, "device_name.pinyin", value, 4);
                 addPinyinMatch(clauses, "device_alias.pinyin", value, 3);
                 addPinyinMatch(clauses, "location.pinyin", value, 3);
+                addPinyinMatch(clauses, "device_name_variants.pinyin", value, 4);
+                addPinyinMatch(clauses, "location_variants.pinyin", value, 3);
             } else if (type == EntityType.CAMERA) {
                 addPinyinMatch(clauses, "address.pinyin", value, 2);
             }
@@ -420,6 +434,8 @@ public class EntityCatalogService {
             addPinyinMatch(clauses, "device_name.pinyin", keyword, 13);
             addPinyinMatch(clauses, "device_alias.pinyin", keyword, 12);
             addPinyinMatch(clauses, "location.pinyin", keyword, 10);
+            addPinyinMatch(clauses, "device_name_variants.pinyin", keyword, 12);
+            addPinyinMatch(clauses, "location_variants.pinyin", keyword, 10);
         }
         if (type == EntityType.CAMERA) {
             addPinyinMatch(clauses, "address.pinyin", keyword, 8);
@@ -434,6 +450,8 @@ public class EntityCatalogService {
                 addPinyinMatch(clauses, "device_name.pinyin", value, 8);
                 addPinyinMatch(clauses, "device_alias.pinyin", value, 7);
                 addPinyinMatch(clauses, "location.pinyin", value, 6);
+                addPinyinMatch(clauses, "device_name_variants.pinyin", value, 8);
+                addPinyinMatch(clauses, "location_variants.pinyin", value, 6);
             }
             if (type == EntityType.CAMERA) {
                 addPinyinMatch(clauses, "address.pinyin", value, 5);
@@ -475,6 +493,10 @@ public class EntityCatalogService {
             addFuzzyTerm(clauses, "device_name.raw", value, 4);
             addFuzzyTerm(clauses, "device_alias.raw", value, 3);
             addFuzzyTerm(clauses, "location.raw", value, 2);
+            addFuzzyMatch(clauses, "device_name_variants", value, 4);
+            addFuzzyMatch(clauses, "location_variants", value, 3);
+            addFuzzyTerm(clauses, "device_name_variants.raw", value, 3);
+            addFuzzyTerm(clauses, "location_variants.raw", value, 2);
             if (type == EntityType.DEVICE && value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*")
                     && value.length() <= 32) {
                 addFuzzyTerm(clauses, "device_code", value, 2);
