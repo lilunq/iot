@@ -115,7 +115,7 @@ public class EntityAssistantService {
         boolean filterNeedsClarification = false;
         boolean voiceAreaFallback = false;
         VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary);
-        String areaMention = hasText(areaName) ? areaName : (areaMatch == null ? null : areaMatch.matchedText());
+        String areaMention = hasText(areaName) ? areaName : rawAreaMention(prompt, areaMatch);
 
         // ASR 多候选仅作为纠错证据：只有某个备选文本能匹配真实区域词典时才接受。
         if (voiceAsr) {
@@ -164,6 +164,11 @@ public class EntityAssistantService {
                     if (voiceAsr) {
                         // 仅语音转写允许降级；区域过滤取消，但已确认的系统/分类条件仍然保留。
                         voiceAreaFallback = true;
+                        Map<String, Object> fallbackDetails = new LinkedHashMap<>(areaResolution.details());
+                        fallbackDetails.put("status", "VOICE_FALLBACK");
+                        fallbackDetails.put("message", "语音区域线索“" + areaQuery
+                                + "”未能唯一确认，已取消区域过滤，继续按设备关键词在全站检索");
+                        filterResolutions.put("area", fallbackDetails);
                     } else {
                         filterNeedsClarification = true;
                     }
@@ -302,6 +307,19 @@ public class EntityAssistantService {
             } else {
                 searchResult = limitSearchResult(searchResult, 20);
             }
+        }
+        if (voiceAreaFallback) {
+            searchResult = new LinkedHashMap<>(searchResult);
+            searchResult.put("voiceAreaFallback", true);
+            searchResult.put("areaMention", nullSafe(areaMention));
+            searchResult.put("searchScope", "ALL_AREAS");
+            if (!hasText(String.valueOf(searchResult.getOrDefault("retrievalMessage", "")))) {
+                searchResult.put("retrievalMessage", "语音区域线索“" + nullSafe(areaMention)
+                        + "”未确认，已取消区域过滤；本次仅按设备关键词及其他已确认条件检索全站");
+            }
+        }
+        if (filterNeedsClarification && voiceAreaFallback && !hasText(keyword)) {
+            result.put("clarificationMessage", "未能确认语音区域，且没有识别出具体设备名称；请补充设备名称，暂不执行全站泛查询");
         }
         result.put("searchResult", searchResult);
         return result;
@@ -707,6 +725,16 @@ public class EntityAssistantService {
         if (hasText(systemName)) variants.add(systemName.trim());
         if (hasText(keyword)) variants.remove(keyword.trim());
         return new ArrayList<>(variants);
+    }
+
+    private String rawAreaMention(String prompt, VocabularyMatch match) {
+        if (!hasText(prompt) || match == null || !hasText(match.matchedText())) return null;
+        String term = match.matchedText().trim();
+        if (prompt.contains(term)) return term;
+        String spokenVariant = EntityAreaNameNormalizer.toChineseNumeralVariant(term);
+        if (hasText(spokenVariant) && prompt.contains("第" + spokenVariant)) return "第" + spokenVariant;
+        if (hasText(spokenVariant) && prompt.contains(spokenVariant)) return spokenVariant;
+        return term;
     }
 
     private AreaResolution resolveAreaMention(String query, VocabularyMatch vocabularyMatch,
