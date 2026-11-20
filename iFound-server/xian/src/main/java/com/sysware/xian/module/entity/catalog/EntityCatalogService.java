@@ -81,6 +81,23 @@ public class EntityCatalogService {
             item.put("aliases", aliases);
             result.add(item);
         }
+
+        // 业务别名可能是在上次 ES 同步之后新增的，额外从别名表实时合并，保证词典及时生效。
+        List<String> ids = result.stream().map(item -> String.valueOf(item.get("id"))).toList();
+        Map<String, List<String>> databaseAliases = aliasService.listEnabled(type, ids).stream()
+                .collect(Collectors.groupingBy(BizEntityAlias::getDataId,
+                        Collectors.mapping(BizEntityAlias::getAliasName, Collectors.toList())));
+        for (Map<String, Object> item : result) {
+            LinkedHashSet<String> merged = new LinkedHashSet<>();
+            Object sourceAliases = item.get("aliases");
+            if (sourceAliases instanceof List<?> values) {
+                values.forEach(value -> {
+                    if (value != null && !value.toString().isBlank()) merged.add(value.toString().trim());
+                });
+            }
+            merged.addAll(databaseAliases.getOrDefault(String.valueOf(item.get("id")), List.of()));
+            item.put("aliases", new ArrayList<>(merged));
+        }
         return result;
     }
 
