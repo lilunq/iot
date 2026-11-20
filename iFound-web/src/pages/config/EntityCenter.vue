@@ -160,7 +160,7 @@
               {{ assistantResult.clarificationMessage || '区域或系统条件存在歧义或未找到，已暂停 ES 检索。设备分类不会作为必选过滤条件。' }}
             </div>
             <div v-if="assistantResult.voiceAreaFallback" class="search-strategy-note fuzzy-retrieval-note">
-              语音区域“{{ assistantResult.parsed.areaMention }}”未能唯一确认；已取消区域硬过滤。<template v-if="assistantResult.status === 'NEEDS_CLARIFICATION'">由于没有识别到具体设备关键词，本次未执行全站泛查询，请补充设备名称。</template><template v-else>当前按设备关键词在全站检索，候选所在区域仅作参考，请结合设备名称确认。</template>
+              语音区域“{{ assistantResult.parsed.areaMention }}”未能唯一确认；已取消区域硬过滤。<template v-if="assistantResult.parsed.searchScope === 'NOT_EXECUTED'">{{ assistantResult.clarificationMessage || '其他检索条件仍待确认，本次暂未执行检索。' }}</template><template v-else>当前按设备关键词在全站检索，候选所在区域仅作参考，请结合设备名称确认。</template>
             </div>
             <div v-if="Object.keys(assistantResult.filterResolutions || {}).length" class="filter-resolution-list">
               <div v-for="(item, key) in assistantResult.filterResolutions" :key="key">
