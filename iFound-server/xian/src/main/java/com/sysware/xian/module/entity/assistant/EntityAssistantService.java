@@ -326,7 +326,7 @@ public class EntityAssistantService {
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
                 "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排",
                 "cameraSearch", "摄像头不使用区域硬过滤；用户表达的房间/地点词作为摄像头名称、地址或别名关键词",
-                "typoTolerance", "精确/分词检索无结果时启用 Elasticsearch Fuzzy 单字符容错；精确匹配始终优先"));
+                "typoTolerance", "名称、别名及 location 全拼低权重并行召回；常规与拼音均未命中时再启用 Elasticsearch Fuzzy 单字符容错，精确匹配始终优先"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
         Map<String, Object> searchResult;
         if (filterNeedsClarification) {
@@ -371,8 +371,11 @@ public class EntityAssistantService {
                         + "”未确认，已取消区域过滤；本次仅按设备关键词及其他已确认条件检索全站");
             }
         }
-        if (filterNeedsClarification && voiceAreaFallback && !hasText(keyword)) {
-            result.put("clarificationMessage", "未能确认语音区域，且没有识别出具体设备名称；请补充设备名称，暂不执行全站泛查询");
+        if (filterNeedsClarification) {
+            String clarification = filterResolutions.containsKey("area")
+                    ? "区域线索未能唯一匹配真实区域，请确认区域名称后再检索；为避免错误过滤，本次未执行设备查询"
+                    : "系统或其他硬过滤条件未能唯一确认，请补充或确认条件后再检索";
+            result.put("clarificationMessage", clarification);
         }
         result.put("searchResult", searchResult);
         return result;
