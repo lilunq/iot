@@ -108,6 +108,13 @@
                 </div>
               </div>
             </div>
+            <div v-if="selectedDetail.entityType === 'DEVICE' && selectedDetail.source?.device_alias" class="detail-block">
+              <h4>源系统原始别名</h4>
+              <div class="chips">
+                <span>{{ selectedDetail.source.device_alias }}</span>
+              </div>
+              <p class="muted">来自 SCADA 的 device_alias 字段，直接参与 ES 检索，不重复写入业务别名表。</p>
+            </div>
             <div class="detail-block">
               <h4>业务别名 <small>{{ selectedDetail.aliases?.length || 0 }}</small></h4>
               <div v-if="selectedDetail.aliases?.length" class="chips">
