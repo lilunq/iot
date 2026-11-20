@@ -140,6 +140,7 @@ public class EntityCatalogService {
 
         Map<String, Object> bool = new LinkedHashMap<>();
         bool.put("filter", filters);
+        List<Map<String, Object>> keywordShould = new ArrayList<>();
         List<Map<String, Object>> preferenceClauses = new ArrayList<>();
         if (type == EntityType.DEVICE && hasText(preferredDeviceTypeName)) {
             // 放在外层 should 中，仅对已由关键词命中的结果加分，不允许分类偏好单独召回设备。
@@ -150,7 +151,7 @@ public class EntityCatalogService {
         }
         if (hasText(keyword)) {
             String q = keyword.trim();
-            List<Map<String, Object>> should = new ArrayList<>();
+            List<Map<String, Object>> should = keywordShould;
             should.add(Map.of("term", Map.of(type.getBusinessIdField(), Map.of("value", q, "boost", 100))));
             List<String> aliasIds = aliasService.findEnabledDataIds(type, EntityTextNormalizer.normalize(q));
             if (!aliasIds.isEmpty()) {
@@ -223,6 +224,13 @@ public class EntityCatalogService {
                 : List.of(Map.of(nameField + ".raw", Map.of("order", "asc", "unmapped_type", "keyword"))));
 
         JsonNode response = repository.search(type.getIndexAlias(), query);
+        boolean fuzzyFallbackUsed = false;
+        // 先保留标准精确/IK/拼音检索优先级；只有常规查询没有任何候选时才启用单字符 Fuzzy 回退。
+        if (!hasHits(response) && hasText(keyword) && shouldUseFuzzy(keyword)) {
+            addFuzzyFallbackClauses(keywordShould, type, keyword.trim());
+            response = repository.search(type.getIndexAlias(), query);
+            fuzzyFallbackUsed = hasHits(response);
+        }
         JsonNode hitsNode = response == null ? null : response.path("hits").path("hits");
         long total = response == null ? 0L : response.path("hits").path("total").path("value").asLong(0L);
         List<Map<String, Object>> records = new ArrayList<>();
@@ -245,11 +253,76 @@ public class EntityCatalogService {
         for (Map<String, Object> record : records) {
             record.put("aliases", aliasesById.getOrDefault(String.valueOf(record.get("entityId")), List.of()));
         }
-        return Map.of("entityType", type.name(), "page", currentPage, "size", pageSize,
-                "total", total, "pages", total == 0 ? 0 : (total + pageSize - 1) / pageSize,
-                "records", records);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("entityType", type.name());
+        result.put("page", currentPage);
+        result.put("size", pageSize);
+        result.put("total", total);
+        result.put("pages", total == 0 ? 0 : (total + pageSize - 1) / pageSize);
+        result.put("records", records);
+        if (fuzzyFallbackUsed) {
+            result.put("retrievalMode", "FUZZY_FALLBACK");
+            result.put("retrievalMessage", "常规检索无结果，已通过 Elasticsearch Fuzzy 单字符容错召回");
+        }
+        return result;
     }
 
+    private boolean hasHits(JsonNode response) {
+        JsonNode hits = response == null ? null : response.path("hits").path("hits");
+        return hits != null && hits.isArray() && !hits.isEmpty();
+    }
+
+    private boolean shouldUseFuzzy(String value) {
+        if (!hasText(value)) return false;
+        int length = value.codePointCount(0, value.length());
+        return length >= 3 && length <= 64 && !value.matches("\\d+");
+    }
+
+    /**
+     * 单字符拼写容错仅作为常规召回失败后的补充通道，权重低于精确、IK 和拼音匹配。
+     * match fuzziness 处理 IK 分词后的词项；raw fuzzy 处理完整名称/别名中的单字编辑差异。
+     */
+    private void addFuzzyFallbackClauses(List<Map<String, Object>> clauses, EntityType type, String value) {
+        String name = nameField(type);
+        addFuzzyMatch(clauses, name, value, 5);
+        addFuzzyMatch(clauses, "aliases", value, 4);
+        addFuzzyTerm(clauses, name + ".raw", value, 3);
+        addFuzzyTerm(clauses, "aliases.raw", value, 2);
+
+        if (type == EntityType.DEVICE) {
+            addFuzzyMatch(clauses, "device_alias", value, 4);
+            addFuzzyTerm(clauses, "device_alias.raw", value, 3);
+            if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
+                addFuzzyTerm(clauses, "device_code", value, 2);
+            }
+        } else if (type == EntityType.CAMERA) {
+            addFuzzyMatch(clauses, "address", value, 2);
+            if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
+                addFuzzyTerm(clauses, "camera_no", value, 2);
+            }
+        }
+    }
+
+    private void addFuzzyMatch(List<Map<String, Object>> clauses, String field, String value, int boost) {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("query", value);
+        options.put("fuzziness", 1);
+        options.put("prefix_length", 0);
+        options.put("max_expansions", 25);
+        options.put("boost", boost);
+        clauses.add(Map.of("match", Map.of(field, options)));
+    }
+
+    private void addFuzzyTerm(List<Map<String, Object>> clauses, String field, String value, int boost) {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("value", value);
+        options.put("fuzziness", 1);
+        options.put("prefix_length", 0);
+        options.put("max_expansions", 25);
+        options.put("transpositions", true);
+        options.put("boost", boost);
+        clauses.add(Map.of("fuzzy", Map.of(field, options)));
+    }
     public Map<String, Object> detail(EntityType type, String id) {
         JsonNode response = repository.getDocument(type.getIndexAlias(), id);
         if (response == null || !response.path("found").asBoolean(false)) {
