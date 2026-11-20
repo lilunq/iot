@@ -126,29 +126,44 @@ public class EntityCatalogService {
      * 例如输入“武站台”，与“5站台”生成的中文读法候选“五站台”拼音一致时，返回真实区域候选。
      * Java 仅做数字转汉字，不生成拼音；拼音 token 完全来自 ES。
      */
-    public List<Map<String, Object>> findNumericPinyinAreaCandidates(
+    public List<Map<String, Object>> findPinyinAreaCandidates(
             String query, List<Map<String, Object>> vocabulary) {
         if (!hasText(query) || vocabulary == null || vocabulary.isEmpty()) return List.of();
+        String areaUnit = trailingAreaUnit(query);
+        // 没有可识别的位置单位时，不扫描整本区域词典，避免泛化拼音比较。
+        if (!hasText(areaUnit)) return List.of();
         String querySignature = pinyinSignature(query);
         if (!hasText(querySignature)) return List.of();
+        int queryLength = query.codePointCount(0, query.length());
 
-        String areaUnit = trailingAreaUnit(query);
         Map<String, String> analyzedVariants = new LinkedHashMap<>();
         Map<String, Map<String, Object>> matchedById = new LinkedHashMap<>();
         for (Map<String, Object> item : vocabulary) {
             String id = String.valueOf(item.getOrDefault("id", ""));
             if (!hasText(id)) continue;
             for (String term : areaVocabularyTerms(item)) {
-                if (!term.matches("(?s).*\\d+.*")) continue;
-                // 先按区域单位缩小范围，避免对整本词典中无关的数字名称逐条调用 _analyze。
-                if (hasText(areaUnit) && !term.endsWith(areaUnit)) continue;
+                if (!term.endsWith(areaUnit)) continue;
+                int termLength = term.codePointCount(0, term.length());
+                if (Math.abs(termLength - queryLength) > 2) continue;
+
+                // 同时比较原始名称和阿拉伯数字对应的中文读法，如“5站台”与“五站台”。
+                Set<String> variants = new LinkedHashSet<>();
+                variants.add(term);
                 String chineseVariant = EntityAreaNameNormalizer.toChineseNumeralVariant(term);
-                if (!hasText(chineseVariant) || chineseVariant.equals(term)) continue;
-                String signature = analyzedVariants.computeIfAbsent(chineseVariant, this::pinyinSignature);
-                if (querySignature.equals(signature)) {
-                    matchedById.putIfAbsent(id, item);
-                    break;
+                if (hasText(chineseVariant)) {
+                    variants.add(chineseVariant);
+                    variants.add(chineseVariant.replaceFirst("^第", ""));
                 }
+                for (String variant : variants) {
+                    if (!hasText(variant)
+                            || Math.abs(variant.codePointCount(0, variant.length()) - queryLength) > 2) continue;
+                    String signature = analyzedVariants.computeIfAbsent(variant, this::pinyinSignature);
+                    if (hasText(signature) && querySignature.equals(signature)) {
+                        matchedById.putIfAbsent(id, item);
+                        break;
+                    }
+                }
+                if (matchedById.containsKey(id)) break;
             }
         }
         return new ArrayList<>(matchedById.values());
