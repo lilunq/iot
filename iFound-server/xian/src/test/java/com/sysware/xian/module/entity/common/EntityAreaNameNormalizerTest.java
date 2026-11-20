@@ -42,6 +42,16 @@ class EntityAreaNameNormalizerTest {
     }
 
     @Test
+    void extractsSingleCharacterStationLabelsWithoutTruncatingGenericLayerNames() {
+        assertEquals(java.util.List.of("武站台"),
+                EntityAreaNameNormalizer.extractPositionVariants("武站台排风机", ""));
+        assertEquals(java.util.List.of("西站台"),
+                EntityAreaNameNormalizer.extractPositionVariants("西站台设备", ""));
+        assertEquals(java.util.List.of(),
+                EntityAreaNameNormalizer.extractPositionVariants("地下层排风机", ""));
+    }
+
+    @Test
     void recognizesSingleCharacterStationHomophonesForEsPinyinVerification() {
         assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("武站台"));
         assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("吾站台"));
