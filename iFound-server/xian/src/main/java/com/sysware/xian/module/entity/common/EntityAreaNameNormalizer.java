@@ -135,7 +135,8 @@ public final class EntityAreaNameNormalizer {
     public static boolean isLocationOnlyDescription(String value) {
         if (value == null || value.isBlank()) return false;
         String normalized = EntityTextNormalizer.normalize(value).replaceAll("[\\s，,。！？!?；;：:、]+", "");
-        return normalized.matches("^.{1,10}(?:候车层|站台|站厅|楼层|站|台|层|楼|区)$");
+        return normalized.codePointCount(0, normalized.length()) >= 3
+                && normalized.matches("^.{1,10}(?:候车层|站台|站厅|楼层|站|台|层|楼|区)$");
     }
 
     private static Integer parseChineseNumber(String value) {
