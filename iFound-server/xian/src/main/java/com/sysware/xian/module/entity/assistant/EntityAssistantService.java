@@ -402,7 +402,7 @@ public class EntityAssistantService {
         merged.put("records", records);
         merged.put("size", records.size());
         merged.put("total", unique.size());
-        merged.put("pages", unique.isEmpty() ? 0 : 1);
+        merged.put("pages", unique.isEmpty() ? 0 : (unique.size() + 99) / 100);
         merged.put("retrievalPaths", List.of("FULL_DEVICE_PHRASE", "SPLIT_DEVICE_KEYWORD"));
         return merged;
     }

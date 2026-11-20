@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class EntityMentionNormalizerTest {
 
     @Test
-    void bareLocationPhraseIsNotAutomaticallyAnAreaConstraint() {
+    void genericDeviceCollectionIsTreatedAsAnAreaCandidateForValidation() {
         assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询5站台的设备", "5站台", "设备"));
         assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(

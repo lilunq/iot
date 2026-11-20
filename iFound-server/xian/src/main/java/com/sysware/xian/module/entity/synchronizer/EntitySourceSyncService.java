@@ -193,6 +193,7 @@ public class EntitySourceSyncService {
                 // device_code 只映射源接口明确提供的独立编码，不把 device_alias 冒充为设备编码。
                 putRaw(doc, "device_code", row, "device_code", "deviceCode");
                 putRaw(doc, "device_alias", row, "device_alias", "deviceAlias");
+                putRaw(doc, "parent_device_id", row, "parent_device_id", "parentDeviceId");
                 putRaw(doc, "factory", row, "factory");
                 putRaw(doc, "production_date", row, "production_date", "productionDate");
                 putRaw(doc, "install_date", row, "install_date", "installDate");
