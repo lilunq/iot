@@ -749,21 +749,58 @@ public class EntityAssistantService {
                     vocabularyResolution(vocabularyMatch, "从当前区域词典匹配"));
         }
 
+        // 语音场景必须有拼音证据才能把近似区域绑定为硬过滤；不能仅凭一个字符相似就误选区域。
+        if (voiceAsr) {
+            List<Map<String, Object>> pinyinCandidates =
+                    catalogService.findPinyinAreaCandidates(query, areaVocabulary);
+            if (pinyinCandidates.size() == 1) {
+                Map<String, Object> candidate = pinyinCandidates.get(0);
+                String candidateId = String.valueOf(candidate.getOrDefault("id", ""));
+                String candidateName = String.valueOf(candidate.getOrDefault("name", ""));
+                if (hasText(candidateId) && (vocabularyMatch == null || !vocabularyMatch.fuzzy()
+                        || vocabularyMatch.id().equals(candidateId))) {
+                    Map<String, Object> details = new LinkedHashMap<>();
+                    details.put("status", "FOUND");
+                    details.put("message", "通过 Elasticsearch Pinyin Analyzer 确认语音区域读音一致，并唯一匹配真实区域");
+                    details.put("candidates", List.of(Map.of("entityId", candidateId, "name", candidateName)));
+                    details.put("matchedText", query);
+                    details.put("matchMethod", "PINYIN");
+                    return new AreaResolution(candidateId, candidateName, true, details);
+                }
+            }
+
+            Map<String, Object> details = new LinkedHashMap<>();
+            if (pinyinCandidates.size() > 1) {
+                details.put("status", "AMBIGUOUS");
+                details.put("message", "语音区域的拼音读法对应多个真实区域，不能自动选择");
+                details.put("candidates", pinyinCandidates.stream().map(candidate -> Map.of(
+                        "entityId", candidate.get("id"), "name", candidate.get("name"))).toList());
+            } else if (vocabularyMatch != null && vocabularyMatch.ambiguous()) {
+                details.put("status", "AMBIGUOUS");
+                details.put("message", "区域词典存在多个候选，拼音未能唯一确认");
+                details.put("candidates", vocabularyMatch.candidates());
+            } else {
+                details.put("status", "NOT_FOUND");
+                details.put("message", "语音区域未能通过真实区域词典和拼音分析唯一确认");
+                if (vocabularyMatch != null) {
+                    details.put("dictionaryCandidate", Map.of(
+                            "entityId", vocabularyMatch.id(), "name", vocabularyMatch.name()));
+                }
+            }
+            return new AreaResolution(null, query, false, details);
+        }
+
+        // 普通文本仍保留原有解析行为：标准名称/别名/IK/拼音优先，必要时再由 Fuzzy 辅助确认。
         EntityResolveResponse resolved = resolveFilter(EntityType.AREA, query);
         if (resolved != null && "FOUND".equalsIgnoreCase(resolved.getStatus())
                 && resolved.getResolved() != null
-                // 语音区域不能仅凭 Levenshtein 单字符 Fuzzy 就绑定硬过滤；优先要求精确/IK/拼音确认。
-                && (!voiceAsr || !isFuzzyFallbackResolution(resolved))
                 && (vocabularyMatch == null || !vocabularyMatch.fuzzy()
                     || vocabularyMatch.id().equals(resolved.getResolved().getEntityId()))) {
             return new AreaResolution(resolved.getResolved().getEntityId(), resolved.getResolved().getName(),
                     true, filterResolution(resolved));
         }
 
-        // 数字区域名通过中文读法生成候选，再由 ES Pinyin Analyzer 比较真实拼音 token。
-        // 例如“武站台”与区域名“5站台”的“五站台”读法相同；仅唯一真实区域候选才可确认。
-        List<Map<String, Object>> pinyinCandidates =
-                catalogService.findNumericPinyinAreaCandidates(query, areaVocabulary);
+        List<Map<String, Object>> pinyinCandidates = catalogService.findPinyinAreaCandidates(query, areaVocabulary);
         if (pinyinCandidates.size() == 1) {
             Map<String, Object> candidate = pinyinCandidates.get(0);
             String candidateId = String.valueOf(candidate.getOrDefault("id", ""));
@@ -772,10 +809,10 @@ public class EntityAssistantService {
                     || vocabularyMatch.id().equals(candidateId))) {
                 Map<String, Object> details = new LinkedHashMap<>();
                 details.put("status", "FOUND");
-                details.put("message", "通过数字区域中文读法与 Elasticsearch Pinyin Analyzer 唯一确认真实区域");
+                details.put("message", "通过 Elasticsearch Pinyin Analyzer 唯一确认真实区域");
                 details.put("candidates", List.of(Map.of("entityId", candidateId, "name", candidateName)));
                 details.put("matchedText", query);
-                details.put("matchMethod", "NUMERIC_PINYIN");
+                details.put("matchMethod", "PINYIN");
                 return new AreaResolution(candidateId, candidateName, true, details);
             }
         }
