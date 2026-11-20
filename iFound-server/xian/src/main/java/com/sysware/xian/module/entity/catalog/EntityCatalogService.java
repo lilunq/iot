@@ -230,6 +230,7 @@ public class EntityCatalogService {
         bool.put("filter", filters);
         List<Map<String, Object>> keywordShould = new ArrayList<>();
         List<Map<String, Object>> preferenceClauses = new ArrayList<>();
+        boolean positionPinyinRequired = false;
         if (type == EntityType.DEVICE && hasText(preferredDeviceTypeName)) {
             // 放在外层 should 中，仅对已由关键词命中的结果加分，不允许分类偏好单独召回设备。
             preferenceClauses.add(Map.of("match_phrase", Map.of("device_type_name", Map.of(
@@ -344,11 +345,16 @@ public class EntityCatalogService {
                     }
                 }
                 if (!positionQueries.isEmpty()) {
+                    positionPinyinRequired = true;
                     List<Map<String, Object>> positionShould = new ArrayList<>();
                     for (String positionQuery : positionQueries) {
                         positionShould.add(Map.of("match_phrase", Map.of(
                                 "device_position_variants.pinyin", Map.of(
                                         "query", positionQuery, "boost", 60))));
+                        // match 作为 phrase 的兼容召回；该字段只存独立编号位置词，不会退化成公共“站台”词。
+                        positionShould.add(Map.of("match", Map.of(
+                                "device_position_variants.pinyin", Map.of(
+                                        "query", positionQuery, "minimum_should_match", "75%", "boost", 40))));
                     }
                     mustClauses.add(Map.of("bool", Map.of(
                             "should", positionShould, "minimum_should_match", 1)));
@@ -418,7 +424,13 @@ public class EntityCatalogService {
         result.put("total", total);
         result.put("pages", total == 0 ? 0 : (total + pageSize - 1) / pageSize);
         result.put("records", records);
-        if (fuzzyFallbackUsed) {
+        if (positionPinyinRequired && hasHits(response)) {
+            result.put("retrievalMode", "POSITION_PINYIN");
+            result.put("retrievalMessage", "已通过站台/楼层位置全拼匹配候选，未使用仅命中公共词“站台”的结果");
+        } else if (positionPinyinRequired) {
+            result.put("retrievalMode", "POSITION_PINYIN_NO_MATCH");
+            result.put("retrievalMessage", "未找到与该位置描述全拼一致的设备；已过滤仅命中公共词“站台”的低相关度候选");
+        } else if (fuzzyFallbackUsed) {
             result.put("retrievalMode", "FUZZY_FALLBACK");
             result.put("retrievalMessage", "常规名称/别名及拼音全拼检索未命中，已通过 Elasticsearch Fuzzy 单字符容错召回");
         } else if (pinyinFallbackUsed) {
