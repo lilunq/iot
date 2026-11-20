@@ -108,7 +108,8 @@ public class EntityIndexAdminService {
                         "factory", "production_date", "install_date", "nfc", "fire_key", "device_fac_id", "device_type");
                 integer(fields, "sort_no");
                 text(fields, "device_name", "device_name_variants", "device_alias", "aliases",
-                        "subarea_name", "system_name", "device_type_name", "location", "location_variants");
+                        "subarea_name", "system_name", "device_type_name", "location", "location_variants",
+                        "device_position_variants");
                 bool(fields, "enabled");
             }
             case CAMERA -> {
