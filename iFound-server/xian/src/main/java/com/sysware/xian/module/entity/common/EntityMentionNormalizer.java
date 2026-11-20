@@ -14,6 +14,8 @@ public final class EntityMentionNormalizer {
     private static final Pattern LOCATION_ONLY = Pattern.compile(
             "^(?:第)?[0-9零〇一二三四五六七八九十]{1,4}(?:候车层|站台|站厅|站|台|层|楼|区)$"
             + "|^.{2,12}(?:候车层|站台|站厅|楼层|区域)$");
+    private static final Pattern GENERIC_DEVICE_COLLECTION = Pattern.compile(
+            "^.{2,16}的(?:所有|全部)?(?:设备|设施)(?:列表|清单|信息)?$");
 
     private EntityMentionNormalizer() { }
 
@@ -24,10 +26,29 @@ public final class EntityMentionNormalizer {
     public static boolean isExplicitAreaConstraint(String prompt, String areaName, String keyword) {
         if (!hasText(prompt)) return false;
         String source = EntityTextNormalizer.normalize(prompt);
-        // 只有明确出现区域/范围语义或“在/位于某区域”结构，才允许产生区域硬过滤。
-        // 单纯“5站台的设备”仍然可能是在描述设备名称或位置，必须保留给设备索引匹配。
+        // “X的设备/设施”是集合查询，可把 X 作为待验证的区域线索；
+        // “指挥中心的空调”等具体设备表达仍保留为完整名称，不自动拆成区域。
         return EXPLICIT_AREA_MARKER.matcher(source).matches()
-                || POSITION_PREFIX.matcher(source).matches();
+                || POSITION_PREFIX.matcher(source).matches()
+                || GENERIC_DEVICE_COLLECTION.matcher(stripQueryFillers(source)).matches();
+    }
+
+    /**
+     * 提取“X的设备/设施”中的位置线索。返回值只是待验证文本，不能直接作为区域 ID。
+     */
+    public static String genericDeviceAreaMention(String prompt) {
+        if (!hasText(prompt)) return null;
+        String source = stripQueryFillers(EntityTextNormalizer.normalize(prompt));
+        if (!GENERIC_DEVICE_COLLECTION.matcher(source).matches()) return null;
+        String mention = source.replaceFirst("的(?:所有|全部)?(?:设备|设施)(?:列表|清单|信息)?$", "").trim();
+        return mention.length() >= 2 ? mention : null;
+    }
+
+    private static String stripQueryFillers(String value) {
+        return value.replaceFirst("^(?:麻烦)?(?:请)?(?:帮我)?(?:查询|查找|搜索|查一下|查|找一下|找|看看|我想|我需要)+", "")
+                .replaceFirst("^(?:一下|帮我|请)+", "")
+                .replaceAll("[，,。！？!?；;：:、\\s]+$", "")
+                .trim();
     }
 
     /**
@@ -37,7 +58,7 @@ public final class EntityMentionNormalizer {
     public static String fullDevicePhrase(String prompt) {
         if (!hasText(prompt)) return "";
         String value = EntityTextNormalizer.normalize(prompt);
-        value = value.replaceFirst("^(?:麻烦)?(?:请)?(?:帮我)?(?:查询|查找|搜索|查一下|找一下|找|看看)", "");
+        value = value.replaceFirst("^(?:麻烦)?(?:请)?(?:帮我)?(?:查询|查找|搜索|查一下|查|找一下|找|看看)", "");
         value = value.replaceFirst("^(?:我想|我需要|帮我查询|帮我查找)", "");
         value = value.replaceFirst("(?:当前|现在)?(?:的)?(?:运行状态|故障信息|报警信息)$", "");
         value = value.replaceFirst("(?:设备列表|设备清单|设备信息|设备)$", "");

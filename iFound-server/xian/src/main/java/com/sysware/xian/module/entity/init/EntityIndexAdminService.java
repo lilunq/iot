@@ -104,8 +104,8 @@ public class EntityIndexAdminService {
             }
             case DEVICE -> {
                 keyword(fields, "id", "org_id", "device_code", "subarea_cid", "subarea_id",
-                        "system_key", "device_type_id", "device_type_cascade_id", "parent_device_id",
-                        "factory", "production_date", "install_date", "nfc", "fire_key", "device_fac_id");
+                        "system_key", "system_type", "device_type_id", "device_type_cascade_id", "parent_device_id",
+                        "factory", "production_date", "install_date", "nfc", "fire_key", "device_fac_id", "device_type");
                 integer(fields, "sort_no");
                 text(fields, "device_name", "device_name_variants", "device_alias", "aliases",
                         "subarea_name", "system_name", "device_type_name", "location", "location_variants");

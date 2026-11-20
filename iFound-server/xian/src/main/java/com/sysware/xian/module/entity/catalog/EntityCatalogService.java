@@ -341,7 +341,7 @@ public class EntityCatalogService {
 
         // 位置描述可能与设备名称的一部分同时出现；把补充关键词的全拼作为低权重并行召回，
         // 避免“空调”等普通词已经命中时，主关键词的拼音纠错通道被提前跳过。
-        addPinyinSupplementClauses(keywordShould, type, additionalKeywords);
+        addPinyinSupplementClauses(keywordShould, type, keyword, additionalKeywords);
         JsonNode response = repository.search(type.getIndexAlias(), query);
         boolean pinyinFallbackUsed = false;
         boolean fuzzyFallbackUsed = false;
@@ -403,21 +403,26 @@ public class EntityCatalogService {
      * 不能等主检索完全无结果才做，否则“空调”等泛词先命中会掩盖位置词的同音纠错。
      */
     private void addPinyinSupplementClauses(List<Map<String, Object>> clauses, EntityType type,
-                                            List<String> additionalKeywords) {
-        if (additionalKeywords == null || additionalKeywords.isEmpty()) return;
+                                            String primaryKeyword, List<String> additionalKeywords) {
+        // 主关键词也并行执行低权重全拼召回，避免公共词命中后掩盖完整名称中的同音纠错。
+        Set<String> terms = new LinkedHashSet<>();
+        if (hasText(primaryKeyword)) terms.add(primaryKeyword.trim());
+        if (additionalKeywords != null) {
+            additionalKeywords.stream().filter(this::hasText).map(String::trim).forEach(terms::add);
+        }
+        if (terms.isEmpty()) return;
         String nameField = nameField(type);
-        for (String alternative : additionalKeywords) {
-            if (!hasText(alternative)) continue;
-            String value = alternative.trim();
+        for (String value : terms) {
             if (value.length() < 2) continue;
-            addPinyinMatch(clauses, nameField + ".pinyin", value, 4);
-            addPinyinMatch(clauses, "aliases.pinyin", value, 3);
+            int boost = value.equals(primaryKeyword) ? 4 : 3;
+            addPinyinMatch(clauses, nameField + ".pinyin", value, boost);
+            addPinyinMatch(clauses, "aliases.pinyin", value, Math.max(2, boost - 1));
             if (type == EntityType.DEVICE || type == EntityType.DEVICE_TYPE) {
-                addPinyinMatch(clauses, "device_name.pinyin", value, 4);
-                addPinyinMatch(clauses, "device_alias.pinyin", value, 3);
-                addPinyinMatch(clauses, "location.pinyin", value, 3);
-                addPinyinMatch(clauses, "device_name_variants.pinyin", value, 4);
-                addPinyinMatch(clauses, "location_variants.pinyin", value, 3);
+                addPinyinMatch(clauses, "device_name.pinyin", value, boost);
+                addPinyinMatch(clauses, "device_alias.pinyin", value, Math.max(2, boost - 1));
+                addPinyinMatch(clauses, "location.pinyin", value, Math.max(2, boost - 1));
+                addPinyinMatch(clauses, "device_name_variants.pinyin", value, boost);
+                addPinyinMatch(clauses, "location_variants.pinyin", value, Math.max(2, boost - 1));
             } else if (type == EntityType.CAMERA) {
                 addPinyinMatch(clauses, "address.pinyin", value, 2);
             }
@@ -608,7 +613,7 @@ public class EntityCatalogService {
             case AREA -> List.of("cascade_cid");
             case SYSTEM -> List.of("element_key");
             case DEVICE_TYPE -> List.of("id", "cascade_id", "device_type", "system_type", "device_alias.raw");
-            case DEVICE -> List.of("id", "device_code", "device_alias.raw");
+            case DEVICE -> List.of("id", "device_code", "device_type", "system_type", "device_alias.raw");
             case CAMERA -> List.of("id", "camera_no");
         };
     }

@@ -8,10 +8,12 @@ class EntityMentionNormalizerTest {
 
     @Test
     void bareLocationPhraseIsNotAutomaticallyAnAreaConstraint() {
-        assertFalse(EntityMentionNormalizer.isExplicitAreaConstraint(
+        assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询5站台的设备", "5站台", "设备"));
-        assertFalse(EntityMentionNormalizer.isExplicitAreaConstraint(
+        assertTrue(EntityMentionNormalizer.isExplicitAreaConstraint(
                 "查询武站台的设备", "武站台", "设备"));
+        assertEquals("5站台", EntityMentionNormalizer.genericDeviceAreaMention("查询5站台的设备"));
+        assertEquals("武站台", EntityMentionNormalizer.genericDeviceAreaMention("帮我查武站台的设备"));
     }
 
     @Test

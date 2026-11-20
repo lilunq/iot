@@ -183,15 +183,29 @@ public class EntitySourceSyncService {
                 if (isBlank(id)) continue;
                 Map<String, Object> doc = new LinkedHashMap<>();
                 doc.put("id", id);
-                put(doc, "org_id", firstText(row, "org_id", "orgId"));
-                put(doc, "device_name", firstText(row, "device_name", "deviceName"));
+                // 完整保留 SCADA listPage() 原始业务字段（包括空字符串和数值 0），
+                // 同时补充统一实体中心使用的关联字段，不以派生字段覆盖源字段。
+                putRaw(doc, "org_id", row, "org_id", "orgId");
+                putRaw(doc, "system_type", row, "system_type", "systemType");
+                putRaw(doc, "device_name", row, "device_name", "deviceName");
                 addLocationSearchVariants(doc, "device_name_variants",
                         firstText(row, "device_name", "deviceName"));
                 // device_code 只映射源接口明确提供的独立编码，不把 device_alias 冒充为设备编码。
-                put(doc, "device_code", firstText(row, "device_code", "deviceCode"));
-                put(doc, "device_alias", firstText(row, "device_alias", "deviceAlias"));
-                put(doc, "parent_device_id", firstText(row, "parent_device_id", "parentDeviceId"));
+                putRaw(doc, "device_code", row, "device_code", "deviceCode");
+                putRaw(doc, "device_alias", row, "device_alias", "deviceAlias");
+                putRaw(doc, "factory", row, "factory");
+                putRaw(doc, "production_date", row, "production_date", "productionDate");
+                putRaw(doc, "install_date", row, "install_date", "installDate");
+                putRaw(doc, "location", row, "location");
+                addLocationSearchVariants(doc, "location_variants", firstText(row, "location"));
+                putRaw(doc, "subarea_cid", row, "subarea_cid", "subareaCid");
+                putRaw(doc, "subarea_id", row, "subarea_id", "subareaId");
+                putRaw(doc, "nfc", row, "nfc");
+                putRaw(doc, "fire_key", row, "fire_key", "fireKey");
+                putRaw(doc, "device_fac_id", row, "device_fac_id", "deviceFacId");
+                putRaw(doc, "sort_no", row, "sort_no", "sortNo");
                 String deviceTypeCascadeId = firstText(row, "device_type", "device_type_cascade_id", "deviceType");
+                putRaw(doc, "device_type", row, "device_type", "deviceType");
                 Map<String, Object> deviceType = deviceTypesByCascade.get(deviceTypeCascadeId);
                 String deviceTypeId = deviceType == null
                         ? firstText(row, "device_type_id", "deviceTypeId")
@@ -207,19 +221,8 @@ public class EntitySourceSyncService {
                 put(doc, "system_key", systemKey);
                 put(doc, "system_name", systemNames.get(systemKey));
                 String subareaCid = firstText(row, "subarea_cid", "subareaCid");
-                put(doc, "subarea_cid", subareaCid);
-                put(doc, "subarea_id", firstText(row, "subarea_id", "subareaId"));
                 Map<String, Object> area = areasByCascade.get(subareaCid);
                 put(doc, "subarea_name", area == null ? null : firstText(area, "name"));
-                put(doc, "factory", firstText(row, "factory"));
-                put(doc, "production_date", firstText(row, "production_date", "productionDate"));
-                put(doc, "install_date", firstText(row, "install_date", "installDate"));
-                put(doc, "location", firstText(row, "location"));
-                addLocationSearchVariants(doc, "location_variants", firstText(row, "location"));
-                put(doc, "nfc", firstText(row, "nfc"));
-                put(doc, "fire_key", firstText(row, "fire_key", "fireKey"));
-                put(doc, "device_fac_id", firstText(row, "device_fac_id", "deviceFacId"));
-                put(doc, "sort_no", firstNumber(row, "sort_no", "sortNo"));
                 doc.put("enabled", true);
                 documents.put(id, doc);
             }

@@ -157,6 +157,8 @@ public class EntityResolverService {
             } else if (type == EntityType.DEVICE) {
                 exact(should, "id", query, 130);
                 exact(should, "device_code", query, 120);
+                exact(should, "device_type", query, 115);
+                exact(should, "system_type", query, 115);
                 exact(should, "device_alias", query, 110);
                 match(should, "device_name", query, 12);
                 match(should, "device_alias", query, 11);
