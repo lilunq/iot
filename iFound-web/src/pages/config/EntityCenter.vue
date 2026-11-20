@@ -201,7 +201,7 @@
               <div><small>意图说明</small><strong>{{ assistantResult.parsed.intent }}</strong></div>
             </div>
             <div class="search-strategy-note">
-              区域、系统：确认后执行范围过滤；设备分类：仅用于相关性加权；设备名称：同时匹配原始关键词和名称主体。未配置分类的设备不会因此被排除。
+              明确指定的区域、系统：确认后执行范围过滤；设备分类：仅用于相关性加权；设备名称：同时匹配原始关键词和名称主体。未配置分类的设备不会因此被排除。
             </div>
             <div v-if="assistantResult.status === 'NEEDS_CLARIFICATION'" class="filter-warning">
               区域或系统条件存在歧义或未找到，已暂停 ES 检索。设备分类不会作为必选过滤条件。
