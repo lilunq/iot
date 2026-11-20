@@ -127,20 +127,21 @@ public class EntitySourceSyncService {
             doc.put("id", id);
             // 兼容统一实体目录的 name 字段，同时保留 SCADA 原始 device_name 字段。
             put(doc, "name", firstText(row, "name", "device_name", "deviceName"));
-            put(doc, "org_id", firstText(row, "org_id", "orgId"));
-            put(doc, "system_type", firstText(row, "system_type", "systemType"));
-            put(doc, "device_name", firstText(row, "device_name", "deviceName", "name"));
-            put(doc, "device_type", firstText(row, "device_type", "deviceType"));
-            put(doc, "factory", firstText(row, "factory"));
-            put(doc, "production_date", firstText(row, "production_date", "productionDate"));
-            put(doc, "install_date", firstText(row, "install_date", "installDate"));
-            put(doc, "location", firstText(row, "location"));
-            put(doc, "subarea_cid", firstText(row, "subarea_cid", "subareaCid"));
-            put(doc, "subarea_id", firstText(row, "subarea_id", "subareaId"));
-            put(doc, "nfc", firstText(row, "nfc"));
-            put(doc, "fire_key", firstText(row, "fire_key", "fireKey"));
-            put(doc, "device_fac_id", firstText(row, "device_fac_id", "deviceFacId"));
-            put(doc, "device_alias", firstText(row, "device_alias", "deviceAlias"));
+            // SCADA 返回中的空字符串也保留，确保 _source 结构与源记录字段完整对应。
+            putRaw(doc, "org_id", row, "org_id", "orgId");
+            putRaw(doc, "system_type", row, "system_type", "systemType");
+            putRaw(doc, "device_name", row, "device_name", "deviceName", "name");
+            putRaw(doc, "device_type", row, "device_type", "deviceType");
+            putRaw(doc, "factory", row, "factory");
+            putRaw(doc, "production_date", row, "production_date", "productionDate");
+            putRaw(doc, "install_date", row, "install_date", "installDate");
+            putRaw(doc, "location", row, "location");
+            putRaw(doc, "subarea_cid", row, "subarea_cid", "subareaCid");
+            putRaw(doc, "subarea_id", row, "subarea_id", "subareaId");
+            putRaw(doc, "nfc", row, "nfc");
+            putRaw(doc, "fire_key", row, "fire_key", "fireKey");
+            putRaw(doc, "device_fac_id", row, "device_fac_id", "deviceFacId");
+            putRaw(doc, "device_alias", row, "device_alias", "deviceAlias");
             put(doc, "parent_id", firstText(row, "parent_id", "parentId"));
             put(doc, "cascade_id", firstText(row, "cascade_id", "cascadeId"));
             put(doc, "is_folder", firstText(row, "is_folder", "isFolder"));
@@ -380,6 +381,16 @@ public class EntitySourceSyncService {
         if (value instanceof Boolean bool) return bool;
         String text = value.toString().trim();
         return "1".equals(text) || "true".equalsIgnoreCase(text) || "yes".equalsIgnoreCase(text);
+    }
+
+    /** 保留源系统明确返回的空字符串/NULL；字段不存在时才省略。 */
+    private void putRaw(Map<String, Object> target, String targetKey, Map<?, ?> source, String... sourceKeys) {
+        for (String sourceKey : sourceKeys) {
+            if (source.containsKey(sourceKey)) {
+                target.put(targetKey, source.get(sourceKey));
+                return;
+            }
+        }
     }
 
     private void put(Map<String, Object> target, String key, Object value) {
