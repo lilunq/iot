@@ -190,13 +190,18 @@ public class EntityCatalogService {
             if (additionalKeywords != null) {
                 for (String alternative : additionalKeywords) {
                     if (!hasText(alternative) || alternative.trim().equalsIgnoreCase(q)) continue;
+                    int alternativeBoost = Math.min(18, Math.max(7, alternative.trim().length() * 2));
+                    if (type == EntityType.DEVICE) {
+                        should.add(Map.of("match_phrase", Map.of(nameField, Map.of(
+                                "query", alternative.trim(), "boost", alternativeBoost + 3))));
+                    }
                     should.add(Map.of("match", Map.of(nameField, Map.of(
-                            "query", alternative.trim(), "boost", 6))));
+                            "query", alternative.trim(), "boost", alternativeBoost))));
                     should.add(Map.of("match", Map.of("aliases", Map.of(
-                            "query", alternative.trim(), "boost", 4))));
+                            "query", alternative.trim(), "boost", Math.max(4, alternativeBoost - 2))));
                     if (type == EntityType.DEVICE) {
                         should.add(Map.of("match", Map.of("device_alias", Map.of(
-                                "query", alternative.trim(), "boost", 3))));
+                                "query", alternative.trim(), "boost", Math.max(3, alternativeBoost - 4))));
                     }
                 }
             }
