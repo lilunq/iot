@@ -3,6 +3,7 @@ package com.sysware.xian.module.entity.synchronizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sysware.xian.module.entity.common.EntityType;
+import com.sysware.xian.module.entity.common.EntityAreaNameNormalizer;
 import com.sysware.xian.module.entity.init.alias.BizEntityAlias;
 import com.sysware.xian.module.entity.init.alias.BizEntityAliasService;
 import com.sysware.xian.module.entity.repository.EntityIndexRepository;
@@ -127,6 +128,8 @@ public class EntitySourceSyncService {
             doc.put("id", id);
             // 兼容统一实体目录的 name 字段，同时保留 SCADA 原始 device_name 字段。
             put(doc, "name", firstText(row, "name", "device_name", "deviceName"));
+            addLocationSearchVariants(doc, "device_name_variants",
+                    firstText(row, "device_name", "deviceName", "name"));
             // SCADA 返回中的空字符串也保留，确保 _source 结构与源记录字段完整对应。
             putRaw(doc, "org_id", row, "org_id", "orgId");
             putRaw(doc, "system_type", row, "system_type", "systemType");
@@ -136,6 +139,7 @@ public class EntitySourceSyncService {
             putRaw(doc, "production_date", row, "production_date", "productionDate");
             putRaw(doc, "install_date", row, "install_date", "installDate");
             putRaw(doc, "location", row, "location");
+            addLocationSearchVariants(doc, "location_variants", firstText(row, "location"));
             putRaw(doc, "subarea_cid", row, "subarea_cid", "subareaCid");
             putRaw(doc, "subarea_id", row, "subarea_id", "subareaId");
             putRaw(doc, "nfc", row, "nfc");
@@ -181,6 +185,8 @@ public class EntitySourceSyncService {
                 doc.put("id", id);
                 put(doc, "org_id", firstText(row, "org_id", "orgId"));
                 put(doc, "device_name", firstText(row, "device_name", "deviceName"));
+                addLocationSearchVariants(doc, "device_name_variants",
+                        firstText(row, "device_name", "deviceName"));
                 // device_code 只映射源接口明确提供的独立编码，不把 device_alias 冒充为设备编码。
                 put(doc, "device_code", firstText(row, "device_code", "deviceCode"));
                 put(doc, "device_alias", firstText(row, "device_alias", "deviceAlias"));
@@ -209,6 +215,7 @@ public class EntitySourceSyncService {
                 put(doc, "production_date", firstText(row, "production_date", "productionDate"));
                 put(doc, "install_date", firstText(row, "install_date", "installDate"));
                 put(doc, "location", firstText(row, "location"));
+                addLocationSearchVariants(doc, "location_variants", firstText(row, "location"));
                 put(doc, "nfc", firstText(row, "nfc"));
                 put(doc, "fire_key", firstText(row, "fire_key", "fireKey"));
                 put(doc, "device_fac_id", firstText(row, "device_fac_id", "deviceFacId"));
@@ -381,6 +388,19 @@ public class EntitySourceSyncService {
         if (value instanceof Boolean bool) return bool;
         String text = value.toString().trim();
         return "1".equals(text) || "true".equalsIgnoreCase(text) || "yes".equalsIgnoreCase(text);
+    }
+
+    /**
+     * 为包含“5站台”这类位置描述的字段附加中文数字读法。
+     * 原始字段保持不变；拼音仍由 Elasticsearch Pinyin Analyzer 生成。
+     */
+    private void addLocationSearchVariants(Map<String, Object> document, String targetField, String sourceValue) {
+        if (isBlank(sourceValue)) return;
+        java.util.LinkedHashSet<String> variants = new java.util.LinkedHashSet<>();
+        variants.add(sourceValue);
+        String chineseVariant = EntityAreaNameNormalizer.toChineseNumeralVariant(sourceValue);
+        if (!isBlank(chineseVariant)) variants.add(chineseVariant);
+        document.put(targetField, new java.util.ArrayList<>(variants));
     }
 
     /** 保留源系统明确返回的空字符串/NULL；字段不存在时才省略。 */
