@@ -116,11 +116,26 @@
               <p class="muted">来自 SCADA 的 device_alias 字段，直接参与 ES 检索，不重复写入业务别名表。</p>
             </div>
             <div class="detail-block">
-              <h4>业务别名 <small>{{ selectedDetail.aliases?.length || 0 }}</small></h4>
+              <div class="detail-alias-heading">
+                <h4>业务别名 <small>{{ selectedDetail.aliases?.length || 0 }}</small></h4>
+                <span class="muted">直接为当前实体添加</span>
+              </div>
               <div v-if="selectedDetail.aliases?.length" class="chips">
                 <span v-for="alias in selectedDetail.aliases" :key="alias.id">{{ alias.aliasName }} <small>{{ alias.source }}</small></span>
               </div>
               <p v-else class="muted">尚未配置业务别名</p>
+              <div class="detail-alias-form">
+                <input
+                  v-model.trim="detailAliasName"
+                  aria-label="新增业务别名"
+                  placeholder="输入当前实体的业务别名，例如：冷机2号"
+                  @keydown.enter.prevent="addDetailAlias"
+                />
+                <button class="btn primary" :disabled="savingDetailAlias || !detailAliasName" @click="addDetailAlias">
+                  {{ savingDetailAlias ? '添加中…' : '＋ 添加别名' }}
+                </button>
+              </div>
+              <p v-if="detailAliasMessage" class="detail-alias-message" :class="{ error: detailAliasError }">{{ detailAliasMessage }}</p>
             </div>
             <div class="detail-block">
               <h4>全拼检索分析</h4>
@@ -274,6 +289,10 @@ const loadingCatalog = ref(false)
 const catalogError = ref('')
 const selectedDetail = ref(null)
 const detailLoading = ref(false)
+const detailAliasName = ref('')
+const savingDetailAlias = ref(false)
+const detailAliasMessage = ref('')
+const detailAliasError = ref(false)
 const catalogExpanded = ref(false)
 
 const assistantPrompt = ref('')
@@ -345,6 +364,33 @@ async function loadDetail(id) {
   } catch (error) {
     catalogError.value = error?.response?.data?.message || error.message || '实体详情加载失败'
   } finally { detailLoading.value = false }
+}
+async function addDetailAlias() {
+  const current = selectedDetail.value
+  const aliasName = detailAliasName.value.trim()
+  if (!current || !aliasName || savingDetailAlias.value) return
+  savingDetailAlias.value = true
+  detailAliasMessage.value = ''
+  detailAliasError.value = false
+  try {
+    await aiRequest.post('/entity-center/aliases', {
+      entityType: current.entityType,
+      dataId: current.entityId,
+      aliasName,
+      remark: '',
+      enabled: 1,
+      source: 'MANUAL'
+    })
+    detailAliasName.value = ''
+    detailAliasMessage.value = '别名添加成功'
+    await loadDetail(current.entityId)
+    await loadCatalog(catalogPage.value)
+  } catch (error) {
+    detailAliasError.value = true
+    detailAliasMessage.value = error?.response?.data?.message || error.message || '别名添加失败'
+  } finally {
+    savingDetailAlias.value = false
+  }
 }
 async function runAssistant() {
   assistantLoading.value = true
@@ -479,6 +525,13 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .detail-type,.ai-tag,.result-count { color:#80d8ff; border:1px solid rgba(76,185,239,.2); border-radius:20px; padding:5px 8px; font-size:9px; white-space:nowrap; }
 .detail-content { max-height:700px; overflow:auto; }
 .detail-name { color:#f2f8ff; font-size:17px; font-weight:750; }.detail-id { margin-top:5px; }
+.detail-alias-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.detail-alias-heading h4 { margin-bottom:9px; }
+.detail-alias-form { display:flex; gap:7px; margin-top:10px; }
+.detail-alias-form input { min-width:0; flex:1; }
+.detail-alias-form .btn { flex:none; }
+.detail-alias-message { margin:7px 0 0; color:#71d9b2; font-size:10px; }
+.detail-alias-message.error { color:#ffabab; }
 .relation-list { display:flex; flex-direction:column; gap:8px; }
 .relation-card { padding:10px; border:1px solid rgba(142,190,228,.12); border-radius:8px; background:rgba(1,17,39,.22); }
 .relation-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
