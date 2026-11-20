@@ -53,12 +53,12 @@ public class EntityResolverService {
         String normalized = EntityTextNormalizer.normalize(query);
 
         List<String> aliasDataIds = aliasService.findEnabledDataIds(type, normalized);
-        Map<String, Object> queryDsl = buildQuery(type, request, query, aliasDataIds, forceFuzzy);
+        Map<String, Object> queryDsl = buildQuery(type, request, query, aliasDataIds, forceFuzzy, forceFuzzy);
         JsonNode result = repository.search(type.getIndexAlias(), queryDsl);
         boolean fuzzyFallbackUsed = forceFuzzy && hasHits(result);
         if (!forceFuzzy && !hasHits(result) && shouldUseFuzzy(query)) {
             // 常规精确/分词/拼音/别名检索无结果后，再启用低优先级 Fuzzy 容错。
-            queryDsl = buildQuery(type, request, query, aliasDataIds, true);
+            queryDsl = buildQuery(type, request, query, aliasDataIds, true, false);
             result = repository.search(type.getIndexAlias(), queryDsl);
             fuzzyFallbackUsed = hasHits(result);
         }
@@ -104,7 +104,7 @@ public class EntityResolverService {
     }
 
     private Map<String, Object> buildQuery(EntityType type, EntityResolveRequest request, String query,
-                                            List<String> aliasDataIds, boolean includeFuzzy) {
+                                            List<String> aliasDataIds, boolean includeFuzzy, boolean fuzzyOnly) {
         List<Map<String, Object>> filters = new ArrayList<>();
         filters.add(term("enabled", true));
 
@@ -117,48 +117,51 @@ public class EntityResolverService {
         }
 
         List<Map<String, Object>> should = new ArrayList<>();
-        // 别名精确命中后回查稳定业务标识；设备过滤仍在 bool.filter 中生效。
-        if (aliasDataIds != null && !aliasDataIds.isEmpty()) {
-            should.add(Map.of("terms", Map.of(type.getBusinessIdField(), aliasDataIds, "boost", 150)));
+        if (!fuzzyOnly) {
+            // 别名精确命中后回查稳定业务标识；设备过滤仍在 bool.filter 中生效。
+            if (aliasDataIds != null && !aliasDataIds.isEmpty()) {
+                should.add(Map.of("terms", Map.of(type.getBusinessIdField(), aliasDataIds, "boost", 150)));
+            }
+            if (type == EntityType.AREA) {
+                exact(should, "cascade_cid", query, 120);
+                match(should, "area_name", query, 12);
+                match(should, "aliases", query, 10);
+                pinyin(should, "area_name", query, 6);
+                pinyin(should, "aliases", query, 5);
+            } else if (type == EntityType.SYSTEM) {
+                exact(should, "element_key", query, 120);
+                match(should, "element_value", query, 12);
+                match(should, "aliases", query, 10);
+                pinyin(should, "element_value", query, 6);
+                pinyin(should, "aliases", query, 5);
+            } else if (type == EntityType.DEVICE_TYPE) {
+                exact(should, "id", query, 125);
+                exact(should, "cascade_id", query, 115);
+                match(should, "name", query, 12);
+                match(should, "aliases", query, 10);
+                pinyin(should, "name", query, 6);
+                pinyin(should, "aliases", query, 5);
+            } else if (type == EntityType.DEVICE) {
+                exact(should, "id", query, 130);
+                exact(should, "device_code", query, 120);
+                exact(should, "device_alias", query, 110);
+                match(should, "device_name", query, 12);
+                match(should, "device_alias", query, 11);
+                match(should, "aliases", query, 10);
+                pinyin(should, "device_name", query, 6);
+                pinyin(should, "aliases", query, 5);
+            } else if (type == EntityType.CAMERA) {
+                exact(should, "id", query, 130);
+                exact(should, "camera_no", query, 120);
+                match(should, "camera_name", query, 12);
+                match(should, "address", query, 6);
+                match(should, "aliases", query, 10);
+                pinyin(should, "camera_name", query, 6);
+                pinyin(should, "aliases", query, 5);
+            }
+    
+    
         }
-        if (type == EntityType.AREA) {
-            exact(should, "cascade_cid", query, 120);
-            match(should, "area_name", query, 12);
-            match(should, "aliases", query, 10);
-            pinyin(should, "area_name", query, 6);
-            pinyin(should, "aliases", query, 5);
-        } else if (type == EntityType.SYSTEM) {
-            exact(should, "element_key", query, 120);
-            match(should, "element_value", query, 12);
-            match(should, "aliases", query, 10);
-            pinyin(should, "element_value", query, 6);
-            pinyin(should, "aliases", query, 5);
-        } else if (type == EntityType.DEVICE_TYPE) {
-            exact(should, "id", query, 125);
-            exact(should, "cascade_id", query, 115);
-            match(should, "name", query, 12);
-            match(should, "aliases", query, 10);
-            pinyin(should, "name", query, 6);
-            pinyin(should, "aliases", query, 5);
-        } else if (type == EntityType.DEVICE) {
-            exact(should, "id", query, 130);
-            exact(should, "device_code", query, 120);
-            exact(should, "device_alias", query, 110);
-            match(should, "device_name", query, 12);
-            match(should, "device_alias", query, 11);
-            match(should, "aliases", query, 10);
-            pinyin(should, "device_name", query, 6);
-            pinyin(should, "aliases", query, 5);
-        } else if (type == EntityType.CAMERA) {
-            exact(should, "id", query, 130);
-            exact(should, "camera_no", query, 120);
-            match(should, "camera_name", query, 12);
-            match(should, "address", query, 6);
-            match(should, "aliases", query, 10);
-            pinyin(should, "camera_name", query, 6);
-            pinyin(should, "aliases", query, 5);
-        }
-
         if (includeFuzzy) addFuzzyFallbackClauses(should, type, query);
 
         Map<String, Object> bool = new LinkedHashMap<>();
