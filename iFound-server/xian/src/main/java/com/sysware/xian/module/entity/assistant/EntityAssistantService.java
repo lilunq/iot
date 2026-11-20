@@ -56,6 +56,7 @@ public class EntityAssistantService {
                 下面提供的是当前系统中真实存在的完整系统名称/别名词典。
                 systemName 只能从该系统词典中选择；用户原文出现词典中的系统名称/别名时，应识别为所属系统，即使用户没有说“系统”两个字。
                 区域名称由后端直接匹配完整区域词典及业务别名，模型无需生成区域ID，也不要臆造区域名称。
+                用户原文可能包含少量错别字；请尽量从上下文提取用户实际想表达的区域/系统名称，areaName、systemName 保留原文中的近似词，不要因为词典没有完全相同的字就置空。最终是否为真实实体由后端词典和 Fuzzy 检索确认，绝不可自行生成稳定 ID。
                 例如用户说“候车大厅1号空调”，若词典中存在“候车大厅”区域和“空调”系统，应分别提取 areaName=候车大厅、systemName=空调。
                 不要因为“空调”同时出现在设备名称中，就漏掉它对应的已知系统；系统字段的最终确认由后端词典匹配完成。
                 区域、系统必须以用户原文或明确别名为依据，不得从上下文臆造。
@@ -95,8 +96,8 @@ public class EntityAssistantService {
 
         Map<String, Object> filterResolutions = new LinkedHashMap<>();
         boolean filterNeedsClarification = false;
-        VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary);
-        VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary);
+        VocabularyMatch areaMatch = findVocabularyMatch(prompt, areaVocabulary, areaName);
+        VocabularyMatch systemMatch = findVocabularyMatch(prompt, systemVocabulary, systemName);
 
         if (type != EntityType.DEVICE) {
             // 摄像头等非设备实体不接受区域、系统或设备分类过滤。
@@ -185,11 +186,14 @@ public class EntityAssistantService {
                 "areaCount", areaVocabulary.size(),
                 "systemCount", systemVocabulary.size(),
                 "areaMatchedByBackend", areaMatch != null,
-                "systemMatchedByBackend", systemMatch != null));
+                "systemMatchedByBackend", systemMatch != null,
+                "areaFuzzyMatched", areaMatch != null && areaMatch.fuzzy(),
+                "systemFuzzyMatched", systemMatch != null && systemMatch.fuzzy()));
         result.put("searchPolicy", Map.of(
-                "areaAndSystem", "区域、系统优先依据 ES 真实词典和别名匹配，命中后使用对应稳定 ID 做硬过滤",
+                "areaAndSystem", "区域、系统优先依据 ES 真实词典和别名匹配；支持单字符拼写容错，命中后使用对应稳定 ID 做硬过滤",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
-                "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排"));
+                "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排",
+                "typoTolerance", "精确/分词检索无结果时启用 Elasticsearch Fuzzy 单字符容错；精确匹配始终优先"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
         Map<String, Object> searchResult;
         if (filterNeedsClarification) {
@@ -360,58 +364,169 @@ public class EntityAssistantService {
         return result;
     }
 
-    private VocabularyMatch findVocabularyMatch(String prompt, List<Map<String, Object>> vocabulary) {
+    /**
+     * 先做标准名称/别名精确包含匹配；未命中时，仅在 LLM 明确提取了区域/系统线索的前提下，
+     * 对真实 ES 词典做单字符容错。容错候选多于一个时返回歧义，绝不猜测稳定 ID。
+     */
+    private VocabularyMatch findVocabularyMatch(String prompt, List<Map<String, Object>> vocabulary,
+                                                String extractedHint) {
         if (!hasText(prompt) || vocabulary == null || vocabulary.isEmpty()) return null;
-        String source = prompt.toLowerCase(Locale.ROOT);
+        String source = EntityTextNormalizer.normalize(prompt);
         int longest = 0;
         Map<String, Map<String, Object>> matchedById = new LinkedHashMap<>();
         String matchedTerm = null;
+
+        // 精确包含匹配拥有绝对优先级。
+        for (Map<String, Object> item : vocabulary) {
+            String id = String.valueOf(item.getOrDefault("id", ""));
+            String name = String.valueOf(item.getOrDefault("name", ""));
+            if (id.isBlank() || name.isBlank()) continue;
+            for (String term : vocabularyTerms(item)) {
+                String candidate = EntityTextNormalizer.normalize(term);
+                if (candidate.length() < 2 || !source.contains(candidate)) continue;
+                if (candidate.length() > longest) {
+                    longest = candidate.length();
+                    matchedById.clear();
+                    matchedById.put(id, item);
+                    matchedTerm = term;
+                } else if (candidate.length() == longest) {
+                    matchedById.putIfAbsent(id, item);
+                    if (matchedTerm == null) matchedTerm = term;
+                }
+            }
+        }
+
+        if (!matchedById.isEmpty()) {
+            if (matchedById.size() > 1) {
+                return vocabularyMatchFromItems(matchedById, matchedTerm, matchedTerm, false);
+            }
+            Map<String, Object> match = matchedById.values().iterator().next();
+            return new VocabularyMatch(String.valueOf(match.get("id")), String.valueOf(match.get("name")),
+                    matchedTerm, false, List.of(Map.of("entityId", match.get("id"), "name", match.get("name"))),
+                    false);
+        }
+
+        // Fuzzy 词典匹配必须同时得到 LLM 提取线索和原句近似片段的支持，避免任意短词误触发硬过滤。
+        if (!hasText(extractedHint)) return null;
+        String hint = EntityTextNormalizer.normalize(extractedHint);
+        if (hint.codePointCount(0, hint.length()) < 4) return null;
+        Map<String, Map<String, Object>> fuzzyById = new LinkedHashMap<>();
+        String fuzzyTerm = null;
+        String fuzzyInput = null;
+        int bestDistance = Integer.MAX_VALUE;
+        int bestLength = 0;
 
         for (Map<String, Object> item : vocabulary) {
             String id = String.valueOf(item.getOrDefault("id", ""));
             String name = String.valueOf(item.getOrDefault("name", ""));
             if (id.isBlank() || name.isBlank()) continue;
-            List<String> terms = new ArrayList<>();
-            terms.add(name);
-            Object aliasesObject = item.get("aliases");
-            if (aliasesObject instanceof List<?> aliases) {
-                for (Object alias : aliases) {
-                    if (alias != null && !alias.toString().isBlank()) terms.add(alias.toString().trim());
+            for (String term : vocabularyTerms(item)) {
+                String candidate = EntityTextNormalizer.normalize(term);
+                int candidateLength = candidate.codePointCount(0, candidate.length());
+                if (candidateLength < 4 || Math.abs(candidateLength - hint.codePointCount(0, hint.length())) > 1) {
+                    continue;
                 }
-            }
-            for (String term : terms) {
-                String candidate = term == null ? "" : term.trim();
-                if (candidate.length() < 2) continue;
-                if (!source.contains(candidate.toLowerCase(Locale.ROOT))) continue;
-                if (candidate.length() > longest) {
-                    longest = candidate.length();
-                    matchedById.clear();
-                    matchedById.put(id, item);
-                    matchedTerm = candidate;
-                } else if (candidate.length() == longest) {
-                    matchedById.putIfAbsent(id, item);
-                    if (matchedTerm == null) matchedTerm = candidate;
+                int hintDistance = editDistanceAtMostOne(candidate, hint);
+                if (hintDistance > 1) continue;
+                ApproximateWindow window = findApproximateWindow(prompt, candidate);
+                if (window == null || window.distance() > 1
+                        || editDistanceAtMostOne(hint, window.text()) > 1) continue;
+
+                int distance = hintDistance + window.distance();
+                if (distance < bestDistance || (distance == bestDistance && candidateLength > bestLength)) {
+                    bestDistance = distance;
+                    bestLength = candidateLength;
+                    fuzzyById.clear();
+                    fuzzyById.put(id, item);
+                    fuzzyTerm = term;
+                    fuzzyInput = window.text();
+                } else if (distance == bestDistance && candidateLength == bestLength) {
+                    fuzzyById.putIfAbsent(id, item);
+                    if (fuzzyInput == null) fuzzyInput = window.text();
                 }
             }
         }
 
-        if (matchedById.isEmpty()) return null;
-        if (matchedById.size() > 1) {
-            List<Map<String, Object>> candidates = new ArrayList<>();
-            matchedById.values().forEach(item -> candidates.add(Map.of(
-                    "entityId", item.get("id"), "name", item.get("name"))));
-            return new VocabularyMatch("", String.valueOf(matchedById.values().iterator().next().get("name")),
-                    matchedTerm, true, candidates);
-        }
-        Map<String, Object> match = matchedById.values().iterator().next();
-        return new VocabularyMatch(String.valueOf(match.get("id")), String.valueOf(match.get("name")),
-                matchedTerm, false, List.of(Map.of("entityId", match.get("id"), "name", match.get("name"))));
+        if (fuzzyById.isEmpty()) return null;
+        return vocabularyMatchFromItems(fuzzyById, fuzzyTerm, fuzzyInput, true);
     }
+
+    private List<String> vocabularyTerms(Map<String, Object> item) {
+        List<String> terms = new ArrayList<>();
+        String name = String.valueOf(item.getOrDefault("name", "")).trim();
+        if (!name.isBlank()) terms.add(name);
+        Object aliasesObject = item.get("aliases");
+        if (aliasesObject instanceof List<?> aliases) {
+            for (Object alias : aliases) {
+                if (alias != null && !alias.toString().isBlank()) terms.add(alias.toString().trim());
+            }
+        }
+        return terms;
+    }
+
+    private VocabularyMatch vocabularyMatchFromItems(Map<String, Map<String, Object>> items,
+                                                      String matchedTerm, String inputText, boolean fuzzy) {
+        List<Map<String, Object>> candidates = new ArrayList<>();
+        items.values().forEach(item -> candidates.add(Map.of(
+                "entityId", item.get("id"), "name", item.get("name"))));
+        if (items.size() > 1) {
+            return new VocabularyMatch("", String.valueOf(items.values().iterator().next().get("name")),
+                    inputText, true, candidates, fuzzy);
+        }
+        Map<String, Object> item = items.values().iterator().next();
+        return new VocabularyMatch(String.valueOf(item.get("id")), String.valueOf(item.get("name")),
+                inputText, false, candidates, fuzzy);
+    }
+
+    private ApproximateWindow findApproximateWindow(String source, String term) {
+        String normalizedSource = EntityTextNormalizer.normalize(source).replaceAll("[\\p{P}\\p{Z}\\s]+", "");
+        int[] sourceChars = normalizedSource.codePoints().toArray();
+        int[] termChars = EntityTextNormalizer.normalize(term).codePoints().toArray();
+        int bestDistance = 2;
+        String bestText = null;
+        for (int start = 0; start < sourceChars.length; start++) {
+            int minLength = Math.max(4, termChars.length - 1);
+            int maxLength = Math.min(sourceChars.length - start, termChars.length + 1);
+            for (int length = minLength; length <= maxLength; length++) {
+                String window = new String(sourceChars, start, length);
+                int distance = editDistanceAtMostOne(term, window);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestText = window;
+                    if (distance == 0) return new ApproximateWindow(window, 0);
+                }
+            }
+        }
+        return bestText == null ? null : new ApproximateWindow(bestText, bestDistance);
+    }
+
+    /** 仅计算到 1 为止的 Levenshtein 距离；使用 code point，正确处理 Unicode 中文字符。 */
+    private int editDistanceAtMostOne(String left, String right) {
+        int[] a = EntityTextNormalizer.normalize(left).codePoints().toArray();
+        int[] b = EntityTextNormalizer.normalize(right).codePoints().toArray();
+        if (Math.abs(a.length - b.length) > 1) return 2;
+        int i = 0, j = 0, edits = 0;
+        while (i < a.length && j < b.length) {
+            if (a[i] == b[j]) {
+                i++;
+                j++;
+                continue;
+            }
+            if (++edits > 1) return 2;
+            if (a.length > b.length) i++;
+            else if (a.length < b.length) j++;
+            else { i++; j++; }
+        }
+        if (i < a.length || j < b.length) edits++;
+        return edits > 1 ? 2 : edits;
+    }
+
+    private record ApproximateWindow(String text, int distance) { }
 
     private Map<String, Object> vocabularyResolution(VocabularyMatch match, String message) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", "FOUND");
-        result.put("message", message + "，已确认稳定 ID");
+        result.put("message", (match.fuzzy() ? "通过词典单字符拼写容错匹配" : message) + "，已确认稳定 ID");
         result.put("candidates", match.candidates());
         result.put("matchedText", match.matchedText());
         return result;
@@ -518,5 +633,5 @@ public class EntityAssistantService {
     }
 
     private record VocabularyMatch(String id, String name, String matchedText,
-                                   boolean ambiguous, List<Map<String, Object>> candidates) { }
+                                   boolean ambiguous, List<Map<String, Object>> candidates, boolean fuzzy) { }
 }
