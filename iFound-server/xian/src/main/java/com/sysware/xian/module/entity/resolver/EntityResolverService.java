@@ -89,7 +89,8 @@ public class EntityResolverService {
         }
 
         if (fuzzyFallbackUsed && !candidates.isEmpty()) {
-            message = "常规检索未命中，已通过 Elasticsearch Fuzzy 单字符错别字容错召回候选";
+            message = "常规检索未命中，已通过 Elasticsearch Fuzzy 单字符错别字容错召回候选；"
+                    + ("FOUND".equals(status) ? "当前候选已通过唯一性判断。" : "候选仍有歧义或置信度不足，请进一步确认。");
         }
 
         return EntityResolveResponse.builder()
