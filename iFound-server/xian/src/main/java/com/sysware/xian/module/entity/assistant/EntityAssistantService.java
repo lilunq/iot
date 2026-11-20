@@ -794,8 +794,8 @@ public class EntityAssistantService {
                 Map<String, Object> candidate = pinyinCandidates.get(0);
                 String candidateId = String.valueOf(candidate.getOrDefault("id", ""));
                 String candidateName = String.valueOf(candidate.getOrDefault("name", ""));
-                if (hasText(candidateId) && (vocabularyMatch == null || !vocabularyMatch.fuzzy()
-                        || vocabularyMatch.id().equals(candidateId))) {
+                if (hasText(candidateId)) {
+                    // 唯一拼音签名是比编辑距离候选更强的语音证据；可消除本地字符相似候选带来的假歧义。
                     Map<String, Object> details = new LinkedHashMap<>();
                     details.put("status", "FOUND");
                     details.put("message", "通过 Elasticsearch Pinyin Analyzer 确认语音区域读音一致，并唯一匹配真实区域");
