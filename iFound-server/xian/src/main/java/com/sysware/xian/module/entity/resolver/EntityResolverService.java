@@ -41,7 +41,15 @@ public class EntityResolverService {
         String normalized = EntityTextNormalizer.normalize(query);
 
         List<String> aliasDataIds = aliasService.findEnabledDataIds(type, normalized);
-        JsonNode result = repository.search(type.getIndexAlias(), buildQuery(type, request, query, aliasDataIds));
+        Map<String, Object> queryDsl = buildQuery(type, request, query, aliasDataIds, false);
+        JsonNode result = repository.search(type.getIndexAlias(), queryDsl);
+        boolean fuzzyFallbackUsed = false;
+        if (!hasHits(result) && shouldUseFuzzy(query)) {
+            // 常规精确/分词/拼音/别名检索无结果后，再启用低优先级 Fuzzy 容错。
+            queryDsl = buildQuery(type, request, query, aliasDataIds, true);
+            result = repository.search(type.getIndexAlias(), queryDsl);
+            fuzzyFallbackUsed = hasHits(result);
+        }
         List<EntityCandidate> candidates = toCandidates(type, result, requestLimit(request.getLimit()));
 
         String status;
@@ -68,6 +76,10 @@ public class EntityResolverService {
             }
         }
 
+        if (fuzzyFallbackUsed && !candidates.isEmpty()) {
+            message = "常规检索未命中，已通过 Elasticsearch Fuzzy 单字符错别字容错召回候选";
+        }
+
         return EntityResolveResponse.builder()
                 .status(status)
                 .entityType(type.name())
@@ -79,7 +91,8 @@ public class EntityResolverService {
                 .build();
     }
 
-    private Map<String, Object> buildQuery(EntityType type, EntityResolveRequest request, String query, List<String> aliasDataIds) {
+    private Map<String, Object> buildQuery(EntityType type, EntityResolveRequest request, String query,
+                                            List<String> aliasDataIds, boolean includeFuzzy) {
         List<Map<String, Object>> filters = new ArrayList<>();
         filters.add(term("enabled", true));
 
@@ -134,6 +147,8 @@ public class EntityResolverService {
             pinyin(should, "aliases", query, 5);
         }
 
+        if (includeFuzzy) addFuzzyFallbackClauses(should, type, query);
+
         Map<String, Object> bool = new LinkedHashMap<>();
         bool.put("filter", filters);
         bool.put("should", should);
@@ -145,6 +160,65 @@ public class EntityResolverService {
         );
     }
 
+    private boolean hasHits(JsonNode response) {
+        JsonNode hits = response == null ? null : response.path("hits").path("hits");
+        return hits != null && hits.isArray() && !hits.isEmpty();
+    }
+
+    private boolean shouldUseFuzzy(String value) {
+        if (value == null || value.isBlank()) return false;
+        int length = value.codePointCount(0, value.length());
+        return length >= 3 && length <= 64 && !value.matches("\\d+");
+    }
+
+    /**
+     * 只在常规检索无命中后增加 Fuzzy 查询，且所有条件仍保留在 bool.filter 中。
+     * 因此拼写容错不会绕过用户明确指定的区域、系统或设备分类范围。
+     */
+    private void addFuzzyFallbackClauses(List<Map<String, Object>> clauses, EntityType type, String value) {
+        String nameField = switch (type) {
+            case AREA -> "area_name";
+            case SYSTEM -> "element_value";
+            case DEVICE_TYPE -> "name";
+            case DEVICE -> "device_name";
+            case CAMERA -> "camera_name";
+        };
+        addFuzzyMatch(clauses, nameField, value, 5);
+        addFuzzyMatch(clauses, "aliases", value, 4);
+        addFuzzyTerm(clauses, nameField + ".raw", value, 4);
+        addFuzzyTerm(clauses, "aliases.raw", value, 3);
+        if (type == EntityType.DEVICE) {
+            addFuzzyMatch(clauses, "device_alias", value, 4);
+            addFuzzyTerm(clauses, "device_alias.raw", value, 3);
+            if (value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*") && value.length() <= 32) {
+                addFuzzyTerm(clauses, "device_code", value, 2);
+            }
+        } else if (type == EntityType.CAMERA && value.matches("(?i).*[a-z].*\\d.*|.*\\d.*[a-z].*")
+                && value.length() <= 32) {
+            addFuzzyTerm(clauses, "camera_no", value, 2);
+        }
+    }
+
+    private void addFuzzyMatch(List<Map<String, Object>> clauses, String field, String value, int boost) {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("query", value);
+        options.put("fuzziness", 1);
+        options.put("prefix_length", 0);
+        options.put("max_expansions", 25);
+        options.put("boost", boost);
+        clauses.add(Map.of("match", Map.of(field, options)));
+    }
+
+    private void addFuzzyTerm(List<Map<String, Object>> clauses, String field, String value, int boost) {
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("value", value);
+        options.put("fuzziness", 1);
+        options.put("prefix_length", 0);
+        options.put("max_expansions", 25);
+        options.put("transpositions", true);
+        options.put("boost", boost);
+        clauses.add(Map.of("fuzzy", Map.of(field, options)));
+    }
     private int requestLimit(Integer requested) {
         EntityCenterProperties.Resolver resolver = properties.getResolver();
         int max = Math.max(1, resolver.getMaxLimit());
