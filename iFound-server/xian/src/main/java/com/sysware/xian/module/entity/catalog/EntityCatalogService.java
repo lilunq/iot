@@ -354,6 +354,7 @@ public class EntityCatalogService {
         Map<String, Object> bool = new LinkedHashMap<>();
         bool.put("filter", filters);
         List<Map<String, Object>> keywordShould = new ArrayList<>();
+        List<Map<String, Object>> locationBoostClauses = new ArrayList<>();
         List<Map<String, Object>> preferenceClauses = new ArrayList<>();
         if (type == EntityType.DEVICE && hasText(preferredDeviceTypeName)) {
             // 放在外层 should 中，仅对已由关键词命中的结果加分，不允许分类偏好单独召回设备。
@@ -465,15 +466,19 @@ public class EntityCatalogService {
                     "should", should, "minimum_should_match", 1)));
         }
 
-        // 未确认的模糊地点只参与相关性评分，不作为必选条件，避免排除位置字段维护不完整的真实设备。
+        // 模糊地点始终作为独立的加分证据，不得混入设备关键词 OR 召回组，避免位置单独命中时返回错误设备。
         if (type == EntityType.DEVICE && hasText(locationHint) && !hasText(areaId)) {
-            keywordShould.addAll(buildLocationTextClauses(locationHint));
-            // 位置拼音也参与首轮排序；后续拼音兜底还会补充设备关键词本身的拼音召回。
-            keywordShould.addAll(buildLocationPinyinClauses(locationHint));
+            locationBoostClauses.addAll(buildLocationTextClauses(locationHint));
+            locationBoostClauses.addAll(buildLocationPinyinClauses(locationHint));
+            // 用户没有提供设备关键词时，位置才是唯一可用的检索目标；此时以位置召回候选。
+            if (!hasText(keyword)) {
+                mustClauses.add(Map.of("bool", Map.of(
+                        "should", locationBoostClauses, "minimum_should_match", 1)));
+            }
         }
         if (!mustClauses.isEmpty()) bool.put("must", mustClauses);
         List<Map<String, Object>> outerShould = new ArrayList<>();
-        if (!hasText(keyword)) outerShould.addAll(keywordShould);
+        outerShould.addAll(locationBoostClauses);
         outerShould.addAll(preferenceClauses);
         if (!outerShould.isEmpty()) bool.put("should", outerShould);
 
@@ -486,7 +491,7 @@ public class EntityCatalogService {
                 ? List.of(Map.of("_score", Map.of("order", "desc")))
                 : List.of(Map.of(nameField + ".raw", Map.of("order", "asc", "unmapped_type", "keyword"))));
 
-        // 第一阶段只执行正常名称/别名/IK/短语检索，不提前混入拼音条件。
+        // 第一阶段执行名称/别名文本检索，并将位置文本及拼音作为独立排序加分；位置不会替代设备关键词。
         JsonNode normalResponse = repository.search(type.getIndexAlias(), query);
         JsonNode response = normalResponse;
         boolean normalStrongMatch = hasStrongTextEvidence(
