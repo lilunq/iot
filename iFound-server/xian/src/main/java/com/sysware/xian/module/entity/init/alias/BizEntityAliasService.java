@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.sysware.xian.module.entity.common.EntityTextNormalizer;
 import com.sysware.xian.module.entity.common.EntityType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BizEntityAliasService {
     private final BizEntityAliasMapper mapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     public List<String> findEnabledDataIds(EntityType type, String normalizedAlias) {
         if (normalizedAlias == null || normalizedAlias.isBlank()) return List.of();
@@ -58,5 +60,8 @@ public class BizEntityAliasService {
             throw new IllegalArgumentException("该实体已存在相同别名");
         }
         mapper.insert(alias);
+        // ES 同步在数据库事务提交后执行，确保监听器读取到已提交的别名记录。
+        eventPublisher.publishEvent(new EntityAliasChangedEvent(
+                EntityType.from(alias.getEntityType()), alias.getDataId()));
     }
 }

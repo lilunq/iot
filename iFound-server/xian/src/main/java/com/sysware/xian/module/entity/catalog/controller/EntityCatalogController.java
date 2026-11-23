@@ -25,6 +25,12 @@ public class EntityCatalogController {
         return catalogService.summary();
     }
 
+    @Operation(summary = "设备目录区域/系统级联选项", description = "返回区域 cascade_cid 层级树和系统 element_key 层级树。")
+    @GetMapping("/filter-options")
+    public Map<String, Object> filterOptions() {
+        return catalogService.filterOptions();
+    }
+
     @Operation(summary = "实体目录分页查询接口", description = "按实体类型分页查询实体目录，支持关键词及设备区域、系统和分类过滤。")
     @GetMapping("/{entityType}")
     public Map<String, Object> list(@PathVariable String entityType,

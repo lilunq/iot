@@ -56,6 +56,24 @@ public class EntityIndexRepository {
         }
     }
 
+    /** 只更新实体文档中的指定字段，避免为了同步别名而覆盖源系统的其它字段。 */
+    public JsonNode updateDocument(String indexAlias, String id, Map<String, Object> partialDocument) {
+        if (partialDocument == null || partialDocument.isEmpty()) {
+            throw new IllegalArgumentException("ES 局部更新内容不能为空");
+        }
+        JsonNode response = entityElasticsearchRestClient.post()
+                .uri("/{index}/_update/{id}", indexAlias, id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("doc", partialDocument))
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("error")) {
+            throw new IllegalStateException("ES 局部更新失败: "
+                    + (response == null ? "empty response" : response.path("error").toString()));
+        }
+        return response;
+    }
+
     /** 使用映射字段的拼音 multi-field 获取 ES 实际分析 token，不在 Java 侧生成拼音。 */
     public JsonNode analyze(String indexAlias, String field, String text) {
         return entityElasticsearchRestClient.post()

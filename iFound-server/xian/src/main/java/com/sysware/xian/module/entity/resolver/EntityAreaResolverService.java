@@ -32,6 +32,14 @@ public class EntityAreaResolverService {
     public Resolution resolve(String prompt, String areaCandidate, String locationHint,
                               boolean explicitAreaConstraint, List<String> asrAlternatives) {
         List<Map<String, Object>> vocabulary = catalogService.vocabulary(EntityType.AREA, 5000);
+
+        // 优先在用户原句中查找最长的标准区域名称/业务别名。
+        // 即使 LLM 把“进站层的空调”整体放入 areaCandidate，也能识别其中的“进站层”。
+        CandidateMatch exactPromptMention = findExactMention(prompt, vocabulary);
+        if (exactPromptMention != null) {
+            return toResolution(exactPromptMention, true, vocabulary.size());
+        }
+
         String candidateText = firstGroundedCandidate(prompt, areaCandidate, locationHint,
                 EntityMentionNormalizer.explicitAreaNameMention(prompt));
 

@@ -21,6 +21,8 @@ public final class EntityAreaNameNormalizer {
     private static final Pattern POSITION_MENTION = Pattern.compile(
             "(?:第?(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3})(?:候车层|站台|站厅|站|台|层|楼|区)"
                     + "|[\\p{IsHan}](?:站台|站厅))");
+    private static final Pattern DIRECTION_MENTION = Pattern.compile(
+            "(?:北侧|南侧|东侧|西侧|北端|南端|东端|西端|中部|中间|中央|内侧|外侧|靠北|靠南|靠东|靠西|上方|下方|左侧|右侧)");
 
     private EntityAreaNameNormalizer() { }
 
@@ -117,9 +119,29 @@ public final class EntityAreaNameNormalizer {
         if (sourceValues == null) return List.of();
         for (String source : sourceValues) {
             if (source == null || source.isBlank()) continue;
-            Matcher matcher = POSITION_MENTION.matcher(source);
-            while (matcher.find()) {
-                variants.addAll(positionPhraseVariants(matcher.group()));
+
+            Matcher positionMatcher = POSITION_MENTION.matcher(source);
+            while (positionMatcher.find()) {
+                String position = positionMatcher.group();
+                variants.addAll(positionPhraseVariants(position));
+
+                // 位置词后紧邻或通过少量连接词跟随方位词时，同时保留组合短语。
+                String tail = source.substring(positionMatcher.end());
+                Matcher directionMatcher = DIRECTION_MENTION.matcher(tail);
+                if (directionMatcher.find() && directionMatcher.start() <= 3) {
+                    String connector = tail.substring(0, directionMatcher.start());
+                    if (connector.matches("(?:的|附近|旁边|周边)?")) {
+                        String direction = directionMatcher.group();
+                        variants.add(direction);
+                        variants.addAll(positionPhraseVariants(position + direction));
+                    }
+                }
+            }
+
+            // 方位词本身也作为低权重线索，支持“北侧的设备”等不带区域名称的提问。
+            Matcher directionMatcher = DIRECTION_MENTION.matcher(source);
+            while (directionMatcher.find()) {
+                variants.add(directionMatcher.group());
             }
         }
         return new ArrayList<>(variants);

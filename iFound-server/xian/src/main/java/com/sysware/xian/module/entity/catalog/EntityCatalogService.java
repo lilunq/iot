@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,6 +40,112 @@ public class EntityCatalogService {
                     "label", label(type), "count", count));
         }
         return Map.of("total", total, "items", items);
+    }
+
+    /** 返回设备目录手动筛选所需的区域、系统级联树。 */
+    public Map<String, Object> filterOptions() {
+        return Map.of(
+                "areas", buildFilterTree(EntityType.AREA),
+                "systems", buildFilterTree(EntityType.SYSTEM));
+    }
+
+    private List<Map<String, Object>> buildFilterTree(EntityType type) {
+        boolean area = type == EntityType.AREA;
+        if (!area && type != EntityType.SYSTEM) {
+            throw new IllegalArgumentException("仅支持区域和系统级联选项");
+        }
+        String idField = area ? "cascade_cid" : "element_key";
+        String nameField = area ? "area_name" : "element_value";
+        List<String> sourceFields = area
+                ? List.of(idField, nameField, "parent_cascade_cid", "sort_no", "aliases")
+                : List.of(idField, nameField, "sort_no", "aliases");
+        Map<String, Object> query = new LinkedHashMap<>();
+        query.put("size", 10000);
+        query.put("track_total_hits", false);
+        query.put("_source", sourceFields);
+        query.put("query", Map.of("term", Map.of("enabled", true)));
+        JsonNode response = repository.search(type.getIndexAlias(), query);
+        JsonNode hits = response == null ? null : response.path("hits").path("hits");
+
+        Map<String, FilterTreeNode> nodes = new LinkedHashMap<>();
+        if (hits != null && hits.isArray()) {
+            for (JsonNode hit : hits) {
+                JsonNode source = hit.path("_source");
+                String id = source.path(idField).asText("").trim();
+                String name = source.path(nameField).asText("").trim();
+                if (id.isBlank() || name.isBlank()) continue;
+                String parentId = area ? source.path("parent_cascade_cid").asText("").trim() : "";
+                int sortNo = source.path("sort_no").asInt(Integer.MAX_VALUE);
+                FilterTreeNode node = new FilterTreeNode(id, name, parentId, sortNo);
+                JsonNode aliasNode = source.path("aliases");
+                if (aliasNode.isArray()) {
+                    aliasNode.forEach(alias -> {
+                        String value = alias.asText("").trim();
+                        if (!value.isBlank()) node.aliases.add(value);
+                    });
+                }
+                nodes.put(id, node);
+            }
+        }
+
+        // 业务别名表作为实时补充，避免级联树等待下一次全量索引同步。
+        Map<String, List<String>> aliasesById = aliasService.listEnabled(type, nodes.keySet()).stream()
+                .collect(Collectors.groupingBy(BizEntityAlias::getDataId,
+                        Collectors.mapping(BizEntityAlias::getAliasName, Collectors.toList())));
+        nodes.forEach((id, node) -> node.aliases.addAll(aliasesById.getOrDefault(id, List.of())));
+        nodes.values().forEach(node -> {
+            if (!area) node.parentId = nearestSystemParent(node.id, nodes.keySet());
+        });
+
+        List<FilterTreeNode> roots = new ArrayList<>();
+        for (FilterTreeNode node : nodes.values()) {
+            FilterTreeNode parent = nodes.get(node.parentId);
+            if (parent == null || parent == node) roots.add(node);
+            else parent.children.add(node);
+        }
+        sortFilterNodes(roots);
+        return roots.stream().map(FilterTreeNode::toMap).toList();
+    }
+
+    private String nearestSystemParent(String key, Set<String> existingKeys) {
+        int separator = key.lastIndexOf('.');
+        while (separator > 0) {
+            String candidate = key.substring(0, separator);
+            if (existingKeys.contains(candidate)) return candidate;
+            separator = candidate.lastIndexOf('.');
+        }
+        return "";
+    }
+
+    private void sortFilterNodes(List<FilterTreeNode> nodes) {
+        nodes.sort(Comparator.comparingInt((FilterTreeNode node) -> node.sortNo)
+                .thenComparing(node -> node.name));
+        for (FilterTreeNode node : nodes) sortFilterNodes(node.children);
+    }
+
+    private static final class FilterTreeNode {
+        private final String id;
+        private final String name;
+        private String parentId;
+        private final int sortNo;
+        private final List<String> aliases = new ArrayList<>();
+        private final List<FilterTreeNode> children = new ArrayList<>();
+
+        private FilterTreeNode(String id, String name, String parentId, int sortNo) {
+            this.id = id;
+            this.name = name;
+            this.parentId = parentId;
+            this.sortNo = sortNo;
+        }
+
+        private Map<String, Object> toMap() {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("id", id);
+            value.put("name", name);
+            value.put("aliases", new ArrayList<>(new LinkedHashSet<>(aliases)));
+            value.put("children", children.stream().map(FilterTreeNode::toMap).toList());
+            return value;
+        }
     }
 
     /**
@@ -232,7 +339,15 @@ public class EntityCatalogService {
         filters.add(Map.of("term", Map.of("enabled", true)));
         if (type == EntityType.DEVICE) {
             if (hasText(areaId)) filters.add(Map.of("prefix", Map.of("subarea_cid", areaId.trim())));
-            if (hasText(systemKey)) filters.add(Map.of("term", Map.of("system_key", systemKey.trim())));
+            if (hasText(systemKey)) {
+                String selectedSystemKey = systemKey.trim();
+                // 选择父级系统时同时包含其子级；叶子节点则只会命中自身。
+                filters.add(Map.of("bool", Map.of(
+                        "should", List.of(
+                                Map.of("term", Map.of("system_key", selectedSystemKey)),
+                                Map.of("prefix", Map.of("system_key", selectedSystemKey + "."))),
+                        "minimum_should_match", 1)));
+            }
             if (hasText(deviceTypeId)) filters.add(Map.of("term", Map.of("device_type_id", deviceTypeId.trim())));
         }
 
@@ -248,7 +363,6 @@ public class EntityCatalogService {
                     "query", preferredDeviceTypeName.trim(), "boost", 3))));
         }
         List<Map<String, Object>> mustClauses = new ArrayList<>();
-        int locationMustIndex = -1;
         if (hasText(keyword)) {
             String q = keyword.trim();
             List<Map<String, Object>> should = keywordShould;
@@ -351,25 +465,24 @@ public class EntityCatalogService {
                     "should", should, "minimum_should_match", 1)));
         }
 
-        // 未确认成正式区域的地点描述仍需在设备自身的位置字段中得到证据。
-        // 第一阶段只做普通文本/短语匹配；如果未命中，第二阶段再将此条件替换为拼音位置匹配。
+        // 未确认的模糊地点只参与相关性评分，不作为必选条件，避免排除位置字段维护不完整的真实设备。
         if (type == EntityType.DEVICE && hasText(locationHint) && !hasText(areaId)) {
-            locationMustIndex = mustClauses.size();
-            mustClauses.add(Map.of("bool", Map.of(
-                    "should", buildLocationTextClauses(locationHint),
-                    "minimum_should_match", 1)));
+            keywordShould.addAll(buildLocationTextClauses(locationHint));
+            // 位置拼音也参与首轮排序；后续拼音兜底还会补充设备关键词本身的拼音召回。
+            keywordShould.addAll(buildLocationPinyinClauses(locationHint));
         }
         if (!mustClauses.isEmpty()) bool.put("must", mustClauses);
-        if (!preferenceClauses.isEmpty()) {
-            bool.put("should", preferenceClauses);
-        }
+        List<Map<String, Object>> outerShould = new ArrayList<>();
+        if (!hasText(keyword)) outerShould.addAll(keywordShould);
+        outerShould.addAll(preferenceClauses);
+        if (!outerShould.isEmpty()) bool.put("should", outerShould);
 
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("from", from);
         query.put("size", pageSize);
         query.put("track_total_hits", true);
         query.put("query", Map.of("bool", bool));
-        query.put("sort", hasText(keyword)
+        query.put("sort", hasText(keyword) || hasText(locationHint)
                 ? List.of(Map.of("_score", Map.of("order", "desc")))
                 : List.of(Map.of(nameField + ".raw", Map.of("order", "asc", "unmapped_type", "keyword"))));
 
@@ -387,11 +500,6 @@ public class EntityCatalogService {
                 && (hasText(keyword) || hasText(locationHint))) {
             addPinyinSupplementClauses(keywordShould, type, keyword, additionalKeywords);
             addPinyinFallbackClauses(keywordShould, type, keyword == null ? "" : keyword.trim(), additionalKeywords);
-            if (locationMustIndex >= 0) {
-                mustClauses.set(locationMustIndex, Map.of("bool", Map.of(
-                        "should", buildLocationPinyinClauses(locationHint),
-                        "minimum_should_match", 1)));
-            }
             JsonNode pinyinResponse = repository.search(type.getIndexAlias(), query);
             if (hasHits(pinyinResponse)) {
                 response = pinyinResponse;
@@ -445,7 +553,7 @@ public class EntityCatalogService {
             result.put("retrievalMessage", "常规名称/别名及拼音全拼检索未命中，已通过 Elasticsearch Fuzzy 单字符容错召回");
         } else if (pinyinFallbackUsed) {
             result.put("retrievalMode", "PINYIN_FALLBACK");
-            result.put("retrievalMessage", "正常文本/短语检索未命中，已通过 Elasticsearch Pinyin Analyzer 全拼召回候选");
+            result.put("retrievalMessage", "正常文本/短语检索证据不足，已通过 Elasticsearch Pinyin Analyzer 全拼、部分音节及拼音前缀召回并按匹配程度排序");
         } else if (hasHits(response)) {
             result.put("retrievalMode", "NORMAL");
             result.put("retrievalMessage", "正常名称、别名、位置文本/短语检索命中，未触发拼音兜底");
@@ -525,16 +633,49 @@ public class EntityCatalogService {
 
     private List<Map<String, Object>> buildLocationPinyinClauses(String locationHint) {
         List<Map<String, Object>> clauses = new ArrayList<>();
-        List<String> fields = List.of("device_name.pinyin", "device_name_variants.pinyin",
-                "device_alias.pinyin", "aliases.pinyin", "location.pinyin", "location_variants.pinyin",
-                "subarea_name.pinyin", "device_position_variants.pinyin");
+        Map<String, Integer> fields = new LinkedHashMap<>();
+        fields.put("device_position_variants.pinyin", 42);
+        fields.put("aliases.pinyin", 36);
+        fields.put("device_name.pinyin", 32);
+        fields.put("device_name_variants.pinyin", 30);
+        fields.put("device_alias.pinyin", 28);
+        fields.put("location.pinyin", 26);
+        fields.put("location_variants.pinyin", 24);
+        fields.put("subarea_name.pinyin", 22);
+
         for (String term : locationQueryVariants(locationHint)) {
-            for (String field : fields) {
-                clauses.add(Map.of("match", Map.of(field, Map.of(
-                        "query", term, "minimum_should_match", "75%", "boost", 40))));
+            String joinedPinyin = joinedPinyinToken(term);
+            for (Map.Entry<String, Integer> field : fields.entrySet()) {
+                // match 默认按 OR 评分：命中的音节越多，相关性得分越高，不要求完整短语全部命中。
+                clauses.add(Map.of("match", Map.of(field.getKey(), Map.of(
+                        "query", term, "operator", "or", "boost", field.getValue()))));
+                // 中文查询分析得到的拼接全拼用于前缀召回；ASCII 拼音片段也能直接走此路径。
+                if (hasText(joinedPinyin) && joinedPinyin.length() >= 2) {
+                    clauses.add(Map.of("prefix", Map.of(field.getKey(), Map.of(
+                            "value", joinedPinyin, "boost", Math.max(4, field.getValue() - 8)))));
+                }
             }
         }
         return clauses;
+    }
+
+    private String joinedPinyinToken(String value) {
+        if (!hasText(value)) return "";
+        String compact = value.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", "");
+        if (compact.matches("[a-z]+")) return compact;
+        try {
+            JsonNode analyzed = repository.analyze(EntityType.DEVICE.getIndexAlias(),
+                    "device_position_variants.pinyin", value);
+            JsonNode tokens = analyzed == null ? null : analyzed.path("tokens");
+            if (tokens == null || !tokens.isArray()) return "";
+            return java.util.stream.StreamSupport.stream(tokens.spliterator(), false)
+                    .map(token -> token.path("token").asText("").toLowerCase(java.util.Locale.ROOT))
+                    .filter(token -> token.matches("[a-z]+"))
+                    .max(Comparator.comparingInt(String::length))
+                    .orElse("");
+        } catch (RuntimeException ignored) {
+            return "";
+        }
     }
 
     /**
@@ -633,7 +774,13 @@ public class EntityCatalogService {
 
     private void addPinyinMatch(List<Map<String, Object>> clauses, String field, String value, int boost) {
         clauses.add(Map.of("match", Map.of(field, Map.of(
-                "query", value, "boost", boost))));
+                "query", value, "operator", "or", "boost", boost))));
+        String compact = value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z]", "");
+        if (compact.length() >= 2 && value.trim().matches("(?i)[a-z\\s]+")) {
+            clauses.add(Map.of("prefix", Map.of(field, Map.of(
+                    "value", compact, "boost", Math.max(1, boost - 3)))));
+        }
     }
 
     private boolean hasHits(JsonNode response) {

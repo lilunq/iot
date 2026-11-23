@@ -64,6 +64,50 @@
               </button>
             </div>
           </div>
+          <div v-if="activeType === 'DEVICE'" class="catalog-filter-panel">
+            <div class="catalog-filter-grid">
+              <div class="cascade-filter">
+                <label>区域范围 <small>按 cascade_id 逐级选择</small></label>
+                <div class="cascade-levels">
+                  <select v-for="(options, index) in areaCascadeOptions" :key="'area-level-' + index"
+                    :value="areaCascadeValues[index] || ''"
+                    @change="selectAreaLevel(index, $event.target.value)">
+                    <option value="">{{ index === 0 ? '全部区域' : '选择下级区域' }}</option>
+                    <option v-for="node in options" :key="node.id" :value="node.id"
+                      :title="(node.aliases || []).join(' / ')">{{ node.name }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="cascade-filter">
+                <label>所属系统 <small>按 element_key 逐级选择</small></label>
+                <div class="cascade-levels">
+                  <select v-for="(options, index) in systemCascadeOptions" :key="'system-level-' + index"
+                    :value="systemCascadeValues[index] || ''"
+                    @change="selectSystemLevel(index, $event.target.value)">
+                    <option value="">{{ index === 0 ? '全部系统' : '选择下级系统' }}</option>
+                    <option v-for="node in options" :key="node.id" :value="node.id"
+                      :title="(node.aliases || []).join(' / ')">{{ node.name }}</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn ghost filter-clear" @click="clearCatalogFilters">清空筛选</button>
+            </div>
+            <div v-if="filterOptionsError" class="filter-options-error">{{ filterOptionsError }}</div>
+            <div class="filter-logic-note">
+              手动选择的区域/系统按真实业务标识筛选；选择父级会包含下级。自然语言中的模糊位置不会强制过滤，只有唯一确认的区域标准名称或业务别名才转为真实区域 ID。
+            </div>
+            <details class="catalog-process">
+              <summary>检索处理流程与注意事项</summary>
+              <div class="catalog-process-grid">
+                <div><strong>01 · 区域识别</strong><span>先在区域标准名称和业务别名中匹配，例如“进站层”可映射到“出发层”；唯一匹配后使用 cascade_id。</span></div>
+                <div><strong>02 · 系统识别</strong><span>从系统标准名称和业务别名识别系统，使用 element_key；未匹配的“空调”等词仍可作为设备关键词。</span></div>
+                <div><strong>03 · 设备召回</strong><span>综合设备名称、设备别名、业务别名、位置和区域词条；先正常文本检索，再使用全拼、部分音节、拼音前缀和 Fuzzy。</span></div>
+                <div><strong>04 · 相关性排序</strong><span>完整拼音和多个音节命中获得更高相关性；模糊位置作为加分线索，不会因为位置字段不完整而排除设备。</span></div>
+                <div><strong>05 · 别名同步</strong><span>新增业务别名后，事务提交会触发该实体的 ES 增量更新；设备别名还会自动重新提取位置词条，无需手工添加拼音。</span></div>
+                <div><strong>注意</strong><span>未匹配或存在多个候选的模糊地点不会擅自选择区域。需要严格限定范围时，请使用上方区域级联筛选。</span></div>
+              </div>
+            </details>
+          </div>
           <div v-if="catalogError" class="inline-error">{{ catalogError }}</div>
           <div class="table-wrap">
             <table>
@@ -154,7 +198,7 @@
               <div><small>意图说明</small><strong>{{ assistantResult.parsed.intent }}</strong></div>
             </div>
             <div class="search-strategy-note">
-              明确指定的区域、系统：确认后执行范围过滤；设备分类：仅用于相关性加权；设备名称：同时匹配原始关键词和名称主体。未配置分类的设备不会因此被排除。
+              唯一匹配的区域标准名称/业务别名会解析为真实 cascade_id；唯一匹配的系统名称/别名会解析为 element_key。未确认的模糊位置只参与相关性排序，不作为必选过滤。设备名称、业务别名和系统条件共同召回，设备分类只用于加权。
             </div>
             <div v-if="assistantResult.status === 'NEEDS_CLARIFICATION'" class="filter-warning">
               {{ assistantResult.clarificationMessage || '区域或系统条件存在歧义或未找到，已暂停 ES 检索。设备分类不会作为必选过滤条件。' }}
@@ -225,7 +269,7 @@
     <section v-if="activeTab === 'operations'" class="workspace">
       <div class="section-title">
         <div><span class="section-kicker">03 / OPERATIONS</span><h3>数据同步与别名维护</h3></div>
-        <span class="section-note">保留现有管理能力 · 手动触发 · 幂等写入</span>
+        <span class="section-note">源数据手动同步 · 业务别名自动增量同步</span>
       </div>
       <div class="operations-grid">
         <div class="panel2">
@@ -237,9 +281,10 @@
           </div>
           <div v-if="syncMessage" class="sync-message" :class="{ error: syncError }">{{ syncMessage }}</div>
           <p class="footnote">区域稳定 ID 为 cascade_cid，系统为 element_key，分类/设备/摄像头为 id。设备分类按 cascade_id 映射；摄像头不做区域过滤。普通同步不自动删除源系统已不存在的记录。</p>
+          <p class="footnote">新增业务别名后，数据库事务提交会触发对应 ES 文档增量更新；设备别名会重新生成 device_position_variants。若实体尚未进入索引，后续源数据同步会写入最新别名。</p>
         </div>
         <div class="panel2">
-          <div class="panel2-head"><div><h3>业务别名维护</h3><p>为实体添加常用简称，别名精确回查实体稳定 ID。</p></div></div>
+          <div class="panel2-head"><div><h3>业务别名维护</h3><p>为实体添加常用简称；保存后自动触发 ES 单实体增量更新，不需要全量同步。</p></div></div>
           <div class="alias-form">
             <label>实体类型<select v-model="aliasForm.entityType"><option v-for="item in summaryItems" :key="item.entityType" :value="item.entityType">{{ item.label }}</option></select></label>
             <label>稳定业务标识<input v-model.trim="aliasForm.dataId" placeholder="输入 cascade_cid / element_key / id" /></label>
@@ -273,6 +318,7 @@ const quickPrompts = [
   '候车大厅摄像头',
   '地下层冷冻机房排风机',
   '候车层照明设备',
+  '进站层的空调',
   '候车大斤1号空调',
   '地下层冷栋机房排风机'
 ]
@@ -290,6 +336,15 @@ const catalogPage = ref(1)
 const catalogPages = ref(0)
 const loadingCatalog = ref(false)
 const catalogError = ref('')
+const areaTree = ref([])
+const systemTree = ref([])
+const filterOptionsError = ref('')
+const areaCascadeValues = ref([])
+const systemCascadeValues = ref([])
+const areaCascadeOptions = computed(() => cascadeOptions(areaTree.value, areaCascadeValues.value))
+const systemCascadeOptions = computed(() => cascadeOptions(systemTree.value, systemCascadeValues.value))
+const selectedAreaId = computed(() => lastCascadeValue(areaCascadeValues.value))
+const selectedSystemKey = computed(() => lastCascadeValue(systemCascadeValues.value))
 const selectedDetail = ref(null)
 const detailLoading = ref(false)
 const detailAliasName = ref('')
@@ -330,6 +385,46 @@ function displayValue(value) {
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
+function cascadeOptions(tree, path) {
+  const levels = [tree || []]
+  let current = tree || []
+  for (const id of path || []) {
+    const selected = current.find(node => node.id === id)
+    if (!selected || !selected.children?.length) break
+    current = selected.children
+    levels.push(current)
+  }
+  return levels
+}
+function lastCascadeValue(path) {
+  const values = (path || []).filter(Boolean)
+  return values.length ? values[values.length - 1] : ''
+}
+function updateCascadePath(pathRef, level, value) {
+  const next = pathRef.value.slice(0, level)
+  if (value) next[level] = value
+  pathRef.value = next
+}
+function selectAreaLevel(level, value) {
+  updateCascadePath(areaCascadeValues, level, value)
+}
+function selectSystemLevel(level, value) {
+  updateCascadePath(systemCascadeValues, level, value)
+}
+async function clearCatalogFilters() {
+  areaCascadeValues.value = []
+  systemCascadeValues.value = []
+}
+async function loadFilterOptions() {
+  filterOptionsError.value = ''
+  try {
+    const response = await aiRequest.get('/entity-center/catalog/filter-options')
+    areaTree.value = response.areas || []
+    systemTree.value = response.systems || []
+  } catch (error) {
+    filterOptionsError.value = error?.response?.data?.message || error.message || '区域/系统级联选项加载失败'
+  }
+}
 async function loadSummary() {
   loadingSummary.value = true
   try {
@@ -352,9 +447,12 @@ async function loadCatalog(page = 1) {
   loadingCatalog.value = true
   catalogError.value = ''
   try {
-    const response = await aiRequest.get('/entity-center/catalog/' + activeType.value, {
-      params: { keyword: catalogKeyword.value || undefined, page, size: 20 }
-    })
+    const params = { keyword: catalogKeyword.value || undefined, page, size: 20 }
+    if (activeType.value === 'DEVICE') {
+      if (selectedAreaId.value) params.areaId = selectedAreaId.value
+      if (selectedSystemKey.value) params.systemKey = selectedSystemKey.value
+    }
+    const response = await aiRequest.get('/entity-center/catalog/' + activeType.value, { params })
     catalogRows.value = response.records || []
     catalogTotal.value = response.total || 0
     catalogPage.value = response.page || page
@@ -422,7 +520,7 @@ async function addDetailAlias(current = selectedDetail.value, context = 'catalog
       source: 'MANUAL'
     })
     detailAliasName.value = ''
-    detailAliasMessage.value = '别名添加成功'
+    detailAliasMessage.value = '别名已保存，系统已触发 ES 单实体增量更新；若实体尚未入索引，将在下次源数据同步时写入。'
     if (context === 'assistant') {
       await loadAssistantDetail({ entityType: current.entityType, entityId: current.entityId })
     } else {
@@ -491,7 +589,7 @@ async function saveAlias() {
   savingAlias.value = true
   try {
     await aiRequest.post('/entity-center/aliases', { ...aliasForm, enabled: 1, source: 'MANUAL' })
-    syncMessage.value = '别名保存成功'
+    syncMessage.value = '别名已保存，系统已触发 ES 单实体增量更新；设备别名会自动重新提取位置词条。'
     syncError.value = false
     aliasForm.aliasName = ''
     if (lookupDataId.value === aliasForm.dataId) await loadAliases()
@@ -517,9 +615,12 @@ async function loadAliases() {
     syncMessage.value = error?.response?.data?.message || error.message || '别名查询失败'
   } finally { loadingAliases.value = false }
 }
+watch([selectedAreaId, selectedSystemKey], () => {
+  if (activeType.value === 'DEVICE') loadCatalog(1)
+})
 watch(activeType, type => { aliasForm.entityType = type })
 onMounted(async () => {
-  await loadSummary()
+  await Promise.all([loadSummary(), loadFilterOptions()])
   await loadCatalog(1)
 })
 </script>
@@ -562,6 +663,22 @@ onMounted(async () => {
 .type-tabs { display:flex; flex-wrap:wrap; gap:6px; }
 .type-tabs button { color:rgba(224,239,255,.62); background:rgba(255,255,255,.035); border:1px solid rgba(140,190,228,.13); border-radius:6px; padding:7px 11px; font-size:10px; }
 .type-tabs button.selected { color:#8cddff; border-color:rgba(69,190,244,.48); background:rgba(48,161,216,.1); }
+.catalog-filter-panel { margin-top:12px; padding:12px; border:1px solid rgba(69,190,244,.14); border-radius:9px; background:rgba(1,17,39,.28); }
+.catalog-filter-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:12px; align-items:end; }
+.cascade-filter { min-width:0; display:flex; flex-direction:column; gap:7px; }
+.cascade-filter>label { color:rgba(225,239,255,.7); font-size:10px; font-weight:700; }
+.cascade-filter>label small { color:rgba(225,239,255,.35); font-weight:400; margin-left:6px; }
+.cascade-levels { display:flex; flex-wrap:wrap; gap:6px; }
+.cascade-levels select { flex:1 1 125px; min-width:110px; max-width:100%; }
+.filter-clear { min-height:34px; }
+.filter-options-error { margin-top:8px; color:#ffabab; font-size:10px; }
+.filter-logic-note { margin-top:9px; color:rgba(197,226,248,.62); font-size:9px; line-height:1.6; }
+.catalog-process { margin-top:8px; border-top:1px solid rgba(142,190,228,.1); padding-top:8px; color:rgba(225,239,255,.62); font-size:10px; }
+.catalog-process summary { color:#8ed9fa; cursor:pointer; user-select:none; }
+.catalog-process-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:10px; }
+.catalog-process-grid>div { display:flex; flex-direction:column; gap:4px; padding:8px; border:1px solid rgba(142,190,228,.1); border-radius:7px; background:rgba(255,255,255,.02); }
+.catalog-process-grid strong { color:#bce8ff; font-size:9px; }
+.catalog-process-grid span { color:rgba(225,239,255,.48); font-size:9px; line-height:1.6; }
 .search-line,.alias-query { display:flex; gap:8px; }
 input,textarea,select { box-sizing:border-box; width:100%; color:#eaf3ff; background:rgba(1,17,39,.66); border:1px solid rgba(142,190,228,.2); border-radius:7px; padding:9px 11px; font-size:11px; outline:none; }
 input:focus,textarea:focus,select:focus { border-color:rgba(69,190,244,.72); box-shadow:0 0 0 2px rgba(69,190,244,.1); }
@@ -650,5 +767,5 @@ td code,.detail-id,.field-row code { color:#9bc8e9; font-size:9px; overflow-wrap
 .operations-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; }.sync-actions { display:flex; flex-wrap:wrap; gap:7px; }.sync-message { margin-top:11px; padding:9px 11px; border-radius:7px; color:#83e0bb; background:rgba(36,167,119,.1); font-size:10px; }.sync-message.error { color:#ffabab; background:rgba(220,70,70,.08); }
 .footnote { color:rgba(225,239,255,.36); font-size:9px; line-height:1.6; margin:12px 0 0; }.alias-form { display:grid; grid-template-columns:1fr 1fr; gap:10px; }.alias-form label { display:flex; flex-direction:column; gap:6px; color:rgba(225,239,255,.56); font-size:10px; }.action-line { margin-top:11px; }.alias-query { margin-top:12px; }.alias-query input { flex:1; min-width:0; }.chips { margin-top:8px; }
 @media(max-width:1350px) { .summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }.catalog-grid { grid-template-columns:1fr; }.catalog-grid.expanded { grid-template-columns:1fr; }.assistant-result-layout { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }.assistant-result-layout > .assistant-result { grid-column:1 / -1; }.assistant-candidate-detail-grid { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:9px; } }
-@media(max-width:800px) { .page-header,.section-title { flex-direction:column; align-items:flex-start; }.summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.workspace-tabs { grid-template-columns:1fr; }.assistant-columns,.assistant-result-layout,.assistant-candidate-detail-grid,.operations-grid { grid-template-columns:1fr; }.assistant-result-layout > .assistant-result { grid-column:auto; }.assistant-candidate-detail-grid { display:grid; }.prompt-row { grid-template-columns:1fr; }.assistant-submit { min-height:38px; }.section-note { text-align:left; }.pagination { align-items:flex-start; flex-direction:column; } }
+@media(max-width:800px) { .page-header,.section-title { flex-direction:column; align-items:flex-start; }.summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.workspace-tabs { grid-template-columns:1fr; }.assistant-columns,.assistant-result-layout,.assistant-candidate-detail-grid,.operations-grid { grid-template-columns:1fr; }.assistant-result-layout > .assistant-result { grid-column:auto; }.assistant-candidate-detail-grid { display:grid; }.prompt-row { grid-template-columns:1fr; }.assistant-submit { min-height:38px; }.section-note { text-align:left; }.pagination { align-items:flex-start; flex-direction:column; }.catalog-filter-grid { grid-template-columns:1fr; }.catalog-process-grid { grid-template-columns:1fr; }.filter-clear { justify-self:start; } }
 </style>

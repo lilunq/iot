@@ -70,14 +70,14 @@ public class EntityAssistantService {
                 对设备查询，提取目标设备关键词 keyword、可能的区域候选 areaCandidate、原始位置线索 locationHint，以及所属系统 systemName。
                 areaCandidate 和 locationHint 只代表用户提到的地点候选，不代表已经确认是真实区域；不得生成或猜测区域 ID，也不要擅自把同音字改成标准区域名称。
                 对“5站台的设备”“武站台的空调”“候车大厅1号空调”“指挥中心的空调”等表达，尽量提取地点原词作为 areaCandidate 和 locationHint；是否属于正式区域由后端真实区域词典、业务别名和拼音分析核验。
-                即使没有“区域内”“区域范围内”等字样，也可以提出区域候选，但不能自行决定它是硬过滤条件。地点不在区域词典中时，后端会把 locationHint 作为设备名称、安装位置或所属区域文本检索线索。
+                即使没有“区域内”“区域范围内”等字样，也可以提出区域候选，但不能自行决定它是硬过滤条件。地点不在区域词典中时，后端会把 locationHint 作为设备名称、安装位置或所属区域的软相关性线索，不得将其设为必选过滤。
                 对摄像头查询，keyword 应提取摄像头实际名称、编号、别名或用户描述的房间/地点词，不要只返回“摄像头”这类实体类型词。
                 下面提供的是当前系统中真实存在的完整系统名称/别名词典。
                 systemName 在用户表达与词典完全匹配时，必须从该词典中选择；若明显存在一个字的错别字且没有完全匹配项，可保留用户原文中的近似词，交由后端词典容错和 Elasticsearch Fuzzy 二次确认，不能自行改成稳定 ID。
                 用户原文出现词典中的系统名称/别名时，应识别为所属系统，即使用户没有说“系统”两个字。
                 区域候选由后端独立核验：标准名称、业务别名、数字表达归一化和 Elasticsearch Pinyin Analyzer 均可用于找到候选；只有唯一高置信度真实区域才应用为设备硬过滤。
                 用户原文可能来自语音识别，也可能是键盘输入的同音字、拼音误字或中文数字/阿拉伯数字差异。保留原始地点表达，不能在 LLM 阶段直接纠正。
-                “5站台的设备”“武站台的设备”“候车大厅1号空调”都可以提取 areaCandidate 和 locationHint；如果候选不属于真实区域词典，后端不会硬过滤，而会继续按设备位置字段检索。
+                “5站台的设备”“武站台的设备”“候车大厅1号空调”都可以提取 areaCandidate 和 locationHint；如果候选不属于真实区域词典，后端不会硬过滤，而会将其作为设备位置、别名和拼音检索的加分线索。
                 例如用户说“候车大厅1号空调”，若“候车大厅”属于真实区域，后端会自动确认真实区域 ID；“空调”若匹配真实系统词典，也会作为系统条件。
                 不要因为“空调”同时出现在设备名称中，就漏掉它对应的已知系统；系统字段的最终确认由后端词典匹配完成。
                 区域、系统必须以用户原文或明确别名为依据，不得从上下文臆造。
@@ -236,7 +236,7 @@ public class EntityAssistantService {
             }
 
             // 语音区域无法确认且没有具体设备词时，禁止退化成“全站所有设备”泛查询。
-            // 具体位置短语默认作为完整设备名称检索，避免将“指挥中心”等名称片段误作区域硬过滤。
+            // 模糊位置短语作为相关性线索，避免因为设备区域字段缺失或表达不一致而排除真实设备。
             if (!hasText(areaId) && hasText(fullDevicePhrase)) {
                 keyword = fullDevicePhrase;
             }
@@ -267,7 +267,7 @@ public class EntityAssistantService {
         List<String> keywordVariants;
         if (type == EntityType.DEVICE) {
             keywordVariants = buildKeywordVariants(prompt, keyword, areaMatch, areaMention, systemName);
-            // 具体设备关键词与位置线索分开：位置通过 locationHint 的独立必选条件匹配，
+            // 具体设备关键词与位置线索分开：位置通过 locationHint 独立加权，
             // 不把“5站台/武站台”混入“空调”等设备关键词的 OR 条件，避免位置单独命中就召回整站设备。
             if (EntityAreaNameNormalizer.isLocationOnlyDescription(keyword)) {
                 Set<String> variants = new LinkedHashSet<>(keywordVariants);
@@ -327,11 +327,11 @@ public class EntityAssistantService {
                 "systemFuzzyMatched", hasText(systemKey) && systemMatch != null && systemMatch.fuzzy()));
         result.put("searchPolicy", Map.of(
                 "areaAndSystem", "区域候选先由后端区域实体服务校验标准名称、业务别名、数字归一化和唯一拼音；只有唯一高置信度实体 ID 才应用硬过滤",
-                "areaInterpretation", "未匹配为正式区域的地点保留为 locationHint，要求设备名称、location、subarea_name 或独立位置字段提供文本/拼音证据",
+                "areaInterpretation", "未匹配为正式区域的地点保留为 locationHint，作为设备名称、别名、location、subarea_name 和独立位置字段的软相关性线索",
                 "deviceType", "分类名称仅参与相关性加权，不作为必选过滤；未配置分类的设备仍可召回",
                 "deviceName", "保留主关键词，并使用剥离区域后的口语关键词、编号变体和已确认系统词补充召回，最后由 LLM 对 ES 候选重排",
                 "cameraSearch", "摄像头不使用区域硬过滤；用户表达的房间/地点词作为摄像头名称、地址或别名关键词",
-                "typoTolerance", "设备正常文本/短语检索先执行；无位置文本命中时再以名称、别名、安装位置、所属区域、系统和分类的拼音字段兜底；拼音仍未命中再执行 Fuzzy"));
+                "typoTolerance", "设备正常文本/短语检索先执行；地点不作为默认硬约束；拼音支持全拼、音节和前缀匹配，按命中证据强弱评分；拼音仍未命中再执行 Fuzzy"));
         result.put("status", filterNeedsClarification ? "NEEDS_CLARIFICATION" : "SEARCHED");
         Map<String, Object> searchResult;
         if (filterNeedsClarification) {

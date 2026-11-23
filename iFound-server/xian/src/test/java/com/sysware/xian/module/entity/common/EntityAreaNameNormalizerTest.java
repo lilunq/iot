@@ -3,6 +3,7 @@ package com.sysware.xian.module.entity.common;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EntityAreaNameNormalizerTest {
     @Test
@@ -49,6 +50,14 @@ class EntityAreaNameNormalizerTest {
                 EntityAreaNameNormalizer.extractPositionVariants("西站台设备", ""));
         assertEquals(java.util.List.of(),
                 EntityAreaNameNormalizer.extractPositionVariants("地下层排风机", ""));
+    }
+
+    @Test
+    void extractsPositionAndDirectionFromBusinessAlias() {
+        var variants = EntityAreaNameNormalizer.extractPositionVariants("吾站台北侧球机");
+        assertTrue(variants.contains("吾站台"));
+        assertTrue(variants.contains("北侧"));
+        assertTrue(variants.contains("吾站台北侧"));
     }
 
     @Test

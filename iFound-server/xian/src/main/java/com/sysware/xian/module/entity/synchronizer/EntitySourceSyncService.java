@@ -332,10 +332,36 @@ public class EntitySourceSyncService {
                 BizEntityAlias::getDataId,
                 Collectors.mapping(BizEntityAlias::getAliasName, Collectors.toList())));
         documents.forEach((id, doc) -> {
-            List<String> names = aliasesById.get(id);
-            if (names != null && !names.isEmpty()) doc.put("aliases", names);
+            List<String> names = aliasesById.getOrDefault(id, List.of());
+            doc.put("aliases", names);
+            if (type == EntityType.DEVICE) {
+                List<String> positionSources = new ArrayList<>();
+                addPositionSource(positionSources, doc.get("device_name"));
+                addPositionSource(positionSources, doc.get("device_alias"));
+                addPositionSource(positionSources, doc.get("location"));
+                addPositionSource(positionSources, doc.get("subarea_name"));
+                names.forEach(name -> addPositionSource(positionSources, name));
+                Object oldVariants = doc.get("device_position_variants");
+                if (oldVariants instanceof List<?> values) {
+                    values.forEach(value -> addPositionSource(positionSources, value));
+                }
+                Set<String> positionVariants = new LinkedHashSet<>(
+                        EntityAreaNameNormalizer.extractPositionVariants(
+                                positionSources.toArray(new String[0])));
+                doc.put("device_position_variants", new ArrayList<>(positionVariants));
+            }
         });
         return indexRepository.bulkIndex(type.getIndexAlias(), documents);
+    }
+
+    private void addPositionSource(List<String> target, Object value) {
+        if (value == null) return;
+        if (value instanceof Iterable<?> values) {
+            values.forEach(item -> addPositionSource(target, item));
+            return;
+        }
+        String text = value.toString().trim();
+        if (!text.isBlank()) target.add(text);
     }
 
     private void assertSuccess(AjaxResultVO response, String sourceName) {

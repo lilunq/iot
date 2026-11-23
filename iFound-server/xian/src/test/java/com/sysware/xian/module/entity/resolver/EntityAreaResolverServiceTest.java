@@ -34,7 +34,9 @@ class EntityAreaResolverServiceTest {
                 Map.of("id", "area-5", "name", "5站台",
                         "aliases", List.of("五站台", "第五站台")),
                 Map.of("id", "area-hall", "name", "候车大厅",
-                        "aliases", List.of("候车厅"))
+                        "aliases", List.of("候车厅")),
+                Map.of("id", "area-departure", "name", "出发层",
+                        "aliases", List.of("进站层"))
         );
         when(catalogService.vocabulary(EntityType.AREA, 5000)).thenReturn(areas);
     }
@@ -59,6 +61,18 @@ class EntityAreaResolverServiceTest {
         assertEquals("FOUND", result.status());
         assertEquals("area-5", result.id());
         assertEquals("EXACT_ALIAS", result.matchMethod());
+    }
+
+    @Test
+    void resolvesAreaAliasEmbeddedInOriginalPromptEvenWhenCandidateContainsDeviceKeyword() {
+        EntityAreaResolverService.Resolution result = areaResolverService.resolve(
+                "查询进站层的空调", "进站层的空调", "进站层", false, List.of());
+
+        assertEquals("FOUND", result.status());
+        assertEquals("area-departure", result.id());
+        assertEquals("出发层", result.name());
+        assertEquals("EXACT_ALIAS", result.matchMethod());
+        assertEquals("进站层", result.matchedText());
     }
 
     @Test
