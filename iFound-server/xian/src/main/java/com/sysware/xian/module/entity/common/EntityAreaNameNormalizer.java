@@ -140,6 +140,20 @@ public final class EntityAreaNameNormalizer {
     }
 
     /**
+     * 判断位置短语是否属于需要拼音核验的单字同音表达。
+     * 阿拉伯数字和规范中文数字（5站台/五站台/第五站台）应走普通文本检索；
+     * “武站台/吾站台”等非数字单字表达才要求独立位置字段进行拼音核验。
+     */
+    public static boolean requiresHomophonePositionVerification(String value) {
+        if (value == null || value.isBlank()) return false;
+        String normalized = EntityTextNormalizer.normalize(value)
+                .replaceAll("[\\s，,。！？!?；;：:、]+", "");
+        String candidate = normalized.startsWith("第") ? normalized.substring(1) : normalized;
+        if (!candidate.matches("[\\p{IsHan}]站台")) return false;
+        return "零〇一二三四五六七八九十".indexOf(candidate.charAt(0)) < 0;
+    }
+
+    /**
      * 位置短语单独出现时，不应让 LLM 返回的“站台/设备”等泛词覆盖它。
      * 允许同音字开头，例如“武站台”“吾站台”。
      */

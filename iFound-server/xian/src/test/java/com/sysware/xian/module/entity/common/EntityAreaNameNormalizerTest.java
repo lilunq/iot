@@ -64,6 +64,18 @@ class EntityAreaNameNormalizerTest {
     }
 
     @Test
+    void requiresPinyinVerificationOnlyForNonNumericHomophoneStationWords() {
+        assertEquals(true, EntityAreaNameNormalizer.requiresHomophonePositionVerification("武站台"));
+        assertEquals(true, EntityAreaNameNormalizer.requiresHomophonePositionVerification("吾站台"));
+        assertEquals(true, EntityAreaNameNormalizer.requiresHomophonePositionVerification("第武站台"));
+        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("5站台"));
+        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("五站台"));
+        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("第五站台"));
+        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("第5站台"));
+        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("站台"));
+    }
+
+    @Test
     void keepsHomophoneInputForElasticsearchPinyinVerification() {
         assertEquals(java.util.List.of("武站台"),
                 EntityAreaNameNormalizer.positionPhraseVariants("武站台"));

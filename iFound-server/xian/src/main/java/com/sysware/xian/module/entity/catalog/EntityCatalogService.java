@@ -231,6 +231,7 @@ public class EntityCatalogService {
         List<Map<String, Object>> keywordShould = new ArrayList<>();
         List<Map<String, Object>> preferenceClauses = new ArrayList<>();
         boolean positionPinyinRequired = false;
+        boolean positionTextRequired = false;
         if (type == EntityType.DEVICE && hasText(preferredDeviceTypeName)) {
             // 放在外层 should 中，仅对已由关键词命中的结果加分，不允许分类偏好单独召回设备。
             preferenceClauses.add(Map.of("match_phrase", Map.of("device_type_name", Map.of(
@@ -329,25 +330,53 @@ public class EntityCatalogService {
             mustClauses.add(Map.of("bool", Map.of(
                     "should", should, "minimum_should_match", 1)));
 
-            // 对“武站台/吾站台/五站台的设备”这类单独的位置条件，
-            // 要求候选设备的独立位置字段通过 Pinyin Analyzer 命中。
-            // 这样不会把只包含公共词“站台”的无关设备返回给用户。
+            // 规范数字位置（5站台/五站台/第五站台）必须命中设备名称或位置字段中的完整位置短语，
+            // 不依赖 Pinyin 子字段是否已回填；“武站台/吾站台”等疑似同音误识别才走拼音硬核验。
             if (type == EntityType.DEVICE) {
-                Set<String> positionQueries = new LinkedHashSet<>();
+                Set<String> textPositionQueries = new LinkedHashSet<>();
+                Set<String> pinyinPositionQueries = new LinkedHashSet<>();
                 if (EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(q)) {
-                    positionQueries.addAll(EntityAreaNameNormalizer.positionPhraseVariants(q));
+                    Set<String> variants = new LinkedHashSet<>(
+                            EntityAreaNameNormalizer.positionPhraseVariants(q));
+                    if (EntityAreaNameNormalizer.requiresHomophonePositionVerification(q)) {
+                        pinyinPositionQueries.addAll(variants);
+                    } else {
+                        textPositionQueries.addAll(variants);
+                    }
                 }
                 if (additionalKeywords != null) {
                     for (String alternative : additionalKeywords) {
-                        if (EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(alternative)) {
-                            positionQueries.addAll(EntityAreaNameNormalizer.positionPhraseVariants(alternative));
+                        if (!EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase(alternative)) continue;
+                        Set<String> variants = new LinkedHashSet<>(
+                                EntityAreaNameNormalizer.positionPhraseVariants(alternative));
+                        if (EntityAreaNameNormalizer.requiresHomophonePositionVerification(alternative)) {
+                            pinyinPositionQueries.addAll(variants);
+                        } else {
+                            textPositionQueries.addAll(variants);
                         }
                     }
                 }
-                if (!positionQueries.isEmpty()) {
+
+                if (!textPositionQueries.isEmpty()) {
+                    positionTextRequired = true;
+                    List<Map<String, Object>> positionShould = new ArrayList<>();
+                    List<String> positionFields = List.of(nameField, "location", "subarea_name",
+                            "device_position_variants", "device_name_variants", "location_variants",
+                            "aliases", "device_alias");
+                    for (String positionQuery : textPositionQueries) {
+                        for (String positionField : positionFields) {
+                            positionShould.add(Map.of("match_phrase", Map.of(
+                                    positionField, Map.of("query", positionQuery, "boost", 45))));
+                        }
+                    }
+                    mustClauses.add(Map.of("bool", Map.of(
+                            "should", positionShould, "minimum_should_match", 1)));
+                }
+
+                if (!pinyinPositionQueries.isEmpty()) {
                     positionPinyinRequired = true;
                     List<Map<String, Object>> positionShould = new ArrayList<>();
-                    for (String positionQuery : positionQueries) {
+                    for (String positionQuery : pinyinPositionQueries) {
                         positionShould.add(Map.of("match_phrase", Map.of(
                                 "device_position_variants.pinyin", Map.of(
                                         "query", positionQuery, "boost", 60))));
@@ -430,6 +459,12 @@ public class EntityCatalogService {
         } else if (positionPinyinRequired) {
             result.put("retrievalMode", "POSITION_PINYIN_NO_MATCH");
             result.put("retrievalMessage", "未找到与该位置描述全拼一致的设备；已过滤仅命中公共词“站台”的低相关度候选");
+        } else if (positionTextRequired && hasHits(response)) {
+            result.put("retrievalMode", "POSITION_TEXT");
+            result.put("retrievalMessage", "已按规范位置短语匹配设备名称或位置字段");
+        } else if (positionTextRequired) {
+            result.put("retrievalMode", "POSITION_TEXT_NO_MATCH");
+            result.put("retrievalMessage", "未找到设备名称或位置字段中包含该规范位置短语的设备");
         } else if (fuzzyFallbackUsed) {
             result.put("retrievalMode", "FUZZY_FALLBACK");
             result.put("retrievalMessage", "常规名称/别名及拼音全拼检索未命中，已通过 Elasticsearch Fuzzy 单字符容错召回");
