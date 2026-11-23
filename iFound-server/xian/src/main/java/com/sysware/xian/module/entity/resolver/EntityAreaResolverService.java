@@ -191,8 +191,13 @@ public class EntityAreaResolverService {
 
     private String firstGroundedCandidate(String prompt, String areaCandidate,
                                           String locationHint, String explicitMention) {
-        for (String candidate : List.of(
-                safe(areaCandidate), safe(locationHint), safe(explicitMention))) {
+        // 明确的“区域内/范围内”表达优先使用规则抽取出的区域纯名称，
+        // 避免 LLM 将“区域内”等约束词一并包含进 areaCandidate。
+        List<String> orderedCandidates = new ArrayList<>();
+        if (hasText(explicitMention)) orderedCandidates.add(explicitMention.trim());
+        if (hasText(areaCandidate)) orderedCandidates.add(areaCandidate.trim());
+        if (hasText(locationHint)) orderedCandidates.add(locationHint.trim());
+        for (String candidate : orderedCandidates) {
             if (!hasText(candidate)) continue;
             String normalizedPrompt = EntityTextNormalizer.normalize(prompt);
             String normalizedCandidate = EntityTextNormalizer.normalize(candidate);

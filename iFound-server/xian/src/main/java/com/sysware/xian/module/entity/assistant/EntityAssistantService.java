@@ -240,11 +240,11 @@ public class EntityAssistantService {
             if (!hasText(areaId) && hasText(fullDevicePhrase)) {
                 keyword = fullDevicePhrase;
             }
-            if (!hasText(keyword) && hasText(locationMention)) {
+            if (!hasText(areaId) && !hasText(keyword) && hasText(locationMention)) {
                 keyword = locationMention;
             }
-            // 若 LLM 只提取出“站台”等公共词，以原句中的完整位置短语覆盖，避免退化成泛搜索。
-            if (hasText(locationMention)
+            // 未确认成正式区域的纯位置描述才作为设备关键词；已确认区域的泛设备请求直接按区域列举。
+            if (!hasText(areaId) && hasText(locationMention)
                     && EntityAreaNameNormalizer.isLocationOnlyDescription(locationMention)
                     && (!hasText(keyword) || isGenericDeviceKeyword(keyword)
                     || EntityAreaNameNormalizer.isLocationOnlyDescription(keyword))) {
