@@ -130,27 +130,13 @@ public final class EntityAreaNameNormalizer {
     }
 
     /**
-     * 单字同音误识别的编号站台表达，例如武站台、吾站台、五站台。
-     * 必须再由 ES Pinyin Analyzer 对照索引中的真实位置词条核验，不能仅凭字符形态纠错。
+     * 判断输入是否为站台位置短语形态，用于生成位置表达变体。
+     * 该方法只识别词形，不判断是否为语音误识别；拼音纠错统一由后续检索阶段完成。
      */
-    public static boolean isHomophoneNumberedPositionPhrase(String value) {
+    public static boolean isStationPositionPhrase(String value) {
         if (value == null || value.isBlank()) return false;
         String normalized = EntityTextNormalizer.normalize(value).replaceAll("[\\s，,。！？!?；;：:、]+", "");
         return normalized.matches("^第?(?:[0-9]{1,2}|[零〇一二三四五六七八九十]{1,3}|[\\p{IsHan}])站台$");
-    }
-
-    /**
-     * 判断位置短语是否属于需要拼音核验的单字同音表达。
-     * 阿拉伯数字和规范中文数字（5站台/五站台/第五站台）应走普通文本检索；
-     * “武站台/吾站台”等非数字单字表达才要求独立位置字段进行拼音核验。
-     */
-    public static boolean requiresHomophonePositionVerification(String value) {
-        if (value == null || value.isBlank()) return false;
-        String normalized = EntityTextNormalizer.normalize(value)
-                .replaceAll("[\\s，,。！？!?；;：:、]+", "");
-        String candidate = normalized.startsWith("第") ? normalized.substring(1) : normalized;
-        if (!candidate.matches("[\\p{IsHan}]站台")) return false;
-        return "零〇一二三四五六七八九十".indexOf(candidate.charAt(0)) < 0;
     }
 
     /**

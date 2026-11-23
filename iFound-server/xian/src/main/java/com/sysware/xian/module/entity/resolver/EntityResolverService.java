@@ -165,12 +165,18 @@ public class EntityResolverService {
                 match(should, "device_name", query, 12);
                 match(should, "device_alias", query, 11);
                 match(should, "location", query, 8);
+                match(should, "subarea_name", query, 9);
+                match(should, "system_name", query, 7);
+                match(should, "device_type_name", query, 6);
                 match(should, "device_name_variants", query, 8);
                 match(should, "location_variants", query, 7);
                 match(should, "aliases", query, 10);
                 pinyin(should, "device_name", query, 6);
                 pinyin(should, "device_alias", query, 5);
                 pinyin(should, "location", query, 5);
+                pinyin(should, "subarea_name", query, 6);
+                pinyin(should, "system_name", query, 5);
+                pinyin(should, "device_type_name", query, 4);
                 pinyin(should, "device_name_variants", query, 5);
                 pinyin(should, "location_variants", query, 5);
                 pinyin(should, "aliases", query, 5);

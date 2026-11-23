@@ -52,27 +52,15 @@ class EntityAreaNameNormalizerTest {
     }
 
     @Test
-    void recognizesSingleCharacterStationHomophonesForEsPinyinVerification() {
-        assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("武站台"));
-        assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("吾站台"));
-        assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("五站台"));
-        assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("5站台"));
-        assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("第五站台"));
-        assertEquals(true, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("第5站台"));
-        assertEquals(false, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("站台"));
-        assertEquals(false, EntityAreaNameNormalizer.isHomophoneNumberedPositionPhrase("地下层"));
-    }
-
-    @Test
-    void requiresPinyinVerificationOnlyForNonNumericHomophoneStationWords() {
-        assertEquals(true, EntityAreaNameNormalizer.requiresHomophonePositionVerification("武站台"));
-        assertEquals(true, EntityAreaNameNormalizer.requiresHomophonePositionVerification("吾站台"));
-        assertEquals(true, EntityAreaNameNormalizer.requiresHomophonePositionVerification("第武站台"));
-        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("5站台"));
-        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("五站台"));
-        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("第五站台"));
-        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("第5站台"));
-        assertEquals(false, EntityAreaNameNormalizer.requiresHomophonePositionVerification("站台"));
+    void recognizesStationPositionShapesForVariantGeneration() {
+        assertEquals(true, EntityAreaNameNormalizer.isStationPositionPhrase("武站台"));
+        assertEquals(true, EntityAreaNameNormalizer.isStationPositionPhrase("吾站台"));
+        assertEquals(true, EntityAreaNameNormalizer.isStationPositionPhrase("五站台"));
+        assertEquals(true, EntityAreaNameNormalizer.isStationPositionPhrase("5站台"));
+        assertEquals(true, EntityAreaNameNormalizer.isStationPositionPhrase("第五站台"));
+        assertEquals(true, EntityAreaNameNormalizer.isStationPositionPhrase("第5站台"));
+        assertEquals(false, EntityAreaNameNormalizer.isStationPositionPhrase("站台"));
+        assertEquals(false, EntityAreaNameNormalizer.isStationPositionPhrase("地下层"));
     }
 
     @Test
