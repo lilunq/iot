@@ -1,6 +1,8 @@
 package com.sysware.swcloud.domian.scada;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+
+import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +34,12 @@ public class ScadaPageQueryDto {
      */
     @Schema(description = "每页条数", name = "limit", example = "10")
     private String limit;
+
+    /**
+     * 设备ID集合，用于 ES 实体候选的批量状态过滤。
+     */
+    @Schema(description = "设备ID集合，非必填；与实体检索返回的业务ID对应", name = "ids")
+    private List<String> ids;
 
     /**
      * 设备ID
