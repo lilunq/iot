@@ -52,18 +52,7 @@ public class ScadaTool {
             @ToolParam(description = "系统类型，非必填", required = false) String systemType,
             @ToolParam(description = "故障状态，传1表示只查询故障设备，非必填", required = false) String faultState,
             @ToolParam(description = "告警状态，传1表示只查询告警设备，非必填", required = false) String alarmState,
-            @ToolParam(description = "是否添加告警和故障设备的变更时间，1表示添加，默认0", required = false) Integer addChangeStateTime,
-            @ToolParam(description = "设备ID集合，非必填；传入实体检索返回的设备业务ID列表，和故障/告警状态条件组合过滤", required = false) List<String> ids) {
-
-        List<String> normalizedIds = ids == null ? null : ids.stream()
-                .filter(id -> id != null && !id.isBlank())
-                .map(String::trim)
-                .distinct()
-                .toList();
-        // 空 ids 不能退化为无 ID 条件的全站查询。
-        if (ids != null && normalizedIds.isEmpty()) {
-            return AjaxResultVO.ok().addQueryPageData(List.of(), 0);
-        }
+            @ToolParam(description = "是否添加告警和故障设备的变更时间，1表示添加，默认0", required = false) Integer addChangeStateTime) {
 
         ScadaPageQueryDto dto = ScadaPageQueryDto.builder()
                 .page(pageNum)
@@ -77,7 +66,6 @@ public class ScadaTool {
                 .faultState(faultState)
                 .alarmState(alarmState)
                 .addChangeStateTime(addChangeStateTime == null ? 0 : addChangeStateTime)
-                .ids(normalizedIds)
                 .build();
 
         return deviceService.StateListPage(dto);
@@ -95,6 +83,9 @@ public class ScadaTool {
             @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
             @ToolParam(description = "每页条数，默认20", required = false) String pageSize,
             @ToolParam(description = "组织ID，默认3（西安东站）", required = false) String orgId) {
+        if (!isValidStateFilter(faultState) || !isValidStateFilter(alarmState)) {
+            return AjaxResultVO.error(400, "故障/告警状态仅允许传1或不传");
+        }
         if (faultState != null && !faultState.isBlank()
                 && alarmState != null && !alarmState.isBlank()) {
             return AjaxResultVO.error(400, "故障和告警条件请分别查询，避免将底层条件组合误解为“故障或告警”");
@@ -112,7 +103,7 @@ public class ScadaTool {
 
             ScadaPageQueryDto dto = ScadaPageQueryDto.builder()
                     .page(pageNum == null || pageNum.isBlank() ? "1" : pageNum)
-                    .limit(pageSize == null || pageSize.isBlank() ? "20" : pageSize)
+                    .limit(pageSize == null || pageSize.isBlank() ? "10" : pageSize)
                     .orgId(orgId == null || orgId.isBlank() ? "3" : orgId)
                     .faultState(faultState)
                     .alarmState(alarmState)
@@ -128,6 +119,9 @@ public class ScadaTool {
             result.put("entityType", "DEVICE");
             result.put("entitySearchStatus", search.getStatus());
             result.put("entityCandidateCount", ids.size());
+            result.put("count", result.getCount());
+            result.put("page", pageNum == null || pageNum.isBlank() ? "1" : pageNum);
+            result.put("limit", pageSize == null || pageSize.isBlank() ? "10" : pageSize);
             result.put("returnedCount", data == null ? 0 : data.size());
             return result;
         } catch (IllegalArgumentException ex) {
@@ -139,6 +133,10 @@ public class ScadaTool {
             log.error("设备自然语言查询失败", ex);
             return AjaxResultVO.error("设备查询失败，请稍后重试");
         }
+    }
+
+    private boolean isValidStateFilter(String value) {
+        return value == null || value.isBlank() || "1".equals(value.trim());
     }
 
     /**
