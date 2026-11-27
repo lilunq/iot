@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -36,7 +37,7 @@ public class ScadaTool {
     /**
      * 分页查询设备列表和设备状态（平铺参数，供 MCP/LLM 调用）。
      */
-    @Tool(name = "getDeviceStatePage", description = "分页查询设备列表和设备状态，可按组织、区域、系统类型、设备类型、设备名称、故障状态、告警状态筛选，返回原始数据")
+    @Tool(name = "getDeviceStatePage", description = "分页查询设备列表和设备状态。支持按设备ID集合（ids）批量过滤，也支持组织、区域、系统类型、设备类型、设备名称、故障状态和告警状态筛选；可将实体检索返回的多个设备ID一次传入，并叠加故障/告警条件。返回设备列表和状态，不查询设备点位详情。")
     public AjaxResultVO getDeviceStatePage(
             @ToolParam(description = "页码，从1开始") String pageNum,
             @ToolParam(description = "每页多少条") String pageSize,
@@ -48,7 +49,8 @@ public class ScadaTool {
             @ToolParam(description = "系统类型，非必填", required = false) String systemType,
             @ToolParam(description = "故障状态，传1表示只查询故障设备，非必填", required = false) String faultState,
             @ToolParam(description = "告警状态，传1表示只查询告警设备，非必填", required = false) String alarmState,
-            @ToolParam(description = "是否添加告警和故障设备的变更时间，1表示添加，默认0", required = false) Integer addChangeStateTime) {
+            @ToolParam(description = "是否添加告警和故障设备的变更时间，1表示添加，默认0", required = false) Integer addChangeStateTime,
+            @ToolParam(description = "设备ID集合，非必填；传入实体检索返回的设备业务ID列表，和故障/告警状态条件组合过滤", required = false) List<String> ids) {
 
         ScadaPageQueryDto dto = ScadaPageQueryDto.builder()
                 .page(pageNum)
@@ -62,6 +64,7 @@ public class ScadaTool {
                 .faultState(faultState)
                 .alarmState(alarmState)
                 .addChangeStateTime(addChangeStateTime == null ? 0 : addChangeStateTime)
+                .ids(ids)
                 .build();
 
         return deviceService.StateListPage(dto);
