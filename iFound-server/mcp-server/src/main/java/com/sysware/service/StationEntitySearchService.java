@@ -33,7 +33,7 @@ public class StationEntitySearchService {
             throw new IllegalStateException("实体检索服务未返回结果，请稍后重试");
         }
 
-        String status = stringValue(response.get("status"));
+        String status = stringValue(response.containsKey("status") ? response.get("status") : response.get("Status"));
         String code = stringValue(response.get("code"));
         if ("SERVICE_UNAVAILABLE".equalsIgnoreCase(status)
                 || "ERROR".equalsIgnoreCase(status)
@@ -45,6 +45,9 @@ public class StationEntitySearchService {
 
         Set<String> ids = new LinkedHashSet<>();
         collectIds(response, expectedEntityType.toUpperCase(Locale.ROOT), null, ids);
+        if (ids.size() > 100) {
+            throw new IllegalStateException("实体检索候选数量超过安全上限，请缩小查询范围");
+        }
         return new SearchResult(status == null ? "OK" : status, new ArrayList<>(ids), response);
     }
 
