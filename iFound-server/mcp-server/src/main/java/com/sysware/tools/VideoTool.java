@@ -26,32 +26,24 @@ public class VideoTool {
     private final StationEntitySearchService entitySearchService;
 
     /**
-     * 获取摄像头列表。
-     *
-     * @param name       摄像头名称
-     * @param page       页码
-     * @param ids        实体检索返回的摄像头ID集合；非空时在MCP层批量过滤
-     * @return 原始 AjaxResultVO（含摄像头列表数据及Online状态）
+     * 获取摄像头列表，支持按名称模糊查询和在线状态过滤。
      */
     @Tool(
             name = "listCamera",
-            description = "底层摄像头目录查询，支持名称或ID集合过滤。自然语言摄像头查询优先使用 queryStationCameras；仅在已有明确摄像头名称或ID集合时直接调用本工具。"
+            description = "获取摄像头列表，返回原始数据（含每台摄像头的id、name、Online等字段），可按摄像头名称模糊查询，可只查在线摄像头"
     )
     public AjaxResultVO listCamera(
-            @ToolParam(description = "摄像头名称，非必填；按名称查询时使用", required = false) String name,
-            @ToolParam(description = "页码，从1开始，默认1", required = false) String page,
-            @ToolParam(description = "摄像头ID集合，非必填；传入实体检索返回的CAMERA业务ID列表时，服务端批量查询并过滤", required = false) List<String> ids
+            @ToolParam(description = "摄像头名称，非必填，支持模糊查询", required = false) String name,
+            @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
+            @ToolParam(description = "每页多少条，默认5", required = false) String pageSize,
+            @ToolParam(description = "在线状态过滤，传1表示只查询在线的摄像头，非必填", required = false) String online
     ) {
-        String finalPage = (page == null || page.isBlank()) ? "1" : page;
-        if (ids != null && ids.isEmpty()) {
-            return AjaxResultVO.ok().addQueryPageData(new ArrayList<>(), 0);
-        }
-        if (ids != null) {
-            log.debug("mcp 批量查询摄像头在线状态，候选数量={}", ids.size());
-            return listCameraByIds(ids, finalPage);
-        }
-        log.debug("mcp 调用获取摄像头列表:名称={}", name);
-        return videoClient.listPage(name, finalPage, "5");
+        String finalPage = (pageNum == null || pageNum.isBlank()) ? "1" : pageNum;
+        String finalPageSize = (pageSize == null || pageSize.isBlank()) ? "5" : pageSize;
+        String finalOnline = (online == null || online.isBlank()) ? null : online.trim();
+        log.debug("mcp 调用获取摄像头列表:name={}, page={}, limit={}, online={}",
+                name, finalPage, finalPageSize, finalOnline);
+        return videoClient.listPage(name, finalPage, finalPageSize, finalOnline);
     }
 
     /**
@@ -179,7 +171,7 @@ public class VideoTool {
         }
 
         final int requestedPageSize = 100;
-        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(requestedPageSize));
+        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(requestedPageSize), null);
         if (firstPage == null || firstPage.getData() == null) {
             return AjaxResultVO.error("摄像头状态查询失败，请稍后重试");
         }
@@ -197,7 +189,7 @@ public class VideoTool {
                 ? firstData.size() : requestedPageSize;
         int totalPages = (int) Math.ceil((double) total / scanPageSize);
         for (int currentPage = 2; currentPage <= totalPages && !foundIds.containsAll(wantedIds); currentPage++) {
-            AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize));
+            AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize), null);
             if (nextPage == null || nextPage.getData() == null) {
                 log.warn("批量查询摄像头状态时分页失败，page={}", currentPage);
                 return AjaxResultVO.error("摄像头状态查询未完成，请稍后重试");
