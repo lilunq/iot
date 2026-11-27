@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  */
 @FeignClient(
         name = "xian-ai",
+        contextId = "ifoundClient",
         fallback = IFoundClientHystrix.class
 )
 public interface IFoundClient {
