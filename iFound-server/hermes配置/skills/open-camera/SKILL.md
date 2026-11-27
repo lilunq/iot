@@ -76,56 +76,25 @@ tags:
 
 ### listCamera 工具
 
+listCamera 支持按摄像头名称查询，也支持按实体检索返回的摄像头ID集合批量查询。
+
 参数：
 
-name（可选，摄像头名称，模糊查询）
+- name：摄像头名称，非必填；仅按名称查询时使用
+- page：页码，从1开始，默认1
+- ids：摄像头ID数组，非必填；优先使用 searchStationEntities 返回的 CAMERA 业务ID集合
 
-pageNum（可选，页码，从1开始，默认1）
+当传入 ids 时，MCP 服务端会在内部分页读取摄像头目录并按 ID 集合过滤，返回匹配摄像头的实时 Online 状态。Agent 只调用一次 listCamera，不得逐个摄像头ID循环调用。
 
-pageSize（可选，每页条数，默认10）
+返回：原始数据（AjaxResultVO），data 为摄像头列表数组，字段包括 id、name、Online 等。
 
-Online（可选，传1表示只查询在线的摄像头）
+在线状态规则：
 
-返回原始数据（AjaxResultVO），data 为摄像头列表数组，每个元素包含：
-
-- id：摄像头ID（仅内部传参，禁止输出）
-- name：摄像头名称
-- Online：是否在线（true=在线，false=离线）
-- camera_no、main_channel、nvr_id、org_id、sub_channel、param、address、remark 等：内部字段，禁止展示
-
-注意：摄像头数据中**没有区域CID（subarea_cid）字段**，禁止从 listCamera 返回中取区域CID，也禁止编造。openCamera 的 subareaCid 仅在上下文中已持有设备ID及其区域CID（来自设备查询流程）时传入，其余情况一律传空。
-
-Online 过滤参数的使用规则：
-
-- **用户表述中出现"在线"三个字时（如"查询在线的摄像头列表""看看有哪些在线摄像头"），listCamera 必须传 Online=1，禁止省略该参数**
-- 用户意图是打开摄像头（如"打开候车大厅摄像头"）时，必须传 Online=1 只查在线摄像头，避免查到离线设备
-- 用户只是查看摄像头列表且未提"在线"时，不传 Online
-- 传了 Online=1 时返回结果均为在线摄像头，可直接按单台/多台流程打开
-
-**关键规则：仅 Online=true（在线）的摄像头才能打开。**
-
-- Online=false 的摄像头禁止调用 openCamera，必须如实告知用户该摄像头当前离线
-- 禁止将离线摄像头当作打开成功处理，禁止编造打开结果
-
-处理规则：
-
-单台摄像头（data.length == 1）：
-
-- Online=true：直接调用 openCamera 工具打开该摄像头（cameraId = data[0].id，cameraName = data[0].name，subareaCid 传空）
-- Online=false：回复"该摄像头当前离线，无法打开。"流程结束，禁止调用 openCamera
-
-多台摄像头（data.length > 1）：
-
-将 data 转换为 Markdown Table：
-
-```
-| 序号 | 摄像头名称 | 状态 |
-|:--:|---------|:--:|
-| 1 | xxx | 在线/离线 |
-```
-
-然后等待用户选择。
-
+- Online=true 表示在线；Online=false 表示离线。
+- 用户要求打开摄像头时，只能对 Online=true 的摄像头调用 openCamera。
+- 用户仅要求查看列表时，如实展示在线/离线状态，不要擅自过滤。
+- 用户明确要求“在线摄像头”时，在返回结果中筛选 Online=true 后展示；不要向工具传不存在的 Online 参数。
+- 多台摄像头时展示候选并等待用户选择；集合查询的多条记录不是歧义，但“打开某一台”时必须先确定目标。
 ### openCamera 工具
 
 参数：
@@ -184,7 +153,7 @@ cameraName：摄像头名称或设备名称
 
 - 摄像头名称
 - 区域名称
-- 是否要求在线（用户表述中出现"在线"两字时，记下标记：listCamera 必须传 Online=1，如"查询在线的摄像头列表"）
+- 是否要求只看在线摄像头（用户表述中出现"在线"时，记下标记；调用后按返回的 Online 字段筛选）
 
 例如：
 
@@ -224,26 +193,22 @@ cameraName = 设备名称
 
 先回复：
 
+正在定位摄像头……
+
+若上下文没有设备ID，先调用 searchStationEntities（prompt=用户完整原始问题），提取全部 CAMERA 候选业务ID；没有 CAMERA 候选时如实告知未找到。若实体检索服务不可用，提示暂时无法定位，不得当作无匹配。
+
+随后回复：
+
 正在查询摄像头……
 
-工具：
+调用 listCamera：
 
-listCamera
+- ids=实体检索返回的全部 CAMERA 业务ID
+- page=1
+- 不再按候选名称逐个调用
+- ids 为空时禁止不带 ids 执行全站摄像头查询
 
-参数：
-
-name（可选，摄像头名称模糊查询）
-
-pageNum（可选，页码，从1开始，默认1）
-
-pageSize（可选，每页条数，默认10）
-
-Online（可选，传1表示只查询在线的摄像头；用户提到"在线"或打开摄像头场景时必须传1）
-
-返回：原始数据（AjaxResultVO），data 为摄像头列表数组（字段说明见 Rule 4）。
-
----
-
+如果用户明确要求“在线摄像头”，在结果中只保留 Online=true 的摄像头；如果是打开摄像头，也必须在打开前筛选并确认 Online=true。
 ## Step 3：判断查询结果
 
 ### Case A：没有摄像头
@@ -355,6 +320,8 @@ cameraName = data[N-1].name
 # SELF CHECK（不要输出检查过程）
 
 最终回复前，请检查：
+
+□ 是否先通过 searchStationEntities 定位 CAMERA 候选，再一次性传入 ids 查询在线状态？（上下文已持有设备ID并走 Step 2-B 时除外）
 
 □ 是否输出了 listCamera 的原始 JSON？（应转为 Markdown Table）
 
