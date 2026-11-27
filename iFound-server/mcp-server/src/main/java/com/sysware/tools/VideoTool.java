@@ -56,7 +56,7 @@ public class VideoTool {
     public AjaxResultVO queryStationCameras(
             @ToolParam(description = "用户完整的原始问题，例如：查看候车大厅摄像头") String prompt,
             @ToolParam(description = "是否只返回在线摄像头；用户明确要求在线时传true，否则false", required = false) Boolean onlineOnly,
-            @ToolParam(description = "页码，从1开始，默认1", required = false) String page,
+            @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
             @ToolParam(description = "每页条数，默认20", required = false) Integer pageSize) {
         try {
             StationEntitySearchService.SearchResult search =
@@ -89,7 +89,7 @@ public class VideoTool {
                 }
             }
 
-            int pageNumber = parsePositiveInt(page, 1);
+            int pageNumber = parsePositiveInt(pageNum, 1);
             int limit = pageSize == null || pageSize <= 0 ? 20 : Math.min(pageSize, 100);
             int fromIndex = Math.min((pageNumber - 1) * limit, filtered.size());
             int toIndex = Math.min(fromIndex + limit, filtered.size());
