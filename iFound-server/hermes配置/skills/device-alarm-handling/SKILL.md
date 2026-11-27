@@ -226,12 +226,12 @@ queryStationDevices 是分页接口：
 
 分流规则：
 
-- 查询故障/报警设备 → 先执行 Step2 实体检索，再执行 Step3 状态过滤
-- 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 先通过 queryStationDevices 获取 DEVICE 候选，再用 queryStationDevices(ids) 查询设备列表，定位目标设备后进入 Step5
+- 查询故障/报警设备 → Step2 调用 queryStationDevices，传 faultState=1 或 alarmState=1
+- 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 调用 queryStationDevices 一次获取设备列表和实时状态，定位目标设备后进入 Step5
 - 用户直接指定已列出的某台设备查看运行数据 → 直接进入 Step5
 - 创建维修工单 → Step6
 
-注意：凡是需要通过名称、类别或位置线索查找设备，都必须先调用 queryStationDevices；凡是调用 queryStationDevices，都必须传入实体检索得到的非空 ids 集合。
+注意：凡是需要通过名称、类别或位置线索查找设备，都调用 queryStationDevices；只传完整原始问题和业务过滤参数，实体候选 ID 由 MCP 内部处理。
 
 ---
 
@@ -250,7 +250,7 @@ queryStationDevices 是分页接口：
 - pageNum=1，pageSize=10；按 Rule 7 处理分页
 - orgId=3
 
-工具内部完成实体候选定位和实时状态查询。不要再单独调用 queryStationDevices 或 queryStationDevices；不要传 subareaCid/systemType 做二次猜测过滤。
+工具内部完成实体候选定位和实时状态查询。不要再单独调用底层实体检索或设备状态分页工具；不要传 subareaCid/systemType 做二次猜测过滤。
 
 查询结果中的设备 ID 仅在内部用于后续 getDeviceInfoWithPoints 或工单工具，不向用户展示。
 
