@@ -179,8 +179,8 @@ tags:
 getDeviceStatePage 工具返回原始数据（AjaxResultVO），data 为设备列表数组，每个元素包含：
 - id：设备ID
 - device_name：设备名称
-- subarea_cid：区域CID，例如：0.001.001.001-0.001；区域列表可使用getSubarea工具获取
-- system_type：系统类型，例如：0.001.002；系统列表可使用getAllDeviceSystem工具获取
+- subarea_cid：设备真实区域标识，仅作为返回记录中的元数据；不得从设备名称推断区域归属
+- system_type：系统标识，仅作为返回记录中的元数据；设备定位由实体检索完成
 - fault：当前出现故障的点位的数量
 - alarm：当前出现告警的点位的数量
 
