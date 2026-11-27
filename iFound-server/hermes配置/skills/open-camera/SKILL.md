@@ -202,7 +202,7 @@ cameraName = 设备名称
 - page=1
 - pageSize=20
 
-该工具内部完成 CAMERA 候选实体定位和实时 Online 状态查询。Hermes 不再单独调用 queryStationCameras，也不再向 queryStationCameras 传递候选 ids。
+该工具内部完成 CAMERA 候选实体定位和实时 Online 状态查询。Hermes 不再单独调用底层实体检索或摄像头目录查询，也不传递候选 ids。
 
 如果返回 missingCount 大于0，表示部分实体候选未在视频服务目录中找到；只展示实际返回的摄像头，不得补造记录或声称全部候选均已查询。
 
