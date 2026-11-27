@@ -50,7 +50,7 @@ public class VideoTool {
      */
     @Tool(
             name = "queryStationCameras",
-            description = "根据用户完整自然语言查询西安东站摄像头及实时在线状态。内部先定位真实 CAMERA 候选，再批量查询视频服务实时 Online 状态；用户明确要求只看在线摄像头时传 onlineStatus="1"，否则不传（查询全部）。Agent 无需分步调用实体检索和摄像头目录查询。"
+            description = "根据用户完整自然语言查询西安东站摄像头及实时在线状态。内部先定位真实 CAMERA 候选，再批量查询视频服务实时 Online 状态；用户明确要求只看在线摄像头时传 onlineStatus 参数值 1，否则不传（查询全部）。Agent 无需分步调用实体检索和摄像头目录查询。"
     )
     public AjaxResultVO queryStationCameras(
             @ToolParam(description = "用户完整的原始问题，例如：查看候车大厅摄像头") String prompt,
