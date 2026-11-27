@@ -227,9 +227,9 @@ queryStationDevices 是分页接口：
 分流规则：
 
 - 查询故障/报警设备 → Step2 调用 queryStationDevices，传 faultState=1 或 alarmState=1
-- 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 调用 queryStationDevices 一次获取设备列表和实时状态，定位目标设备后进入 Step5
+- 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 调用 queryStationDevices 一次获取设备列表和实时状态，定位目标设备后进入 Step4
 - 用户直接指定已列出的某台设备查看运行数据 → 直接进入 Step4
-- 创建维修工单 → Step6
+- 创建维修工单 → Step5
 
 注意：凡是需要通过名称、类别或位置线索查找设备，都调用 queryStationDevices；只传完整原始问题和业务过滤参数，实体候选 ID 由 MCP 内部处理。
 
