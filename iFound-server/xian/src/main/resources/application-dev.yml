@@ -239,9 +239,9 @@ logging:
 entity-center:
   elasticsearch:
     enabled: ${ENTITY_CENTER_ES_ENABLED:true}
-    uri: ${ENTITY_CENTER_ES_URI:http://192.168.128.191:9200}
+    uri: ${ENTITY_CENTER_ES_URI:http://192.168.128.32:9200}
     username: ${ENTITY_CENTER_ES_USERNAME:elastic}
-    password: ${ENTITY_CENTER_ES_PASSWORD:}
+    password: ${ENTITY_CENTER_ES_PASSWORD:elastic}
     admin-api-enabled: ${ENTITY_CENTER_ADMIN_API_ENABLED:true}
     sync-api-enabled: ${ENTITY_CENTER_SYNC_API_ENABLED:true}
   alias-api-enabled: ${ENTITY_CENTER_ALIAS_API_ENABLED:true}

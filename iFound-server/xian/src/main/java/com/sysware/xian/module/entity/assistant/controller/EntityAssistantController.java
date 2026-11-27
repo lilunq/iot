@@ -12,7 +12,7 @@ import java.util.Map;
 
 /** 自然语言实体检索：LLM 结构化解析 + ES 多维召回。 */
 @RestController
-@Tag(name = "Agent协作接口", description = "")
+@Tag(name = "ES接口", description = "")
 @RequestMapping("/entity-center/assistant")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = "enabled", havingValue = "true")

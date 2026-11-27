@@ -12,7 +12,7 @@ import java.util.Map;
 
 /** 实体目录管理查询接口。 */
 @RestController
-@Tag(name = "Agent协作接口", description = "")
+@Tag(name = "ES接口", description = "")
 @RequestMapping("/entity-center/catalog")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "entity-center.elasticsearch", name = "enabled", havingValue = "true")
