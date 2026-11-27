@@ -81,7 +81,7 @@ queryStationCameras 根据用户完整自然语言请求，在 MCP 内部完成 
 参数：
 
 - prompt：用户完整原始问题，必填
-- onlineOnly：用户明确要求只看在线摄像头时传 true，否则 false
+- onlineStatus：明确要求在线时传"1"，明确要求离线时传"0"，未指定状态时不传
 - page：页码，从1开始，默认1
 - pageSize：每页条数，默认20
 
@@ -92,7 +92,7 @@ queryStationCameras 根据用户完整自然语言请求，在 MCP 内部完成 
 - Online=true 表示在线；Online=false 表示离线。
 - 用户要求打开摄像头时，只能对 Online=true 的摄像头调用 openCamera。
 - 用户仅要求查看列表时，如实展示在线/离线状态，不要擅自过滤。
-- 用户明确要求“在线摄像头”时，传 onlineOnly=true，由查询工具按 Online 状态过滤。
+- 用户明确要求“在线摄像头”时传 onlineStatus="1"；明确要求“离线摄像头”时传 onlineStatus="0"；未指定时不传，查询工具返回全部候选并保留 Online 状态。
 - 多台摄像头时展示候选并等待用户选择；集合查询的多条记录不是歧义，但“打开某一台”时必须先确定目标。
 
 ### openCamera 工具
