@@ -258,12 +258,12 @@ getDeviceStatePage 是分页接口：
 
 分流规则：
 
-- 查询故障/报警设备 → Step2/Step3
-- 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 先按上方"查询前置门槛"完成 getAllDeviceSystem/getSubarea 解析，再用 getDeviceStatePage（不传 faultState）查询设备列表，定位目标设备后进入 Step5
+- 查询故障/报警设备 → 先执行 Step2 实体检索，再执行 Step3 状态过滤
+- 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 先通过 searchStationEntities 获取 DEVICE 候选，再用 getDeviceStatePage(ids) 查询设备列表，定位目标设备后进入 Step5
 - 用户直接指定已列出的某台设备查看运行数据 → 直接进入 Step5
 - 创建维修工单 → Step6
 
-注意：无论走哪条分流，只要最终要调用 getDeviceStatePage，都必须先通过上方"查询前置门槛"。
+注意：凡是需要通过名称、类别或位置线索查找设备，都必须先调用 searchStationEntities；凡是调用 getDeviceStatePage，都必须传入实体检索得到的非空 ids 集合。
 
 ---
 
