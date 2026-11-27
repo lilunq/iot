@@ -81,7 +81,7 @@ queryStationCameras 根据用户完整自然语言请求，在 MCP 内部完成 
 参数：
 
 - prompt：用户完整原始问题，必填
-- onlineStatus：明确要求在线时传"1"，明确要求离线时传"0"，未指定状态时不传
+- onlineStatus：明确要求只看在线摄像头时传"1"，未指定时不传（查询全部）；不支持只查离线
 - page：页码，从1开始，默认1
 - pageSize：每页条数，默认20
 
@@ -92,7 +92,7 @@ queryStationCameras 根据用户完整自然语言请求，在 MCP 内部完成 
 - Online=true 表示在线；Online=false 表示离线。
 - 用户要求打开摄像头时，只能对 Online=true 的摄像头调用 openCamera。
 - 用户仅要求查看列表时，如实展示在线/离线状态，不要擅自过滤。
-- 用户明确要求“在线摄像头”时传 onlineStatus="1"；明确要求“离线摄像头”时传 onlineStatus="0"；未指定时不传，查询工具返回全部候选并保留 Online 状态。
+- 用户明确要求“在线摄像头”时传 onlineStatus="1"；其他情况不传，查询工具返回全部候选并保留 Online 状态。不支持只查离线摄像头。
 - 多台摄像头时展示候选并等待用户选择；集合查询的多条记录不是歧义，但“打开某一台”时必须先确定目标。
 
 ### openCamera 工具
@@ -198,7 +198,7 @@ cameraName = 设备名称
 调用 queryStationCameras：
 
 - prompt=用户完整原始问题
-- 用户明确要求“在线摄像头”时传 onlineStatus="1"；明确要求“离线摄像头”时传 onlineStatus="0"；否则不传 onlineStatus
+- 用户明确要求“在线摄像头”时传 onlineStatus="1"；否则不传 onlineStatus
 - page=1
 - pageSize=20
 
@@ -206,7 +206,7 @@ cameraName = 设备名称
 
 如果返回 missingCount 大于0，表示部分实体候选未在视频服务目录中找到；只展示实际返回的摄像头，不得补造记录或声称全部候选均已查询。
 
-如果用户明确要求“在线摄像头”，返回结果已按 Online=true 过滤；如果明确要求“离线摄像头”，返回结果已按 Online=false 过滤；如果是打开摄像头，仍必须在打开前检查所选记录的 Online=true。
+如果用户明确要求“在线摄像头”，返回结果已按 Online=true 过滤；其他情况返回全部候选并如实展示 Online 状态；如果是打开摄像头，仍必须在打开前检查所选记录的 Online=true。
 
 ## Step 3：判断查询结果
 
