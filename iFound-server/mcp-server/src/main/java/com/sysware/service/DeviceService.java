@@ -161,7 +161,7 @@ public class DeviceService {
         }
         // 使用前端传入的limit，若未传则默认10
         if (dto.getLimit() == null || dto.getLimit().isEmpty()) {
-            map.put("limit", "5");
+            map.put("limit", "10");
         }
 
         // 2. 查询设备列表和状态
