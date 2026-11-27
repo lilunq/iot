@@ -52,6 +52,16 @@ public class ScadaTool {
             @ToolParam(description = "是否添加告警和故障设备的变更时间，1表示添加，默认0", required = false) Integer addChangeStateTime,
             @ToolParam(description = "设备ID集合，非必填；传入实体检索返回的设备业务ID列表，和故障/告警状态条件组合过滤", required = false) List<String> ids) {
 
+        List<String> normalizedIds = ids == null ? null : ids.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        // 空 ids 不能退化为无 ID 条件的全站查询。
+        if (ids != null && normalizedIds.isEmpty()) {
+            return AjaxResultVO.ok().addQueryPageData(List.of(), 0);
+        }
+
         ScadaPageQueryDto dto = ScadaPageQueryDto.builder()
                 .page(pageNum)
                 .limit(MyUtil.isEmpty(pageSize)?"10":pageSize)
@@ -64,7 +74,7 @@ public class ScadaTool {
                 .faultState(faultState)
                 .alarmState(alarmState)
                 .addChangeStateTime(addChangeStateTime == null ? 0 : addChangeStateTime)
-                .ids(ids)
+                .ids(normalizedIds)
                 .build();
 
         return deviceService.StateListPage(dto);
