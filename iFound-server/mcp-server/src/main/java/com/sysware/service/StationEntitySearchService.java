@@ -65,7 +65,7 @@ public class StationEntitySearchService {
         );
 
         if (currentType != null && expectedType.equalsIgnoreCase(currentType)) {
-            String id = value(map, "id", "entityId", "entity_id", "businessId", "business_id");
+            String id = value(map, "id", "entityId", "entity_id", "businessId", "business_id", "deviceId", "cameraId", "device_id", "camera_id");
             if (id != null && !id.isBlank()) {
                 ids.add(id.trim());
             }
