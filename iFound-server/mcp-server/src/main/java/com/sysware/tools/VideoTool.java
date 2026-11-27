@@ -83,8 +83,8 @@ public class VideoTool {
             return AjaxResultVO.ok().addQueryPageData(new ArrayList<>(), 0);
         }
 
-        final int scanPageSize = 100;
-        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(scanPageSize));
+        final int requestedPageSize = 100;
+        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(requestedPageSize));
         if (firstPage == null || firstPage.getData() == null) {
             return AjaxResultVO.error("摄像头状态查询失败，请稍后重试");
         }
@@ -95,6 +95,9 @@ public class VideoTool {
         appendMatchedCameras(firstData, wantedIds, foundIds, matched);
 
         int total = Math.max(firstPage.getCount(), firstData.size());
+        // 若视频服务对 limit 有上限，以实际第一页条数计算分页，避免漏查后续摄像头。
+        int scanPageSize = firstData.size() > 0 && firstData.size() < requestedPageSize && total > firstData.size()
+                ? firstData.size() : requestedPageSize;
         int totalPages = (int) Math.ceil((double) total / scanPageSize);
         for (int currentPage = 2; currentPage <= totalPages && !foundIds.containsAll(wantedIds); currentPage++) {
             AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize));
