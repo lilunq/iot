@@ -2,6 +2,12 @@ package com.sysware.controller;
 
 import com.sysware.service.XadService;
 import com.sysware.swcloud.domian.AjaxResultVO;
+import com.sysware.swcloud.feign.EntityCenterClient;
+import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
+import java.util.Map;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +23,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class XadController {
 
     private final XadService xadService;
+    private final EntityCenterClient entityCenterClient;
+
+
+    /**
+     * 调试实体中心自然语言检索接口，原样返回实体中心完整 JSON，便于核对候选实体结构。
+     *
+     * 请求体示例：{"prompt":"候车大厅的摄像头"}
+     * 仅用于内部联调，请勿将该接口作为 Hermes 工具暴露。
+     */
+    @Operation(summary = "调试实体中心自然语言检索", description = "原样转发 /entity-center/assistant/search 的响应，用于查看完整 JSON 结构")
+    @PostMapping("/debug/entity-center/assistant/search")
+    public Map<String, Object> debugEntitySearch(@RequestBody Map<String, Object> request) {
+        return entityCenterClient.searchAssistant(request);
+    }
 
     /**
      * 查询到达层/出发层/候车层的环境监测数据，返回已格式化的中文 Markdown 结果。
