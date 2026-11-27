@@ -50,11 +50,11 @@ public class VideoTool {
      */
     @Tool(
             name = "queryStationCameras",
-            description = "根据用户完整自然语言查询西安东站摄像头及实时在线状态。内部先定位真实 CAMERA 候选，再批量查询视频服务实时 Online 状态；用户明确要求在线时传 onlineStatus="1"，明确要求离线时传 onlineStatus="0"，否则不传。Agent 无需分步调用实体检索和摄像头目录查询。"
+            description = "根据用户完整自然语言查询西安东站摄像头及实时在线状态。内部先定位真实 CAMERA 候选，再批量查询视频服务实时 Online 状态；用户明确要求只看在线摄像头时传 onlineStatus="1"，否则不传（查询全部）。Agent 无需分步调用实体检索和摄像头目录查询。"
     )
     public AjaxResultVO queryStationCameras(
             @ToolParam(description = "用户完整的原始问题，例如：查看候车大厅摄像头") String prompt,
-            @ToolParam(description = "在线状态过滤：1只查在线，0只查离线，不传表示全部", required = false) String onlineStatus,
+            @ToolParam(description = "是否只查询在线摄像头：传1表示只查在线，不传表示全部；不支持只查离线", required = false) String onlineStatus,
             @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
             @ToolParam(description = "每页条数，默认20", required = false) Integer pageSize) {
         try {
@@ -86,13 +86,12 @@ public class VideoTool {
 
             List<HashMap<String, Object>> filtered = new ArrayList<>();
             String statusFilter = onlineStatus == null || onlineStatus.isBlank() ? null : onlineStatus.trim();
-            if (statusFilter != null && !"0".equals(statusFilter) && !"1".equals(statusFilter)) {
-                return AjaxResultVO.error(400, "在线状态仅允许传1（在线）、0（离线）或不传");
+            if (statusFilter != null && !"1".equals(statusFilter)) {
+                return AjaxResultVO.error(400, "在线状态仅支持传1（只查在线）或不传（查询全部）");
             }
             for (HashMap<String, Object> camera : cameras) {
                 boolean online = isCameraOnline(camera.get("Online"));
-                if (statusFilter == null || ("1".equals(statusFilter) && online)
-                        || ("0".equals(statusFilter) && !online)) {
+                if (statusFilter == null || online) {
                     filtered.add(camera);
                 }
             }
