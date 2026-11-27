@@ -308,7 +308,7 @@ queryStationDevices 是分页接口：
 
 您是要控制某台具体设备，还是执行某个控制场景？
 
-注意：进入 Step2 后必须先执行上方实体检索流程（queryStationDevices → 提取 DEVICE 业务ID → queryStationDevices(ids)）。
+注意：进入 Step2 后只调用 queryStationDevices 一次；设备实体定位和状态查询均由 MCP 内部完成。
 
 ---
 
@@ -328,7 +328,7 @@ queryStationDevices 是分页接口：
 - orgId=3
 - 不传 faultState/alarmState，除非用户明确要求只查询故障或告警设备
 
-工具内部完成 DEVICE 实体候选定位和实时状态查询。Agent 不再单独调用 queryStationDevices/queryStationDevices，也不传 ids、deviceName、subareaCid、systemType 进行二次猜测过滤。
+工具内部完成 DEVICE 实体候选定位和实时状态查询。Agent 不再单独调用底层实体检索/状态分页工具，也不传 ids、deviceName、subareaCid、systemType 进行二次猜测过滤。
 
 - 单设备控制意图：若返回唯一设备，内部记录其设备 ID，继续 Step3；若返回多台设备，列出名称并请用户选择，禁止自行猜测。
 - 用户明确表达批量控制但不是场景控制：仅保留与用户明确范围匹配的设备；无法确认范围时先澄清，不得扩大控制范围。
