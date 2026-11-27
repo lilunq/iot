@@ -90,9 +90,10 @@ public class VideoTool {
 
         List<HashMap<String, Object>> matched = new ArrayList<>();
         Set<String> foundIds = new LinkedHashSet<>();
-        appendMatchedCameras(firstPage.getData(), wantedIds, foundIds, matched);
+        List<HashMap<String, Object>> firstData = firstPage.getData();
+        appendMatchedCameras(firstData, wantedIds, foundIds, matched);
 
-        int total = Math.max(firstPage.getCount(), firstPage.getData().size());
+        int total = Math.max(firstPage.getCount(), firstData.size());
         int totalPages = (int) Math.ceil((double) total / scanPageSize);
         for (int currentPage = 2; currentPage <= totalPages && !foundIds.containsAll(wantedIds); currentPage++) {
             AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize));
@@ -100,8 +101,9 @@ public class VideoTool {
                 log.warn("批量查询摄像头状态时分页失败，page={}", currentPage);
                 return AjaxResultVO.error("摄像头状态查询未完成，请稍后重试");
             }
-            appendMatchedCameras(nextPage.getData(), wantedIds, foundIds, matched);
-            if (nextPage.getData().isEmpty()) {
+            List<HashMap<String, Object>> nextData = nextPage.getData();
+            appendMatchedCameras(nextData, wantedIds, foundIds, matched);
+            if (nextData.isEmpty()) {
                 break;
             }
         }
