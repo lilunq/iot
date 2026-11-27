@@ -4,6 +4,7 @@ import com.sysware.service.VideoService;
 import com.sysware.service.StationEntitySearchService;
 import com.sysware.swcloud.domian.AjaxResultVO;
 import com.sysware.swcloud.domian.video.CameraStreamDto;
+import com.sysware.swcloud.domian.video.CameraListDto;
 import com.sysware.swcloud.feign.VideoClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,9 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -55,7 +54,7 @@ public class VideoTool {
     )
     public AjaxResultVO queryStationCameras(
             @ToolParam(description = "用户完整的原始问题，例如：查看候车大厅摄像头") String prompt,
-            @ToolParam(description = "是否只返回在线摄像头；用户明确要求在线时传true，否则false", required = false) Boolean onlineOnly,
+            @ToolParam(description = "在线状态过滤：1只查在线，0只查离线，不传表示全部", required = false) String onlineStatus,
             @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
             @ToolParam(description = "每页条数，默认20", required = false) Integer pageSize) {
         try {
@@ -69,8 +68,12 @@ public class VideoTool {
                         .put("entitySearchStatus", search.getStatus());
             }
 
-            // 当前实体检索最多返回20个候选；一次批量读取即可覆盖候选集合。
-            AjaxResultVO matchedResult = listCameraByIds(ids, "1");
+            // IDs 由 MCP 内部 ES 检索产生，直接交给视频业务接口批量过滤；先查全量状态，再在 MCP 内筛选。
+            CameraListDto query = new CameraListDto();
+            query.setPage("1");
+            query.setLimit(String.valueOf(ids.size()));
+            query.setIds(ids);
+            AjaxResultVO matchedResult = videoService.listPage(query);
             if (matchedResult == null || !matchedResult.isOk()) {
                 return matchedResult == null
                         ? AjaxResultVO.error("摄像头实时状态查询失败，请稍后重试")
@@ -82,9 +85,14 @@ public class VideoTool {
             }
 
             List<HashMap<String, Object>> filtered = new ArrayList<>();
-            boolean onlyOnline = Boolean.TRUE.equals(onlineOnly);
+            String statusFilter = onlineStatus == null || onlineStatus.isBlank() ? null : onlineStatus.trim();
+            if (statusFilter != null && !"0".equals(statusFilter) && !"1".equals(statusFilter)) {
+                return AjaxResultVO.error(400, "在线状态仅允许传1（在线）、0（离线）或不传");
+            }
             for (HashMap<String, Object> camera : cameras) {
-                if (!onlyOnline || isCameraOnline(camera.get("Online"))) {
+                boolean online = isCameraOnline(camera.get("Online"));
+                if (statusFilter == null || ("1".equals(statusFilter) && online)
+                        || ("0".equals(statusFilter) && !online)) {
                     filtered.add(camera);
                 }
             }
@@ -101,7 +109,7 @@ public class VideoTool {
             result.put("entityCandidateCount", ids.size());
             result.put("matchedCount", matchedResult.get("matchedCount"));
             result.put("missingCount", matchedResult.get("missingCount"));
-            result.put("onlineOnly", onlyOnline);
+            result.put("onlineStatus", statusFilter);
             result.put("returnedCount", pageData.size());
             return result;
         } catch (IllegalArgumentException ex) {
@@ -134,87 +142,6 @@ public class VideoTool {
         } catch (NumberFormatException ex) {
             return defaultValue;
         }
-    }
-
-    /**
-     * 当前视频服务分页接口尚未暴露 ids 过滤参数，因此在 MCP 服务端分页读取摄像头目录，
-     * 直到找到全部候选或读完目录，再按实体检索返回的 ID 集合过滤。Agent 只需调用一次 listCamera。
-     */
-    private void appendMatchedCameras(
-            List<HashMap<String, Object>> cameras,
-            Set<String> wantedIds,
-            Set<String> foundIds,
-            List<HashMap<String, Object>> matched) {
-        if (cameras == null) {
-            return;
-        }
-        for (HashMap<String, Object> camera : cameras) {
-            Object rawId = camera.get("id");
-            if (rawId == null) {
-                continue;
-            }
-            String cameraId = String.valueOf(rawId);
-            if (wantedIds.contains(cameraId) && foundIds.add(cameraId)) {
-                matched.add(camera);
-            }
-        }
-    }
-    private AjaxResultVO listCameraByIds(List<String> ids, String page) {
-        Set<String> wantedIds = new LinkedHashSet<>();
-        for (String id : ids) {
-            if (id != null && !id.isBlank()) {
-                wantedIds.add(id.trim());
-            }
-        }
-        if (wantedIds.isEmpty()) {
-            return AjaxResultVO.ok().addQueryPageData(new ArrayList<>(), 0);
-        }
-
-        final int requestedPageSize = 100;
-        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(requestedPageSize), null,null);
-        if (firstPage == null || firstPage.getData() == null) {
-            return AjaxResultVO.error("摄像头状态查询失败，请稍后重试");
-        }
-
-        List<HashMap<String, Object>> matched = new ArrayList<>();
-        Set<String> foundIds = new LinkedHashSet<>();
-        List<HashMap<String, Object>> firstData = firstPage.getData();
-        appendMatchedCameras(firstData, wantedIds, foundIds, matched);
-
-        Object rawCount = firstPage.get("count");
-        int reportedCount = rawCount instanceof Number ? ((Number) rawCount).intValue() : firstData.size();
-        int total = Math.max(reportedCount, firstData.size());
-        // 若视频服务对 limit 有上限，以实际第一页条数计算分页，避免漏查后续摄像头。
-        int scanPageSize = firstData.size() > 0 && firstData.size() < requestedPageSize && total > firstData.size()
-                ? firstData.size() : requestedPageSize;
-        int totalPages = (int) Math.ceil((double) total / scanPageSize);
-        for (int currentPage = 2; currentPage <= totalPages && !foundIds.containsAll(wantedIds); currentPage++) {
-            AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize), null,null);
-            if (nextPage == null || nextPage.getData() == null) {
-                log.warn("批量查询摄像头状态时分页失败，page={}", currentPage);
-                return AjaxResultVO.error("摄像头状态查询未完成，请稍后重试");
-            }
-            List<HashMap<String, Object>> nextData = nextPage.getData();
-            appendMatchedCameras(nextData, wantedIds, foundIds, matched);
-            if (nextData.isEmpty()) {
-                break;
-            }
-        }
-
-        int pageNum;
-        try {
-            pageNum = Math.max(1, Integer.parseInt(page));
-        } catch (NumberFormatException ex) {
-            pageNum = 1;
-        }
-        int fromIndex = Math.min((pageNum - 1) * scanPageSize, matched.size());
-        int toIndex = Math.min(fromIndex + scanPageSize, matched.size());
-        List<HashMap<String, Object>> pageData = matched.subList(fromIndex, toIndex);
-        AjaxResultVO result = AjaxResultVO.ok().addQueryPageData(pageData, matched.size());
-        result.put("requestedCount", wantedIds.size());
-        result.put("matchedCount", matched.size());
-        result.put("missingCount", Math.max(0, wantedIds.size() - matched.size()));
-        return result;
     }
 
     /**
