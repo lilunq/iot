@@ -94,7 +94,9 @@ public class VideoTool {
         List<HashMap<String, Object>> firstData = firstPage.getData();
         appendMatchedCameras(firstData, wantedIds, foundIds, matched);
 
-        int total = Math.max(firstPage.getCount(), firstData.size());
+        Object rawCount = firstPage.get("count");
+        int reportedCount = rawCount instanceof Number ? ((Number) rawCount).intValue() : firstData.size();
+        int total = Math.max(reportedCount, firstData.size());
         // 若视频服务对 limit 有上限，以实际第一页条数计算分页，避免漏查后续摄像头。
         int scanPageSize = firstData.size() > 0 && firstData.size() < requestedPageSize && total > firstData.size()
                 ? firstData.size() : requestedPageSize;
