@@ -43,7 +43,10 @@ public class VideoTool {
             @ToolParam(description = "摄像头ID集合，非必填；传入实体检索返回的CAMERA业务ID列表时，服务端批量查询并过滤", required = false) List<String> ids
     ) {
         String finalPage = (page == null || page.isBlank()) ? "1" : page;
-        if (ids != null && !ids.isEmpty()) {
+        if (ids != null && ids.isEmpty()) {
+            return AjaxResultVO.ok().addQueryPageData(new ArrayList<>(), 0);
+        }
+        if (ids != null) {
             log.debug("mcp 批量查询摄像头在线状态，候选数量={}", ids.size());
             return listCameraByIds(ids, finalPage);
         }
