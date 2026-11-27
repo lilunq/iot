@@ -1,6 +1,7 @@
 package com.sysware.tools;
 
 import com.sysware.service.DeviceService;
+import com.sysware.service.StationEntitySearchService;
 import com.sysware.swcloud.domian.*;
 import com.sysware.swcloud.domian.scada.ScadaEventQueryDto;
 import com.sysware.swcloud.domian.scada.ScadaInfoQueryDto;
@@ -33,6 +34,8 @@ public class ScadaTool {
     private FepClient fepClient;
     @Autowired
     private DeviceService deviceService;
+    @Autowired
+    private StationEntitySearchService entitySearchService;
 
     /**
      * 分页查询设备列表和设备状态（平铺参数，供 MCP/LLM 调用）。
@@ -78,6 +81,64 @@ public class ScadaTool {
                 .build();
 
         return deviceService.StateListPage(dto);
+    }
+
+    /**
+     * 面向 Agent 的完整设备查询：自然语言实体定位 + 一次性实时状态查询。
+     * ES 候选 ID 只在 MCP 服务内部流转，不要求 Agent 分步调用实体检索和状态查询。
+     */
+    @Tool(name = "queryStationDevices", description = "根据用户完整自然语言查询西安东站设备及实时状态。内部先定位真实 DEVICE 候选，再一次性按候选设备ID查询实时状态；支持只查故障或只查告警设备。适用于设备列表、区域/站台设备集合查询。不要把普通位置线索擅自转成区域硬过滤。")
+    public AjaxResultVO queryStationDevices(
+            @ToolParam(description = "用户完整的原始问题，例如：查看5站台所有故障设备") String prompt,
+            @ToolParam(description = "故障状态，传1表示只查询故障设备，非必填", required = false) String faultState,
+            @ToolParam(description = "告警状态，传1表示只查询告警设备，非必填", required = false) String alarmState,
+            @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
+            @ToolParam(description = "每页条数，默认20", required = false) String pageSize,
+            @ToolParam(description = "组织ID，默认3（西安东站）", required = false) String orgId) {
+        if (faultState != null && !faultState.isBlank()
+                && alarmState != null && !alarmState.isBlank()) {
+            return AjaxResultVO.error(400, "故障和告警条件请分别查询，避免将底层条件组合误解为“故障或告警”");
+        }
+        try {
+            StationEntitySearchService.SearchResult search =
+                    entitySearchService.searchIds(prompt, "DEVICE");
+            List<String> ids = search.getIds();
+            if (ids == null || ids.isEmpty()) {
+                return AjaxResultVO.ok("未找到符合条件的设备")
+                        .addQueryPageData(List.of(), 0)
+                        .put("entityCandidateCount", 0)
+                        .put("entitySearchStatus", search.getStatus());
+            }
+
+            ScadaPageQueryDto dto = ScadaPageQueryDto.builder()
+                    .page(pageNum == null || pageNum.isBlank() ? "1" : pageNum)
+                    .limit(pageSize == null || pageSize.isBlank() ? "20" : pageSize)
+                    .orgId(orgId == null || orgId.isBlank() ? "3" : orgId)
+                    .faultState(faultState)
+                    .alarmState(alarmState)
+                    .addChangeStateTime(0)
+                    .ids(ids)
+                    .build();
+
+            AjaxResultVO result = deviceService.StateListPage(dto);
+            if (result == null) {
+                return AjaxResultVO.error("设备实时状态查询未返回结果，请稍后重试");
+            }
+            List<HashMap<String, Object>> data = result.getData();
+            result.put("entityType", "DEVICE");
+            result.put("entitySearchStatus", search.getStatus());
+            result.put("entityCandidateCount", ids.size());
+            result.put("returnedCount", data == null ? 0 : data.size());
+            return result;
+        } catch (IllegalArgumentException ex) {
+            return AjaxResultVO.error(400, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            log.warn("设备实体定位失败：{}", ex.getMessage());
+            return AjaxResultVO.error(503, ex.getMessage());
+        } catch (Exception ex) {
+            log.error("设备自然语言查询失败", ex);
+            return AjaxResultVO.error("设备查询失败，请稍后重试");
+        }
     }
 
     /**
