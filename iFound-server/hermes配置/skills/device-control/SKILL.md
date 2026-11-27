@@ -174,9 +174,9 @@ tags:
 
 ## Rule 6：工具返回原始数据，需转换为Markdown Table
 
-### 6.1 getDeviceStatePage 返回格式
+### 6.1 queryStationDevices 返回格式
 
-getDeviceStatePage 工具返回原始数据（AjaxResultVO），data 为设备列表数组，每个元素包含：
+queryStationDevices 工具返回原始数据（AjaxResultVO），data 为设备列表数组，每个元素包含：
 - id：设备ID
 - device_name：设备名称
 - subarea_cid：设备真实区域标识，仅作为返回记录中的元数据；不得从设备名称推断区域归属
@@ -256,19 +256,19 @@ sceneParamList 工具返回原始数据（AjaxResultVO），data 为该场景的
 
 ## Rule 8：自然语言实体检索与设备批量定位
 
-查找待控制设备时，统一先调用 searchStationEntities，prompt 传用户完整原始请求，从 candidates 中提取 entityType=DEVICE 的真实业务ID。
+查找待控制设备时，直接调用 queryStationDevices，prompt 传入用户完整原始请求。该工具在 MCP 内部完成自然语言实体定位和实时状态查询，Agent 不再单独调用实体检索工具，也不需要传递设备 ID。
 
 - 不再强制调用 getAllDeviceSystem/getSubarea 作为设备查询前置步骤。
 - 区域、楼层、站台、子区域等自然语言表达交由实体检索解析；普通位置线索不得直接作为 subareaCid 硬过滤。
 - 不得根据设备名称中出现“5站台/6站台”等字样推断其真实区域归属。
-- 目标是某一台设备时，候选多条或不能唯一确定，必须列出设备名称请用户选择；目标是批量控制/场景控制时，按用户明确范围处理候选集合，不得把集合候选误判为歧义。
-- 只有获得非空设备ID集合后，才调用 getDeviceStatePage，并一次传入 ids；禁止逐台调用状态查询工具。
+- 单设备控制意图若返回多台候选，必须列出设备名称请用户选择；批量控制意图按用户明确范围处理，不得把集合候选误判为歧义。
 - 实体检索服务不可用时，应明确提示无法定位设备，不得把服务不可用当作无匹配。
-- ids 为空时禁止调用 getDeviceStatePage，避免退化为全站查询。
+- queryStationDevices 只负责设备列表与实时状态；选定设备后再调用 getDeviceInfoWithPoints 查询点位。
+- 场景控制（listScene/sceneParamList）不走设备实体检索流程。
 
 ## Rule 9：分页查询注意事项
 
-getDeviceStatePage 是分页接口：
+queryStationDevices 是分页接口：
 
 - pageNum：页码，从 1 开始
 - pageSize：每页条数，固定传 10
@@ -296,15 +296,8 @@ getDeviceStatePage 是分页接口：
 
 ## ⛔ 查询前置门槛（最高优先级，先于所有 Step 执行）
 
-凡是查找待控制的设备，固定流程为：
+凡是查找待控制的设备，固定先调用 queryStationDevices 一次完成实体定位和实时状态查询。场景分支（listScene/sceneParamList）不走该流程。
 
-```
-第1步：searchStationEntities（用户完整原始请求）
-第2步：提取全部相关 DEVICE 业务ID
-第3步：getDeviceStatePage（一次传入 ids）
-```
-
-禁止再强制调用 getAllDeviceSystem/getSubarea；禁止逐台调用 getDeviceStatePage；禁止把普通位置线索当作区域硬过滤。场景分支（listScene/sceneParamList）不走设备实体检索门槛。
 ## Step1：解析用户请求
 
 识别用户意图并分流：
@@ -315,7 +308,7 @@ getDeviceStatePage 是分页接口：
 
 您是要控制某台具体设备，还是执行某个控制场景？
 
-注意：进入 Step2 后必须先执行上方实体检索流程（searchStationEntities → 提取 DEVICE 业务ID → getDeviceStatePage(ids)）。
+注意：进入 Step2 后必须先执行上方实体检索流程（queryStationDevices → 提取 DEVICE 业务ID → queryStationDevices(ids)）。
 
 ---
 
@@ -325,30 +318,23 @@ getDeviceStatePage 是分页接口：
 
 先回复：
 
-正在定位设备……
+正在定位并查询设备状态……
 
-### 2.1 实体检索
+调用 queryStationDevices：
 
-调用 searchStationEntities，prompt 传入用户完整原始请求。从返回 candidates 中提取 entityType=DEVICE 的候选及其真实业务ID。
-
-- 单设备控制意图：若候选唯一，继续查询；若候选多条，列出候选名称并请用户选择，禁止自行猜测。
-- 用户明确表达批量控制但不是场景控制：仅保留与用户明确范围匹配的设备候选；无法确认范围时先澄清，不得扩大控制范围。
-- 环境调节建议转入的请求：同样传入完整原始请求，由实体检索处理楼层、子区域和设备类别语义，不再分别调用区域/系统目录。
-- 无设备候选：告知未找到符合条件的设备。
-- SERVICE_UNAVAILABLE：告知实体检索暂不可用，不得当作无匹配。
-
-### 2.2 批量查询设备状态
-
-调用 getDeviceStatePage，一次传入全部候选设备ID：
-
+- prompt=用户完整原始请求
 - pageNum=1
 - pageSize=10（按 Rule 9 处理分页）
 - orgId=3
-- ids=实体检索返回的 DEVICE 业务ID数组
-- 不传 deviceName/subareaCid/systemType 进行二次猜测过滤
-- ids 为空时禁止调用
+- 不传 faultState/alarmState，除非用户明确要求只查询故障或告警设备
 
-状态查询结果只用于确认设备名称、状态及后续选择。单台设备继续 Step3；多台候选列出名称、状态并等待用户选择。设备ID仅内部保存。
+工具内部完成 DEVICE 实体候选定位和实时状态查询。Agent 不再单独调用 queryStationDevices/queryStationDevices，也不传 ids、deviceName、subareaCid、systemType 进行二次猜测过滤。
+
+- 单设备控制意图：若返回唯一设备，内部记录其设备 ID，继续 Step3；若返回多台设备，列出名称并请用户选择，禁止自行猜测。
+- 用户明确表达批量控制但不是场景控制：仅保留与用户明确范围匹配的设备；无法确认范围时先澄清，不得扩大控制范围。
+- 无设备记录：告知未找到符合条件的设备。
+- 实体检索服务不可用：告知暂时无法定位设备，不得当作无匹配。
+- 查询结果中的设备 ID 仅在内部用于后续点位查询，不得向用户展示。
 
 ### Case A：没有设备
 
@@ -383,8 +369,6 @@ data 为空或 null 时：
 请选择需要控制的设备。
 
 等待用户选择后进入 Step3。
-
----
 
 ## Step3：查询设备点位
 
@@ -691,7 +675,7 @@ value=该条命令的 value（原样传入，纯数字）
 
 ✓ 控制值必须符合 ykValueRender 渲染说明及 limit 范围
 
-✓ 查找待控制设备前必须调用 searchStationEntities，并将候选 DEVICE 业务ID一次传给 getDeviceStatePage
+✓ 查找待控制设备前必须调用 queryStationDevices，并由 queryStationDevices 在 MCP 内部完成实体定位和状态查询
 
 ✓ 分页数量统计必须基于 count，禁止把第一页条数当作总数
 
@@ -721,7 +705,7 @@ value=该条命令的 value（原样传入，纯数字）
 
 □ 回复中是否出现任何 ID？
 
-□ 是否先调用 searchStationEntities 并取得非空 DEVICE 业务ID集合？
+□ 是否只调用 queryStationDevices 一次完成实体定位和状态查询？
 
 □ 是否一次性传入 ids，而不是逐台查询？
 
