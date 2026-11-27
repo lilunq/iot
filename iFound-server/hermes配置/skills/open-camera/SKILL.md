@@ -198,7 +198,7 @@ cameraName = 设备名称
 调用 queryStationCameras：
 
 - prompt=用户完整原始问题
-- 用户明确要求“在线摄像头”时传 onlineOnly=true，否则传 false
+- 用户明确要求“在线摄像头”时传 onlineStatus="1"；明确要求“离线摄像头”时传 onlineStatus="0"；否则不传 onlineStatus
 - page=1
 - pageSize=20
 
@@ -206,7 +206,7 @@ cameraName = 设备名称
 
 如果返回 missingCount 大于0，表示部分实体候选未在视频服务目录中找到；只展示实际返回的摄像头，不得补造记录或声称全部候选均已查询。
 
-如果用户明确要求“在线摄像头”，返回结果已按 Online=true 过滤；如果是打开摄像头，仍必须在打开前检查所选记录的 Online=true。
+如果用户明确要求“在线摄像头”，返回结果已按 Online=true 过滤；如果明确要求“离线摄像头”，返回结果已按 Online=false 过滤；如果是打开摄像头，仍必须在打开前检查所选记录的 Online=true。
 
 ## Step 3：判断查询结果
 
