@@ -1,5 +1,7 @@
 package com.sysware.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sysware.swcloud.domian.AjaxResultVO;
 import com.sysware.swcloud.domian.scada.ScadaPageQueryDto;
 import com.sysware.swcloud.feign.ScadaClient;
@@ -24,6 +26,25 @@ public class DeviceService {
      * 设备监控远程服务。
      */
     private final ScadaClient scadaClient;
+
+    /**
+     * JSON对象转换工具
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
+     * 将 ID 集合序列化为 JSON 数组字符串。
+     *
+     * @param ids ID 集合
+     * @return JSON 数组字符串，如 ["id1","id2"]
+     */
+    private String toJsonArrayString(List<String> ids) {
+        try {
+            return objectMapper.writeValueAsString(ids);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("ids 序列化失败: " + ids, ex);
+        }
+    }
 
     /**
      * 查询设备状态统计。
@@ -128,6 +149,10 @@ public class DeviceService {
     public AjaxResultVO StateListPage(ScadaPageQueryDto dto) {
         // 1. 初始化设备查询参数
         Map<String, Object> map = BeanUtil.beanToMap(dto, true, true);
+        // 下游接口将 ids 作为 JSON 数组字符串解析（JSON.parseArray），需序列化后传参，避免 Feign 展开为重复参数
+        if (dto.getIds() != null && !dto.getIds().isEmpty()) {
+            map.put("ids", toJsonArrayString(dto.getIds()));
+        }
         // 确保 org_id 非 null 时才放入，避免 Feign 传递 null 参数
         if (dto.getOrgId() != null) {
             map.put("org_id", dto.getOrgId());

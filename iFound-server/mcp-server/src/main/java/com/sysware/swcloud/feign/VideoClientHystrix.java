@@ -12,7 +12,7 @@ public class VideoClientHystrix implements VideoClient {
     public AjaxResultVO getToken(@RequestParam Map<String, Object> inMap) {return new AjaxResultVO();};
 
     @Override
-    public AjaxResultVO listPage(String name, String page, String limit, String online) {
+    public AjaxResultVO listPage(String name, String page, String limit, String online, String ids) {
         return AjaxResultVO.error();
     }
 }

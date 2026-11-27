@@ -57,12 +57,14 @@ public interface VideoClient {
      * @param name 摄像头名称（模糊查询）
      * @param page 页码
      * @param limit 分页大小
+     * @param ids 摄像头ID集合，JSON数组字符串（如 ["id1","id2"]），非必填，用于按 ID 批量过滤
      * @return 摄像头列表
      */
     @GetMapping("/camera/listPage")
     AjaxResultVO listPage(@RequestParam(value = "name", required = false) String name,
                           @RequestParam("page") String page,
                           @RequestParam("limit") String limit,
-                          @RequestParam(value = "Online", required = false) String online);
+                          @RequestParam(value = "Online", required = false) String online,
+                          @RequestParam(value = "ids", required = false) String ids);
 }
 

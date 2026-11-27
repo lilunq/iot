@@ -1,11 +1,11 @@
 package com.sysware.controller;
 
 import com.sysware.swcloud.domian.AjaxResultVO;
+import com.sysware.swcloud.domian.video.CameraListDto;
 import com.sysware.swcloud.domian.video.CameraStreamDto;
 import com.sysware.service.VideoService;
 import com.sysware.swcloud.feign.VideoClient;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,24 +44,16 @@ public class VideoController {
     }
 
     /**
-     * 根据名称模糊分页查询摄像头列表。
+     * 根据名称模糊分页查询摄像头列表，支持按摄像头 ID 集合批量过滤。
      *
-     * @param name  摄像头名称
-     * @param page  页码
-     * @param limit 分页大小
+     * @param dto 查询参数
      * @return 摄像头列表查询结果
      */
     @Operation(summary = "分页获取摄像头列表")
-    @GetMapping("/camera/listPage")
-    public AjaxResultVO listPage(
-            @Parameter(description = "摄像头名称", example = "西安东站")
-            @RequestParam(required = false) String name,
-            @Parameter(description = "页码", example = "1")
-            @RequestParam String page,
-            @Parameter(description = "分页大小", example = "10")
-            @RequestParam String limit) {
-        log.info("mcp 调用获取摄像头列表:名称=" + name);
-        return videoClient.listPage(name, page, limit);
+    @PostMapping("/camera/listPage")
+    public AjaxResultVO listPage(@RequestBody CameraListDto dto) {
+        log.info("mcp 调用获取摄像头列表:名称={}, ids={}", dto.getName(), dto.getIds());
+        return videoService.listPage(dto);
     }
 
     /**

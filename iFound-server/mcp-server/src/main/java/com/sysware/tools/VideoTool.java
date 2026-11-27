@@ -43,7 +43,7 @@ public class VideoTool {
         String finalOnline = (online == null || online.isBlank()) ? null : online.trim();
         log.debug("mcp 调用获取摄像头列表:name={}, page={}, limit={}, online={}",
                 name, finalPage, finalPageSize, finalOnline);
-        return videoClient.listPage(name, finalPage, finalPageSize, finalOnline);
+        return videoClient.listPage(name, finalPage, finalPageSize, finalOnline,null);
     }
 
     /**
@@ -171,7 +171,7 @@ public class VideoTool {
         }
 
         final int requestedPageSize = 100;
-        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(requestedPageSize), null);
+        AjaxResultVO firstPage = videoClient.listPage(null, "1", String.valueOf(requestedPageSize), null,null);
         if (firstPage == null || firstPage.getData() == null) {
             return AjaxResultVO.error("摄像头状态查询失败，请稍后重试");
         }
@@ -189,7 +189,7 @@ public class VideoTool {
                 ? firstData.size() : requestedPageSize;
         int totalPages = (int) Math.ceil((double) total / scanPageSize);
         for (int currentPage = 2; currentPage <= totalPages && !foundIds.containsAll(wantedIds); currentPage++) {
-            AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize), null);
+            AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize), null,null);
             if (nextPage == null || nextPage.getData() == null) {
                 log.warn("批量查询摄像头状态时分页失败，page={}", currentPage);
                 return AjaxResultVO.error("摄像头状态查询未完成，请稍后重试");

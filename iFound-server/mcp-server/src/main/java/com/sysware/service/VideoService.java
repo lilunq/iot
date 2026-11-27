@@ -1,10 +1,13 @@
 package com.sysware.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sysware.swcloud.domian.AjaxResultVO;
+import com.sysware.swcloud.domian.video.CameraListDto;
 import com.sysware.swcloud.domian.video.CameraSteamVo;
 import com.sysware.swcloud.domian.video.CameraStreamDto;
+import com.sysware.swcloud.feign.VideoClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,6 +15,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -43,6 +47,40 @@ public class VideoService {
      * HTTP调用客户端
      */
     private final RestClient restClient;
+
+    /**
+     * 视频远程调用客户端
+     */
+    private final VideoClient videoClient;
+
+    /**
+     * 分页查询摄像头列表。
+     *
+     * @param dto 查询参数
+     * @return 摄像头列表查询结果
+     */
+    public AjaxResultVO listPage(CameraListDto dto) {
+        // 下游接口将 ids 作为 JSON 数组字符串解析（JSON.parseArray），因此序列化后传参
+        String ids = null;
+        if (dto.getIds() != null && !dto.getIds().isEmpty()) {
+            ids = toJsonArrayString(dto.getIds());
+        }
+        return videoClient.listPage(dto.getName(), dto.getPage(), dto.getLimit(), dto.getOnline(), ids);
+    }
+
+    /**
+     * 将 ID 集合序列化为 JSON 数组字符串。
+     *
+     * @param ids ID 集合
+     * @return JSON 数组字符串，如 ["id1","id2"]
+     */
+    private String toJsonArrayString(List<String> ids) {
+        try {
+            return objectMapper.writeValueAsString(ids);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("ids 序列化失败: " + ids, ex);
+        }
+    }
 
     public CameraSteamVo streamStart(CameraStreamDto dto) {
         // 1. 拼接请求路径

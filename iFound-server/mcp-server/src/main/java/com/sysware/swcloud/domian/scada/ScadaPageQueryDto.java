@@ -1,6 +1,10 @@
 package com.sysware.swcloud.domian.scada;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 
 import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -22,6 +26,26 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 @Builder
 @Schema(name = "ScadaPageQueryDto", description = "设备列表查询参数实体类")
 public class ScadaPageQueryDto {
+
+    /**
+     * 宽松 JSON 解析器：Agent 等调用方可能把 JSON 文本整体作为字符串发送，或携带尾逗号
+     */
+    private static final JsonMapper LENIENT_MAPPER = JsonMapper.builder()
+            .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
+            .build();
+
+    /**
+     * 兼容双重序列化的请求体：当请求体是"包含 JSON 的字符串"时，解包后再反序列化。
+     * 正常的对象形式请求体不受影响，仍走默认的属性反序列化。
+     */
+    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+    public static ScadaPageQueryDto fromJsonString(String json) {
+        try {
+            return LENIENT_MAPPER.readValue(json, ScadaPageQueryDto.class);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("请求体 JSON 解析失败: " + ex.getOriginalMessage(), ex);
+        }
+    }
 
     /**
      * 页码
