@@ -228,7 +228,7 @@ queryStationDevices 是分页接口：
 
 - 查询故障/报警设备 → Step2 调用 queryStationDevices，传 faultState=1 或 alarmState=1
 - 查看某区域/某类设备（如"查看候车大厅的电梯"）→ 调用 queryStationDevices 一次获取设备列表和实时状态，定位目标设备后进入 Step5
-- 用户直接指定已列出的某台设备查看运行数据 → 直接进入 Step5
+- 用户直接指定已列出的某台设备查看运行数据 → 直接进入 Step4
 - 创建维修工单 → Step6
 
 注意：凡是需要通过名称、类别或位置线索查找设备，都调用 queryStationDevices；只传完整原始问题和业务过滤参数，实体候选 ID 由 MCP 内部处理。
@@ -254,7 +254,7 @@ queryStationDevices 是分页接口：
 
 查询结果中的设备 ID 仅在内部用于后续 getDeviceInfoWithPoints 或工单工具，不向用户展示。
 
-## Step4：判断查询结果
+## Step3：判断查询结果
 
 ### Case A：没有故障设备
 
@@ -287,7 +287,7 @@ data 为空或 null 时：
 
 ---
 
-## Step5：查看设备运行数据
+## Step4：查看设备运行数据
 
 当用户选择某台设备或需要查询设备运行数据：
 
@@ -369,7 +369,7 @@ data 为空或 null 时：
 
 ---
 
-## Step6：生成维修工单
+## Step5：生成维修工单
 
 先回复：
 
@@ -411,7 +411,7 @@ orgCid=0.001.001.001.001
 
 ---
 
-## Step7：展示工单
+## Step6：展示工单
 
 工单创建成功。
 
@@ -446,7 +446,7 @@ AI诊断结果。
 
 ---
 
-## Step8：完成流程
+## Step7：完成流程
 
 提示：
 
