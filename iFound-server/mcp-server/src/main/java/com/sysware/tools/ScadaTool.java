@@ -54,6 +54,14 @@ public class ScadaTool {
             @ToolParam(description = "告警状态，传1表示只查询告警设备，非必填", required = false) String alarmState,
             @ToolParam(description = "是否添加告警和故障设备的变更时间，1表示添加，默认0", required = false) Integer addChangeStateTime) {
 
+        if (!isValidStateFilter(faultState) || !isValidStateFilter(alarmState)) {
+            return AjaxResultVO.error(400, "故障/告警状态仅允许传1或不传");
+        }
+        if (faultState != null && !faultState.isBlank()
+                && alarmState != null && !alarmState.isBlank()) {
+            return AjaxResultVO.error(400, "故障和告警条件请分别查询，不支持同时传入");
+        }
+
         ScadaPageQueryDto dto = ScadaPageQueryDto.builder()
                 .page(pageNum)
                 .limit(MyUtil.isEmpty(pageSize)?"10":pageSize)
@@ -81,7 +89,7 @@ public class ScadaTool {
             @ToolParam(description = "故障状态，传1表示只查询故障设备，非必填", required = false) String faultState,
             @ToolParam(description = "告警状态，传1表示只查询告警设备，非必填", required = false) String alarmState,
             @ToolParam(description = "页码，从1开始，默认1", required = false) String pageNum,
-            @ToolParam(description = "每页条数，默认20", required = false) String pageSize,
+            @ToolParam(description = "每页条数，默认10", required = false) String pageSize,
             @ToolParam(description = "组织ID，默认3（西安东站）", required = false) String orgId) {
         if (!isValidStateFilter(faultState) || !isValidStateFilter(alarmState)) {
             return AjaxResultVO.error(400, "故障/告警状态仅允许传1或不传");
