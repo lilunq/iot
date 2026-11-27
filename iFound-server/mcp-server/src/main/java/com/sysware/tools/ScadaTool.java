@@ -40,7 +40,7 @@ public class ScadaTool {
     /**
      * 分页查询设备列表和设备状态（平铺参数，供 MCP/LLM 调用）。
      */
-    @Tool(name = "getDeviceStatePage", description = "分页查询设备列表和设备状态。支持按设备ID集合（ids）批量过滤，也支持组织、区域、系统类型、设备类型、设备名称、故障状态和告警状态筛选；可将实体检索返回的多个设备ID一次传入，并叠加故障/告警条件。返回设备列表和状态，不查询设备点位详情。")
+    @Tool(name = "getDeviceStatePage", description = "底层分页查询设备列表和设备状态，支持设备ID集合及状态条件过滤。自然语言设备查询优先使用 queryStationDevices；仅在已有明确设备筛选参数或兼容旧流程时直接调用本工具。返回设备列表和状态，不查询设备点位详情。")
     public AjaxResultVO getDeviceStatePage(
             @ToolParam(description = "页码，从1开始") String pageNum,
             @ToolParam(description = "每页多少条") String pageSize,
