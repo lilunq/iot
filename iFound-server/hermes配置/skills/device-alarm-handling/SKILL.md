@@ -170,75 +170,36 @@ getDeviceInfoWithPoints 工具返回原始数据（AjaxResultVO），data 为设
 
 ---
 
-## Rule 6：区域/系统参数必须解析后再查询
+## Rule 6：自然语言实体检索与设备状态过滤
 
-getDeviceStatePage 的 subareaCid、systemType 必须是 CID，禁止直接把用户说的名称当参数传。
+设备名称、设备类别、区域表达的解析统一交给自然语言实体检索，不再要求 Hermes 先调用 getAllDeviceSystem 或 getSubarea。
 
-### 6.1 用户指定区域（楼层、区域、候车厅、站台、房间等）
+### 6.1 实体检索
 
-先调用 getSubarea：
+查询设备列表或故障/告警设备前：
 
-- 返回区域列表，每项含 name（区域名称）、cascade_id（区域CID）
-- 按 name 与用户表述做模糊匹配（包含匹配）
-- 唯一匹配：cascade_id 作为 subareaCid
-- 多个匹配：列出候选 Markdown Table（序号、区域名称），请用户选择后再查询，禁止自行猜测
-- 无匹配：回复"未查询到相关区域。"流程结束
+- 先调用 searchStationEntities。
+- prompt 必须传入用户完整原始问题，不要只截取设备名称，也不要自行把“5站台”等位置表达改写成区域名称。
+- 从返回 candidates 中提取 entityType=DEVICE 的候选及其真实业务 ID。
+- 区域/楼层/站台等普通位置表达默认是检索线索；只有实体检索结果明确给出已核验的区域硬过滤条件时，才按该条件过滤。
+- 不得根据设备名称包含“5站台/6站台”等文字推断设备真实所属区域。
+- 实体检索返回多个设备候选时，对于“查询某区域/某类设备/故障设备列表”等集合意图，应保留全部匹配候选，不要把多条记录当作歧义；对于“查询某一台设备详情/后续操作”的单实体意图，无法唯一确定时才请用户选择。
+- 无 DEVICE 候选时，回复未找到符合条件的设备，不要直接退回旧的名称模糊查询。
+- status=SERVICE_UNAVAILABLE 或检索服务失败时，明确提示暂时无法完成实体定位，不得把服务不可用误报为无匹配。
 
-### 6.2 系统解析（每次查询设备都必须执行）
+### 6.2 批量实时状态查询
 
-无论用户是否明确提到"系统"，只要调用 getDeviceStatePage，就必须先调用 getAllDeviceSystem：
+将实体检索返回的全部设备业务 ID 一次传给 getDeviceStatePage 的 ids 参数，并在同一次调用中叠加业务状态条件：
 
-- 返回系统映射表，key 为系统CID，value 为系统名称
-- 用用户表述中的设备类别关键词（如电梯、扶梯、空调、风机、水泵、照明、给排水、消防、通风、电力监控、水表、雨水回收、卸污、上水、门禁、UPS、给水所、冷热源等）与 value 做模糊匹配（包含匹配）
-- **同义词对照表**（用户表述往往与系统名称字面不一致，必须先归一化再匹配，禁止因字面不同就直接判"无匹配"）：
+- 普通设备列表：不传 faultState/alarmState。
+- 故障设备列表：faultState=1。
+- 告警设备列表：alarmState=1。
+- 同时查询故障和告警时，按用户表达决定条件；不要擅自把两个条件改成 OR。
+- pageNum/pageSize 仍按 Rule 7 处理。
+- ids 为空时禁止调用 getDeviceStatePage，避免退化成全站查询。
+- 此次返回只代表“实体检索候选集合中的实时状态结果”，不得声称是未经过实体候选范围限制的全站完整统计。
 
-| 用户可能说的词 | 归一化后的匹配词 | 对应系统 |
-|---------------|----------------|---------|
-| 电梯、直梯 | 电梯 | 电梯系统 |
-| 扶梯、扶手电梯、自动扶梯 | 扶梯 | 扶梯系统 |
-| 空调、中央空调 | 空调 | 空调系统 |
-| 风机、排风机、送风机 | 风机 | 风机系统 |
-| 水泵、给排水、排水 | 给排水 | 给排水系统 |
-| 照明、灯光 | 照明 | 照明系统 |
-| 消防 | 消防 | 消防系统 |
-| 通风 | 通风 | 通风系统 |
-| 电力监控、电力 | 电力监控 | 电力监控系统 |
-| 水表 | 水表 | 水表 |
-| 雨水回收 | 雨水回收 | 雨水回收系统 |
-| 卸污、客车卸污 | 卸污 | 客车卸污系统 |
-| 环境监测 | 环境监测 | 环境监测 |
-| 消防监控 | 消防监控 | 消防监控系统 |
-| 上水、客车上水 | 上水 | 客车上水系统 |
-| 门禁 | 门禁 | 门禁 |
-| UPS | UPS | UPS系统 |
-| 给水所 | 给水 | 给水系统（给水所） |
-| 冷热源、冷源、热源 | 冷热源 | 冷热源系统 |
-
-- 匹配规则：先查上表将用户词归一化，再与系统名称做包含匹配；用户词与系统名称能直接包含匹配的也直接命中。上表未覆盖的词按语义相近原则匹配
-- 卫生监测、卫生间、厕所、洗手间、盥洗室、公厕类请求不属于本技能，由 hygiene-monitoring 技能处理
-- 唯一匹配：key 作为 systemType
-- 多个匹配：列出候选 Markdown Table（序号、系统名称），请用户选择后继续
-- 无匹配：不传 systemType，正常继续查询，禁止因无匹配而结束流程
-
-歧义消解规则：
-
-- "给水所"匹配给水系统（给水所）；"给排水、排水泵"匹配给排水系统，两者不得混淆
-- "消防"可能同时命中"消防系统"与"消防监控系统"：按包含匹配得到多个候选时，列出候选让用户选择，禁止自行猜测
-- 环境监测类歧义：查询到达层/出发层/候车层的温湿度、CO₂等环境指标数据走 env-monitoring 技能；查询环境监测系统下的设备台账/状态（如设备列表、故障）才走本技能
-
-示例："查看候车层的电梯" → 先取系统列表，用"电梯"匹配到电梯/扶梯系统 → 传 systemType 再查询设备。
-
-示例："查看给水所的泵" → 先取系统列表，用"给水所"匹配到给水系统（给水所）→ 传 systemType 再查询设备（"泵"可作为设备名称关键词 deviceName 或不做额外过滤，以查询结果为准）。
-
-### 6.3 注意
-
-- 每次设备查询（getDeviceStatePage）前都必须调用 getAllDeviceSystem，不允许跳过
-- 区域与系统都解析成功时，两个结果必须同时传入
-- 用户明确指定区域时才调用 getSubarea；未提及区域则不传 subareaCid，禁止编造或用默认值
-- 解析出的 CID 仅内部使用，禁止展示给用户
-
----
-
+getDeviceStatePage 只负责设备列表与实时状态，不要为列表查询额外调用 getDeviceInfoWithPoints。只有用户进一步要求某台设备的具体运行数据时，才进入 Step5 查询点位详情。
 ## Rule 7：分页查询注意事项
 
 getDeviceStatePage 是分页接口：
@@ -268,37 +229,24 @@ getDeviceStatePage 是分页接口：
 
 ## ⛔ 查询前置门槛（最高优先级，先于所有 Step 执行）
 
-凡是要调用 getDeviceStatePage（无论是查故障设备还是查普通设备），必须按以下固定顺序调用工具，一步都不能少：
+凡是查询当前设备列表、故障设备或告警设备，固定流程为：
 
 ```
-第1步（必做）：getAllDeviceSystem          ← 永远第一个调用
-第2步（用户提到区域时必做）：getSubarea
-第3步：getDeviceStatePage
+第1步：searchStationEntities（传用户完整原始问题）
+第2步：从候选中提取全部 DEVICE 业务ID
+第3步：getDeviceStatePage（一次传入 ids，并叠加 faultState/alarmState）
 ```
 
-违规判定（满足任意一条即为违规，必须重新按顺序执行）：
+禁止：
+- 再强制调用 getAllDeviceSystem / getSubarea 作为设备查询前置门槛
+- 把普通位置线索直接当作 subareaCid 硬过滤
+- 对每个设备ID分别调用 getDeviceStatePage
+- ids 为空时不带 ids 查询全站
+- 将多条设备候选误判为单实体歧义
 
-- 调用 getDeviceStatePage 时，本次对话中尚未调用过 getAllDeviceSystem
-- 用户提到了区域/楼层/大厅/站台等，但调用 getDeviceStatePage 前未调用 getSubarea
+只有用户明确要求查询区域目录本身、系统目录本身时，才单独使用对应目录工具；它们不是设备列表查询的前置步骤。
 
-第1步的目的：把用户话里的设备类别词（电梯、扶梯、空调、风机、水泵、照明、给排水、消防、通风、排风机、电力监控、水表、雨水回收、卸污、上水、门禁、UPS、给水所、冷热源等）经 Rule 6.2 同义词对照表归一化后，与系统名称匹配出 systemType，再传给 getDeviceStatePage。
-
-示例："查看候车大厅的电梯"
-
-1. 先调用 getAllDeviceSystem → 用"电梯"匹配到电梯系统 → 得到 systemType
-2. 再调用 getSubarea → 用"候车大厅"匹配到区域 → 得到 subareaCid
-3. 最后调用 getDeviceStatePage（带 systemType + subareaCid）
-
-卫生监测、卫生间、厕所、洗手间类请求不适用本流程，由 hygiene-monitoring 技能负责。
-
-历史设备事项查询（如"昨日设备故障情况""上周告警记录""最近24小时设备故障"等带时间范围的事项/记录查询）不适用本流程，由 device-event-history 技能负责。本技能只查询当前实时设备状态。
-
-工单查询类请求（查询工单列表、工单详情、工单进度、工单处理状态、历史工单、设备维修记录）不适用本流程，由 repair-order-query 技能负责。本技能只负责创建工单。
-
-禁止跳过第1步直接调用 getDeviceStatePage，即使用户没有提到任何系统名称。
-
----
-
+历史设备事项查询（带时间范围的事项/记录）仍由 device-event-history 技能负责；工单查询仍由 repair-order-query 技能负责。
 ## Step1：解析用户请求
 
 识别用户意图：
@@ -319,44 +267,25 @@ getDeviceStatePage 是分页接口：
 
 ---
 
-## Step2：解析区域与系统（系统必做，区域可选）
+## Step2：检索设备实体
 
-本步骤即"查询前置门槛"的落地，调用顺序必须是：getAllDeviceSystem → getSubarea（可选）→ getDeviceStatePage。
+先回复：
 
-### 2.1 区域解析
+正在定位相关设备……
 
-用户提到楼层、区域、候车厅、站台、房间等内容时：
+调用 searchStationEntities，prompt 传用户完整原始问题。根据返回候选提取所有 DEVICE 业务ID；集合查询保留全部候选。若返回多个候选且用户只想查询/操作某一台设备，才列出候选并请用户选择。
 
-工具：
+随后调用 getDeviceStatePage：
 
-getSubarea
+- orgId=3
+- pageNum=1
+- pageSize=10（用户明确要求全部时，可按候选 ID 数量设置合理 pageSize）
+- ids=实体检索返回的 DEVICE 业务ID数组
+- 不传 faultState/alarmState（普通设备列表）
+- 不要把 locationHint 或普通区域词直接传成 subareaCid
+- ids 为空时停止查询并如实告知未找到设备
 
-规则：
-
-按 Rule 6.1 将区域名称模糊匹配为 cascade_id，作为后续查询的 subareaCid。
-
-### 2.2 系统解析（必做）
-
-无论用户是否提到系统名称，都必须执行：
-
-工具：
-
-getAllDeviceSystem
-
-规则：
-
-按 Rule 6.2 用设备类别关键词做匹配：能匹配到系统则得到 systemType，匹配不到则不传 systemType 并正常继续查询。
-
-禁止跳过本步骤直接查询设备。
-
-### 2.3 注意
-
-- 匹配到多个时，先让用户选择，禁止自行猜测
-- 区域无匹配时回复"未查询到相关区域。"流程结束；系统无匹配时正常继续查询
-- subareaCid、systemType 仅供下一步工具使用，禁止展示给用户
-
----
-
+按 Rule 7 处理分页。查询结果中的 id 仅在内部用于后续 getDeviceInfoWithPoints 或工单工具，不向用户展示。
 ## Step3：查询故障设备
 
 先回复：
@@ -367,7 +296,7 @@ getAllDeviceSystem
 
 getDeviceStatePage
 
-调用前置条件：Step2 已完成 getAllDeviceSystem 调用（必做）及 getSubarea 调用（用户提到区域时）。
+调用前置条件：Step2 已通过 searchStationEntities 定位设备，并取得非空 DEVICE 业务ID集合。
 
 参数：
 
@@ -379,11 +308,9 @@ pageNum=1 起（按 Rule 7 处理分页）
 
 faultState=1
 
-subareaCid（Step2 区域解析结果，可选）
+ids=Step2 实体检索返回的全部 DEVICE 业务ID
 
-systemType（Step2 系统解析结果，可选）
-
-addChangeStateTime=1（补充故障设备的最近变更时间与事件描述）
+不要额外传 subareaCid/systemType；区域和系统语义已由实体检索负责解析。不要传 addChangeStateTime=1，避免在列表查询中引入非必要的事件补充查询。
 
 按 Rule 7 处理分页：先 pageNum=1、pageSize=10 取 count；用户未要求查询全部时仅展示第一页并说明总台数；用户要求查询全部时将 pageSize 设为 count 一次取全。
 
@@ -635,7 +562,7 @@ AI诊断结果。
 
 ✓ getDeviceInfoWithPoints 仅调用一次，禁止再次查询点位
 
-✓ 调用 getDeviceStatePage 前，本次对话必须已调用 getAllDeviceSystem；用户提到区域时还必须已调用 getSubarea（硬性门槛，违反即重新执行）
+✓ 查询设备前必须先调用 searchStationEntities，并将全部 DEVICE 候选业务ID通过 ids 一次传入 getDeviceStatePage
 
 ✓ 分页数量统计必须基于 count，禁止把第一页条数当作总数
 
@@ -655,9 +582,9 @@ AI诊断结果。
 
 □ 是否调用了多余接口？
 
-□ 调用 getDeviceStatePage 之前，是否已经调用过 getAllDeviceSystem？（未调用即违规，必须重新按门槛顺序执行）
+□ 是否先通过 searchStationEntities 定位设备，并将候选 ID 集合一次传给 getDeviceStatePage？
 
-□ 用户提到区域时，调用 getDeviceStatePage 之前是否已经调用过 getSubarea？
+□ 是否避免把普通位置线索当成真实区域硬过滤？
 
 □ 分页数量统计是否基于 count？（禁止用第一页条数当总数）
 
