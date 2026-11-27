@@ -301,7 +301,11 @@ pageSize=10
 
 pageNum=1 起（按 Rule 7 处理分页）
 
-faultState=1
+状态筛选参数按用户意图选择：
+
+- 查询故障设备：faultState=1
+- 查询告警设备：alarmState=1
+- 用户明确同时查询故障和告警：分别按 faultState=1、alarmState=1 查询并合并去重；不要在不了解下游 AND/OR 语义时同时传两个参数
 
 ids=Step2 实体检索返回的全部 DEVICE 业务ID
 
