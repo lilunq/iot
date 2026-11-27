@@ -254,40 +254,17 @@ sceneParamList 工具返回原始数据（AjaxResultVO），data 为该场景的
 
 ---
 
-## Rule 8：区域/系统参数必须解析后再查询
+## Rule 8：自然语言实体检索与设备批量定位
 
-getDeviceStatePage 的 subareaCid、systemType 必须是 CID，禁止直接把用户说的名称当参数传。
+查找待控制设备时，统一先调用 searchStationEntities，prompt 传用户完整原始请求，从 candidates 中提取 entityType=DEVICE 的真实业务ID。
 
-### 8.1 用户指定区域（楼层、区域、候车厅、站台、房间等）
-
-先调用 getSubarea：
-
-- 返回区域列表，每项含 name（区域名称）、cascade_id（区域CID）
-- 按 name 与用户表述做模糊匹配（包含匹配）
-- 唯一匹配：cascade_id 作为 subareaCid
-- 多个匹配：列出候选 Markdown Table（序号、区域名称），请用户选择后再查询，禁止自行猜测
-- 无匹配：回复"未查询到相关区域。"流程结束
-
-### 8.2 系统解析（每次查询设备都必须执行）
-
-无论用户是否明确提到"系统"，只要调用 getDeviceStatePage，就必须先调用 getAllDeviceSystem：
-
-- 返回系统映射表，key 为系统CID，value 为系统名称
-- 用用户表述中的设备类别关键词（如电梯、扶梯、空调、风机、水泵、照明、给排水、消防、通风等）与 value 做模糊匹配（包含匹配）
-- 唯一匹配：key 作为 systemType
-- 多个匹配：列出候选 Markdown Table（序号、系统名称），请用户选择后继续
-- 无匹配：不传 systemType，正常继续查询，禁止因无匹配而结束流程
-
-示例："打开候车层的电梯" → 先取系统列表，用"电梯"匹配到电梯/扶梯系统 → 传 systemType 再查询设备。
-
-### 8.3 注意
-
-- 每次设备查询（getDeviceStatePage）前都必须调用 getAllDeviceSystem，不允许跳过
-- 区域与系统都解析成功时，两个结果必须同时传入
-- 用户明确指定区域时才调用 getSubarea；未提及区域则不传 subareaCid，禁止编造或用默认值
-- 解析出的 CID 仅内部使用，禁止展示给用户
-
----
+- 不再强制调用 getAllDeviceSystem/getSubarea 作为设备查询前置步骤。
+- 区域、楼层、站台、子区域等自然语言表达交由实体检索解析；普通位置线索不得直接作为 subareaCid 硬过滤。
+- 不得根据设备名称中出现“5站台/6站台”等字样推断其真实区域归属。
+- 目标是某一台设备时，候选多条或不能唯一确定，必须列出设备名称请用户选择；目标是批量控制/场景控制时，按用户明确范围处理候选集合，不得把集合候选误判为歧义。
+- 只有获得非空设备ID集合后，才调用 getDeviceStatePage，并一次传入 ids；禁止逐台调用状态查询工具。
+- 实体检索服务不可用时，应明确提示无法定位设备，不得把服务不可用当作无匹配。
+- ids 为空时禁止调用 getDeviceStatePage，避免退化为全站查询。
 
 ## Rule 9：分页查询注意事项
 
@@ -319,33 +296,15 @@ getDeviceStatePage 是分页接口：
 
 ## ⛔ 查询前置门槛（最高优先级，先于所有 Step 执行）
 
-凡是要调用 getDeviceStatePage（查找待控制设备），必须按以下固定顺序调用工具，一步都不能少：
+凡是查找待控制的设备，固定流程为：
 
 ```
-第1步（必做）：getAllDeviceSystem          ← 永远第一个调用
-第2步（用户提到区域时必做）：getSubarea
-第3步：getDeviceStatePage
+第1步：searchStationEntities（用户完整原始请求）
+第2步：提取全部相关 DEVICE 业务ID
+第3步：getDeviceStatePage（一次传入 ids）
 ```
 
-违规判定（满足任意一条即为违规，必须重新按顺序执行）：
-
-- 调用 getDeviceStatePage 时，本次对话中尚未调用过 getAllDeviceSystem
-- 用户提到了区域/楼层/大厅/站台等，但调用 getDeviceStatePage 前未调用 getSubarea
-
-第1步的目的：把用户话里的设备类别词（电梯、扶梯、空调、风机、水泵、照明、给排水、消防、通风、排风机等）与系统名称匹配出 systemType，再传给 getDeviceStatePage。
-
-示例："打开候车大厅的电梯"
-
-1. 先调用 getAllDeviceSystem → 用"电梯"匹配到电梯系统 → 得到 systemType
-2. 再调用 getSubarea → 用"候车大厅"匹配到区域 → 得到 subareaCid
-3. 最后调用 getDeviceStatePage（带 systemType + subareaCid）
-
-禁止跳过第1步直接调用 getDeviceStatePage，即使用户没有提到任何系统名称。
-
-注意：分支B（场景控制）不走此门槛，listScene/sceneParamList 无需解析系统。
-
----
-
+禁止再强制调用 getAllDeviceSystem/getSubarea；禁止逐台调用 getDeviceStatePage；禁止把普通位置线索当作区域硬过滤。场景分支（listScene/sceneParamList）不走设备实体检索门槛。
 ## Step1：解析用户请求
 
 识别用户意图并分流：
@@ -356,7 +315,7 @@ getDeviceStatePage 是分页接口：
 
 您是要控制某台具体设备，还是执行某个控制场景？
 
-注意：进入 Step2 后必须先执行上方"查询前置门槛"（getAllDeviceSystem → getSubarea 可选 → getDeviceStatePage）。
+注意：进入 Step2 后必须先执行上方实体检索流程（searchStationEntities → 提取 DEVICE 业务ID → getDeviceStatePage(ids)）。
 
 ---
 
@@ -364,55 +323,32 @@ getDeviceStatePage 是分页接口：
 
 ## Step2：查找设备
 
-本步骤必须严格按上方"查询前置门槛"的顺序执行。
-
 先回复：
 
-正在查询设备……
+正在定位设备……
 
-### 2.1 参数解析（系统必做，区域可选）
+### 2.1 实体检索
 
-- 系统：无论用户是否提到系统名称，都必须按 Rule 8.2 调用 getAllDeviceSystem，用设备类别关键词匹配；匹配到则得到 systemType，匹配不到则不传并正常继续
-- 区域：用户指定区域时按 Rule 8.1 调用 getSubarea，得到 subareaCid；未指定则不传
-- 匹配到多个时请用户选择；区域无匹配时回复"未查询到相关区域。"流程结束
+调用 searchStationEntities，prompt 传入用户完整原始请求。从返回 candidates 中提取 entityType=DEVICE 的候选及其真实业务ID。
 
-### 2.2 查询设备
+- 单设备控制意图：若候选唯一，继续查询；若候选多条，列出候选名称并请用户选择，禁止自行猜测。
+- 用户明确表达批量控制但不是场景控制：仅保留与用户明确范围匹配的设备候选；无法确认范围时先澄清，不得扩大控制范围。
+- 环境调节建议转入的请求：同样传入完整原始请求，由实体检索处理楼层、子区域和设备类别语义，不再分别调用区域/系统目录。
+- 无设备候选：告知未找到符合条件的设备。
+- SERVICE_UNAVAILABLE：告知实体检索暂不可用，不得当作无匹配。
 
-工具：
+### 2.2 批量查询设备状态
 
-getDeviceStatePage
+调用 getDeviceStatePage，一次传入全部候选设备ID：
 
-调用前置条件：2.1 已完成 getAllDeviceSystem 调用（必做）及 getSubarea 调用（用户提到区域时）。
+- pageNum=1
+- pageSize=10（按 Rule 9 处理分页）
+- orgId=3
+- ids=实体检索返回的 DEVICE 业务ID数组
+- 不传 deviceName/subareaCid/systemType 进行二次猜测过滤
+- ids 为空时禁止调用
 
-参数：
-
-pageNum=1 起（按 Rule 9 处理分页）
-
-pageSize=10
-
-orgId=3
-
-deviceName=用户提到的设备名称关键词
-
-（可选）subareaCid：2.1 区域解析结果
-
-（可选）systemType：2.1 系统解析结果
-
-按 Rule 9 处理分页：先取 count；用户未要求查询全部时按第一页判断，若第一页未匹配到目标设备且 count > pageSize，则继续翻页直至找到或查完；用户要求查询全部时将 pageSize 设为 count 一次取全。
-
-subareaCid、systemType 仅内部使用，禁止展示。
-
-### 2.3 环境调节转交场景的设备筛选（来自环境监测建议，如"开启西北区的新风机"）
-
-用户确认环境调节建议后转来时，按以下方式解析与筛选：
-
-- 楼层（如"候车层"）→ getSubarea 匹配出 subareaCid
-- 设备类别（如新风机）→ getAllDeviceSystem 匹配出所属系统（新风机属送排风系统）
-- 子区域关键词（如"西北"）→ 作为 getDeviceStatePage 的 deviceName 模糊查询
-- 从查询结果中**筛选名称含设备类别关键词的设备**（如名称含"新风"），排除了同区域的普通排风机/送风机
-- 筛选后仅剩1台 → 直接进入 Step3 查询点位；多台 → 列表请用户选择；0台 → 放宽筛选，列出该区域该系统全部设备请用户选择
-
-下发给用户确认时展示该设备点位信息（按 Step3/Step4 流程），并按 Rule 5.2 二次确认后才下发开启命令。
+状态查询结果只用于确认设备名称、状态及后续选择。单台设备继续 Step3；多台候选列出名称、状态并等待用户选择。设备ID仅内部保存。
 
 ### Case A：没有设备
 
@@ -755,7 +691,7 @@ value=该条命令的 value（原样传入，纯数字）
 
 ✓ 控制值必须符合 ykValueRender 渲染说明及 limit 范围
 
-✓ 调用 getDeviceStatePage 前，本次对话必须已调用 getAllDeviceSystem；用户提到区域时还必须已调用 getSubarea（硬性门槛，违反即重新执行）
+✓ 查找待控制设备前必须调用 searchStationEntities，并将候选 DEVICE 业务ID一次传给 getDeviceStatePage
 
 ✓ 分页数量统计必须基于 count，禁止把第一页条数当作总数
 
@@ -785,9 +721,11 @@ value=该条命令的 value（原样传入，纯数字）
 
 □ 回复中是否出现任何 ID？
 
-□ 调用 getDeviceStatePage 之前，是否已经调用过 getAllDeviceSystem？（未调用即违规，必须重新按门槛顺序执行）
+□ 是否先调用 searchStationEntities 并取得非空 DEVICE 业务ID集合？
 
-□ 用户提到区域时，调用 getDeviceStatePage 之前是否已经调用过 getSubarea？
+□ 是否一次性传入 ids，而不是逐台查询？
+
+□ 是否避免将普通位置线索直接当作 subareaCid 硬过滤？
 
 □ 分页数量统计是否基于 count？（禁止用第一页条数当总数）
 
