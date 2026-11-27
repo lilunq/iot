@@ -28,7 +28,8 @@ public class VideoTool {
      *
      * @param name       摄像头名称
      * @param page       页码
-     * @return 原始 AjaxResultVO（含摄像头列表数据）
+     * @param ids        实体检索返回的摄像头ID集合；非空时在MCP层批量过滤
+     * @return 原始 AjaxResultVO（含摄像头列表数据及Online状态）
      */
     @Tool(
             name = "listCamera",
@@ -45,7 +46,7 @@ public class VideoTool {
             return listCameraByIds(ids, finalPage);
         }
         log.debug("mcp 调用获取摄像头列表:名称={}", name);
-        return videoClient.listPage(name, finalPage, "100");
+        return videoClient.listPage(name, finalPage, "5");
     }
 
     /**
