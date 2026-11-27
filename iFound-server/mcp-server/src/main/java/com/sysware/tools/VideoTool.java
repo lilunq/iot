@@ -1,6 +1,7 @@
 package com.sysware.tools;
 
 import com.sysware.service.VideoService;
+import com.sysware.service.StationEntitySearchService;
 import com.sysware.swcloud.domian.AjaxResultVO;
 import com.sysware.swcloud.domian.video.CameraStreamDto;
 import com.sysware.swcloud.feign.VideoClient;
@@ -22,6 +23,7 @@ import java.util.Set;
 public class VideoTool {
     private final VideoClient videoClient;
     private final VideoService videoService;
+    private final StationEntitySearchService entitySearchService;
 
     /**
      * 获取摄像头列表。
@@ -47,6 +49,96 @@ public class VideoTool {
         }
         log.debug("mcp 调用获取摄像头列表:名称={}", name);
         return videoClient.listPage(name, finalPage, "5");
+    }
+
+    /**
+     * 面向 Agent 的完整摄像头查询：自然语言实体定位 + 实时 Online 状态查询。
+     */
+    @Tool(
+            name = "queryStationCameras",
+            description = "根据用户完整自然语言查询西安东站摄像头及实时在线状态。内部先定位真实 CAMERA 候选，再批量查询视频服务实时 Online 状态；用户要求只看在线摄像头时传 onlineOnly=true。Agent 无需分步调用实体检索和摄像头目录查询。"
+    )
+    public AjaxResultVO queryStationCameras(
+            @ToolParam(description = "用户完整的原始问题，例如：查看候车大厅摄像头") String prompt,
+            @ToolParam(description = "是否只返回在线摄像头；用户明确要求在线时传true，否则false", required = false) Boolean onlineOnly,
+            @ToolParam(description = "页码，从1开始，默认1", required = false) String page,
+            @ToolParam(description = "每页条数，默认20", required = false) Integer pageSize) {
+        try {
+            StationEntitySearchService.SearchResult search =
+                    entitySearchService.searchIds(prompt, "CAMERA");
+            List<String> ids = search.getIds();
+            if (ids == null || ids.isEmpty()) {
+                return AjaxResultVO.ok("未找到符合条件的摄像头")
+                        .addQueryPageData(new ArrayList<>(), 0)
+                        .put("entityCandidateCount", 0)
+                        .put("entitySearchStatus", search.getStatus());
+            }
+
+            // 当前实体检索最多返回20个候选；一次批量读取即可覆盖候选集合。
+            AjaxResultVO matchedResult = listCameraByIds(ids, "1");
+            if (matchedResult == null || !matchedResult.isOk()) {
+                return matchedResult == null
+                        ? AjaxResultVO.error("摄像头实时状态查询失败，请稍后重试")
+                        : matchedResult;
+            }
+            List<HashMap<String, Object>> cameras = matchedResult.getData();
+            if (cameras == null) {
+                cameras = new ArrayList<>();
+            }
+
+            List<HashMap<String, Object>> filtered = new ArrayList<>();
+            boolean onlyOnline = Boolean.TRUE.equals(onlineOnly);
+            for (HashMap<String, Object> camera : cameras) {
+                if (!onlyOnline || isCameraOnline(camera.get("Online"))) {
+                    filtered.add(camera);
+                }
+            }
+
+            int pageNumber = parsePositiveInt(page, 1);
+            int limit = pageSize == null || pageSize <= 0 ? 20 : Math.min(pageSize, 100);
+            int fromIndex = Math.min((pageNumber - 1) * limit, filtered.size());
+            int toIndex = Math.min(fromIndex + limit, filtered.size());
+            List<HashMap<String, Object>> pageData = filtered.subList(fromIndex, toIndex);
+
+            AjaxResultVO result = AjaxResultVO.ok().addQueryPageData(pageData, filtered.size());
+            result.put("entityType", "CAMERA");
+            result.put("entitySearchStatus", search.getStatus());
+            result.put("entityCandidateCount", ids.size());
+            result.put("matchedCount", matchedResult.get("matchedCount"));
+            result.put("missingCount", matchedResult.get("missingCount"));
+            result.put("onlineOnly", onlyOnline);
+            result.put("returnedCount", pageData.size());
+            return result;
+        } catch (IllegalArgumentException ex) {
+            return AjaxResultVO.error(400, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            log.warn("摄像头实体定位失败：{}", ex.getMessage());
+            return AjaxResultVO.error(503, ex.getMessage());
+        } catch (Exception ex) {
+            log.error("摄像头自然语言查询失败", ex);
+            return AjaxResultVO.error("摄像头查询失败，请稍后重试");
+        }
+    }
+
+    private boolean isCameraOnline(Object onlineValue) {
+        if (onlineValue instanceof Boolean value) {
+            return value;
+        }
+        if (onlineValue instanceof Number value) {
+            return value.intValue() == 1;
+        }
+        return onlineValue != null
+                && ("true".equalsIgnoreCase(String.valueOf(onlineValue))
+                || "1".equals(String.valueOf(onlineValue))
+                || "online".equalsIgnoreCase(String.valueOf(onlineValue)));
+    }
+
+    private int parsePositiveInt(String value, int defaultValue) {
+        try {
+            return value == null || value.isBlank() ? defaultValue : Math.max(1, Integer.parseInt(value));
+        } catch (NumberFormatException ex) {
+            return defaultValue;
+        }
     }
 
     /**
