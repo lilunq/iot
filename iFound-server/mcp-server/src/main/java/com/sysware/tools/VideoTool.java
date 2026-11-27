@@ -118,7 +118,11 @@ public class VideoTool {
         int fromIndex = Math.min((pageNum - 1) * scanPageSize, matched.size());
         int toIndex = Math.min(fromIndex + scanPageSize, matched.size());
         List<HashMap<String, Object>> pageData = matched.subList(fromIndex, toIndex);
-        return AjaxResultVO.ok().addQueryPageData(pageData, matched.size());
+        AjaxResultVO result = AjaxResultVO.ok().addQueryPageData(pageData, matched.size());
+        result.put("requestedCount", wantedIds.size());
+        result.put("matchedCount", matched.size());
+        result.put("missingCount", Math.max(0, wantedIds.size() - matched.size()));
+        return result;
     }
 
     /**
