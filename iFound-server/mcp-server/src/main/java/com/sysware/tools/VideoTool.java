@@ -35,7 +35,7 @@ public class VideoTool {
      */
     @Tool(
             name = "listCamera",
-            description = "获取摄像头列表及实时在线状态。支持按摄像头名称查询；也支持传入实体检索返回的摄像头ID集合（ids），在MCP服务端批量匹配并返回这些摄像头的Online状态，避免Agent逐台查询。"
+            description = "底层摄像头目录查询，支持名称或ID集合过滤。自然语言摄像头查询优先使用 queryStationCameras；仅在已有明确摄像头名称或ID集合时直接调用本工具。"
     )
     public AjaxResultVO listCamera(
             @ToolParam(description = "摄像头名称，非必填；按名称查询时使用", required = false) String name,
