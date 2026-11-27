@@ -275,17 +275,12 @@ getDeviceStatePage 是分页接口：
 
 调用 searchStationEntities，prompt 传用户完整原始问题。根据返回候选提取所有 DEVICE 业务ID；集合查询保留全部候选。若返回多个候选且用户只想查询/操作某一台设备，才列出候选并请用户选择。
 
-随后调用 getDeviceStatePage：
+ids 为空时停止查询并如实告知未找到设备。实体检索服务不可用时提示暂时无法定位，不得当作无匹配。
 
-- orgId=3
-- pageNum=1
-- pageSize=10（用户明确要求全部时，可按候选 ID 数量设置合理 pageSize）
-- ids=实体检索返回的 DEVICE 业务ID数组
-- 不传 faultState/alarmState（普通设备列表）
-- 不要把 locationHint 或普通区域词直接传成 subareaCid
-- ids 为空时停止查询并如实告知未找到设备
-
-按 Rule 7 处理分页。查询结果中的 id 仅在内部用于后续 getDeviceInfoWithPoints 或工单工具，不向用户展示。
+- 如果用户查询故障/告警设备：保留 ids，直接进入 Step3；不要先执行一次普通状态查询。
+- 如果用户查询普通设备列表：调用 getDeviceStatePage 一次传入 ids，参数 orgId=3、pageNum=1、pageSize=10，不传 faultState/alarmState。
+- 不要把 locationHint 或普通区域词直接传成 subareaCid。
+- 按 Rule 7 处理分页。查询结果中的 id 仅在内部用于后续 getDeviceInfoWithPoints 或工单工具，不向用户展示。
 ## Step3：查询故障设备
 
 先回复：
