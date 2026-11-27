@@ -74,27 +74,27 @@ tags:
 
 ## Rule 4：工具返回原始数据，需转换为Markdown Table
 
-### listCamera 工具
+### queryStationCameras 工具
 
-listCamera 支持按摄像头名称查询，也支持按实体检索返回的摄像头ID集合批量查询。
+queryStationCameras 根据用户完整自然语言请求，在 MCP 内部完成 CAMERA 实体定位、批量读取实时摄像头目录并返回 Online 状态。
 
 参数：
 
-- name：摄像头名称，非必填；仅按名称查询时使用
+- prompt：用户完整原始问题，必填
+- onlineOnly：用户明确要求只看在线摄像头时传 true，否则 false
 - page：页码，从1开始，默认1
-- ids：摄像头ID数组，非必填；优先使用 searchStationEntities 返回的 CAMERA 业务ID集合
+- pageSize：每页条数，默认20
 
-当传入 ids 时，MCP 服务端会在内部分页读取摄像头目录并按 ID 集合过滤，返回匹配摄像头的实时 Online 状态。Agent 只调用一次 listCamera，不得逐个摄像头ID循环调用。
-
-返回：原始数据（AjaxResultVO），data 为摄像头列表数组，字段包括 id、name、Online 等。
+返回：原始数据（AjaxResultVO），data 为摄像头列表数组，字段包括 id、name、Online 等；同时包含实体候选数、实际匹配数和缺失数等元数据。
 
 在线状态规则：
 
 - Online=true 表示在线；Online=false 表示离线。
 - 用户要求打开摄像头时，只能对 Online=true 的摄像头调用 openCamera。
 - 用户仅要求查看列表时，如实展示在线/离线状态，不要擅自过滤。
-- 用户明确要求“在线摄像头”时，在返回结果中筛选 Online=true 后展示；不要向工具传不存在的 Online 参数。
+- 用户明确要求“在线摄像头”时，传 onlineOnly=true，由查询工具按 Online 状态过滤。
 - 多台摄像头时展示候选并等待用户选择；集合查询的多条记录不是歧义，但“打开某一台”时必须先确定目标。
+
 ### openCamera 工具
 
 参数：
@@ -115,7 +115,7 @@ cameraName：摄像头名称或设备名称
 - 禁止凭会话记忆或"已经打开过"的假设直接回复"{名称}开启成功。"——不实际调用工具时后台不会打开摄像头，这样回复属于编造结果
 
 禁止：
-- 输出 listCamera 的原始 JSON 数据块
+- 输出 queryStationCameras 的原始 JSON 数据块
 
 ---
 
@@ -137,7 +137,7 @@ cameraName：摄像头名称或设备名称
 
 满足前置条件且上下文中已持有设备ID时：
 
-- 先回复"正在打开摄像头……"，然后直接执行 Step 2-B（通过设备ID打开），禁止再调用 listCamera 按名称查询。
+- 先回复"正在打开摄像头……"，然后直接执行 Step 2-B（通过设备ID打开），禁止再调用 queryStationCameras 按名称查询。
 - 不满足前置条件或未持有设备ID → 按下方摄像头名称流程继续。
 
 判断依据（满足任一即视为持有设备ID）：
@@ -193,23 +193,21 @@ cameraName = 设备名称
 
 先回复：
 
-正在定位摄像头……
+正在定位并查询摄像头……
 
-若上下文没有设备ID，先调用 searchStationEntities（prompt=用户完整原始问题），提取全部 CAMERA 候选业务ID；没有 CAMERA 候选时如实告知未找到。若实体检索服务不可用，提示暂时无法定位，不得当作无匹配。
+调用 queryStationCameras：
 
-随后回复：
-
-正在查询摄像头……
-
-调用 listCamera：
-
-- ids=实体检索返回的全部 CAMERA 业务ID
+- prompt=用户完整原始问题
+- 用户明确要求“在线摄像头”时传 onlineOnly=true，否则传 false
 - page=1
-- 不再按候选名称逐个调用
-- ids 为空时禁止不带 ids 执行全站摄像头查询
-- 如果返回 missingCount 大于0，表示部分实体候选未在视频服务目录中找到；只展示实际返回的摄像头，不得补造记录或声称全部候选均已查询
+- pageSize=20
 
-如果用户明确要求“在线摄像头”，在结果中只保留 Online=true 的摄像头；如果是打开摄像头，也必须在打开前筛选并确认 Online=true。
+该工具内部完成 CAMERA 候选实体定位和实时 Online 状态查询。Hermes 不再单独调用 queryStationCameras，也不再向 queryStationCameras 传递候选 ids。
+
+如果返回 missingCount 大于0，表示部分实体候选未在视频服务目录中找到；只展示实际返回的摄像头，不得补造记录或声称全部候选均已查询。
+
+如果用户明确要求“在线摄像头”，返回结果已按 Online=true 过滤；如果是打开摄像头，仍必须在打开前检查所选记录的 Online=true。
+
 ## Step 3：判断查询结果
 
 ### Case A：没有摄像头
@@ -306,7 +304,7 @@ cameraName = data[N-1].name
 
 ✓ 每次打开摄像头请求都必须实际调用 openCamera 工具（后台靠监听该调用来打开视频），禁止凭会话记忆直接回复"开启成功"
 
-✓ listCamera 返回的原始数据需转换为 Markdown Table（多台时）
+✓ queryStationCameras 返回的原始数据需转换为 Markdown Table（多台时）
 
 ✓ 仅 Online=true 的摄像头才能调用 openCamera；离线摄像头必须如实告知，禁止编造打开结果
 
@@ -322,9 +320,9 @@ cameraName = data[N-1].name
 
 最终回复前，请检查：
 
-□ 是否先通过 searchStationEntities 定位 CAMERA 候选，再一次性传入 ids 查询在线状态？（上下文已持有设备ID并走 Step 2-B 时除外）
+□ 是否直接调用 queryStationCameras 一次完成实体定位和在线状态查询？（上下文已持有设备ID并走 Step 2-B 时除外）
 
-□ 是否输出了 listCamera 的原始 JSON？（应转为 Markdown Table）
+□ 是否输出了 queryStationCameras 的原始 JSON？（应转为 Markdown Table）
 
 □ 是否实际调用了 openCamera？（凭记忆回复"开启成功"会导致后台不打开摄像头，属于编造结果）
 
@@ -336,6 +334,6 @@ cameraName = data[N-1].name
 
 □ 单台摄像头时是否错误地再次询问用户？
 
-□ 上下文已持有设备ID时，是否误调用了 listCamera？（应直接调用 openCamera 传设备ID）
+□ 上下文已持有设备ID时，是否误调用了 queryStationCameras？（应直接调用 openCamera 传设备ID）
 
 如果有任何一项失败，请重新生成最终答案。
