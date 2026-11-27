@@ -60,8 +60,9 @@ public interface VideoClient {
      * @return 摄像头列表
      */
     @GetMapping("/camera/listPage")
-    AjaxResultVO listPage(@RequestParam(value = "name",required = false) String name,
+    AjaxResultVO listPage(@RequestParam(value = "name", required = false) String name,
                           @RequestParam("page") String page,
-                          @RequestParam("limit") String limit);
+                          @RequestParam("limit") String limit,
+                          @RequestParam(value = "Online", required = false) String online);
 }
 
