@@ -15,13 +15,6 @@ import java.util.Map;
 public class EntityTool {
     private final EntityCenterClient entityCenterClient;
 
-    /** 内部实体检索入口；Agent 应调用 queryStationDevices/queryStationCameras 业务级工具。 */
-    public Map<String, Object> searchStationEntities(String prompt) {
-        Map<String, Object> request = new LinkedHashMap<>();
-        request.put("prompt", prompt);
-        return entityCenterClient.searchAssistant(request);
-    }
-
     @Tool(name = "resolveBusinessEntity",
             description = "将用户提到的区域、系统、设备分类、设备或摄像头名称/编号/别名解析为稳定业务实体。实体类型必须明确指定：AREA、SYSTEM、DEVICE_TYPE、DEVICE、CAMERA。设备查询可传区域cascade_cid、系统element_key和设备分类id作为过滤条件；摄像头不使用区域过滤。若返回AMBIGUOUS，应向用户澄清候选，不要自行猜测。")
     public Map<String, Object> resolveBusinessEntity(
