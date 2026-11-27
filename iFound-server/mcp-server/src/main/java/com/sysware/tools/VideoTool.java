@@ -50,8 +50,27 @@ public class VideoTool {
 
     /**
      * 当前视频服务分页接口尚未暴露 ids 过滤参数，因此在 MCP 服务端分页读取摄像头目录，
-     * 再按实体检索返回的 ID 集合过滤。Agent 只需调用一次 listCamera。
+     * 直到找到全部候选或读完目录，再按实体检索返回的 ID 集合过滤。Agent 只需调用一次 listCamera。
      */
+    private void appendMatchedCameras(
+            List<HashMap<String, Object>> cameras,
+            Set<String> wantedIds,
+            Set<String> foundIds,
+            List<HashMap<String, Object>> matched) {
+        if (cameras == null) {
+            return;
+        }
+        for (HashMap<String, Object> camera : cameras) {
+            Object rawId = camera.get("id");
+            if (rawId == null) {
+                continue;
+            }
+            String cameraId = String.valueOf(rawId);
+            if (wantedIds.contains(cameraId) && foundIds.add(cameraId)) {
+                matched.add(camera);
+            }
+        }
+    }
     private AjaxResultVO listCameraByIds(List<String> ids, String page) {
         Set<String> wantedIds = new LinkedHashSet<>();
         for (String id : ids) {
@@ -69,28 +88,23 @@ public class VideoTool {
             return AjaxResultVO.error("摄像头状态查询失败，请稍后重试");
         }
 
-        List<HashMap<String, Object>> allCameras = new ArrayList<>();
-        List<HashMap<String, Object>> firstData = firstPage.getData();
-        allCameras.addAll(firstData);
+        List<HashMap<String, Object>> matched = new ArrayList<>();
+        Set<String> foundIds = new LinkedHashSet<>();
+        appendMatchedCameras(firstPage.getData(), wantedIds, foundIds, matched);
 
-        int total = Math.max(firstPage.getCount(), firstData.size());
+        int total = Math.max(firstPage.getCount(), firstPage.getData().size());
         int totalPages = (int) Math.ceil((double) total / scanPageSize);
-        for (int currentPage = 2; currentPage <= totalPages; currentPage++) {
+        for (int currentPage = 2; currentPage <= totalPages && !foundIds.containsAll(wantedIds); currentPage++) {
             AjaxResultVO nextPage = videoClient.listPage(null, String.valueOf(currentPage), String.valueOf(scanPageSize));
             if (nextPage == null || nextPage.getData() == null) {
                 log.warn("批量查询摄像头状态时分页失败，page={}", currentPage);
                 return AjaxResultVO.error("摄像头状态查询未完成，请稍后重试");
             }
-            List<HashMap<String, Object>> pageData = nextPage.getData();
-            allCameras.addAll(pageData);
-            if (pageData.isEmpty()) {
+            appendMatchedCameras(nextPage.getData(), wantedIds, foundIds, matched);
+            if (nextPage.getData().isEmpty()) {
                 break;
             }
         }
-
-        List<HashMap<String, Object>> matched = allCameras.stream()
-                .filter(camera -> camera.get("id") != null && wantedIds.contains(String.valueOf(camera.get("id"))))
-                .toList();
 
         int pageNum;
         try {
